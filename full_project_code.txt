@@ -1,0 +1,813 @@
+PROJECT DUMP
+==================================================
+
+FILE_START: next-env.d.ts
+--------------------------------------------------
+/// <reference types="next" />
+/// <reference types="next/image-types/global" />
+import "./.next/dev/types/routes.d.ts";
+
+// NOTE: This file should not be edited
+// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+
+
+FILE_END
+==================================================
+
+FILE_START: README.md
+--------------------------------------------------
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+FILE_END
+==================================================
+
+FILE_START: package.json
+--------------------------------------------------
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.562.0",
+    "next": "16.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
+
+FILE_END
+==================================================
+
+FILE_START: tsconfig.json
+--------------------------------------------------
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+
+FILE_END
+==================================================
+
+FILE_START: next.config.ts
+--------------------------------------------------
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+
+
+FILE_END
+==================================================
+
+FILE_START: app/actions.ts
+--------------------------------------------------
+'use server'
+
+import { createClient } from '@supabase/supabase-js'
+import { redirect } from 'next/navigation'
+
+// --- 1. SETUP CLIENT WITH NO CACHING ---
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: { persistSession: false },
+    global: { headers: { 'Cache-Control': 'no-store' } } // <--- CRITICAL FIX
+  }
+)
+
+// --- HELPER: Pick a "Star" Player ---
+async function getRandomStarPlayerId() {
+  console.log("Searching for a star player...")
+
+  // 1. Pick players with a rating > 50 (Our injected stars are 99)
+  const { data: stars, error } = await supabase
+    .from('players')
+    .select('id')
+    .gt('rating', 50)
+
+  // 2. Fallback: If no stars found (data issue), pick any random player
+  if (error || !stars || stars.length === 0) {
+    console.log("No stars found. Falling back to random ID 1-200.")
+    return Math.floor(Math.random() * 200) + 1
+  }
+
+  // 3. Pick Random from the Star list
+  const randomIndex = Math.floor(Math.random() * stars.length)
+  console.log(`Found ${stars.length} stars. Picking index ${randomIndex}`)
+  return stars[randomIndex].id
+}
+
+// --- LOBBY ACTIONS ---
+
+export async function createRoom(formData: FormData) {
+  const username = formData.get('username') as string
+  const code = Math.random().toString(36).substring(2, 6).toUpperCase()
+
+  const { data: room, error } = await supabase
+    .from('rooms')
+    .insert({ code, status: 'WAITING' })
+    .select()
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  await supabase.from('participants').insert({ room_id: room.id, username, is_host: true })
+  redirect(`/room/${code}?username=${encodeURIComponent(username)}`)
+}
+
+export async function joinRoom(formData: FormData) {
+  const username = formData.get('username') as string
+  const code = (formData.get('code') as string).toUpperCase()
+
+  const { data: room } = await supabase.from('rooms').select('id').eq('code', code).single()
+
+  if (!room) return redirect('/?error=room_not_found')
+
+  const { error } = await supabase
+    .from('participants')
+    .insert({ room_id: room.id, username, is_host: false })
+
+  if (error && error.code !== '23505') throw new Error(error.message)
+
+  redirect(`/room/${code}?username=${encodeURIComponent(username)}`)
+}
+
+// --- GAME ACTIONS ---
+
+export async function startGame(roomId: string) {
+  console.log("STARTING GAME for Room:", roomId)
+  const randomId = await getRandomStarPlayerId()
+  
+  await supabase
+    .from('rooms')
+    .update({ 
+      status: 'PLAYING', 
+      current_round: 1, 
+      current_player_id: randomId 
+    })
+    .eq('id', roomId)
+}
+
+export async function nextRound(roomId: string, currentRound: number) {
+  console.log("NEXT ROUND called. Current:", currentRound)
+
+  if (currentRound >= 10) {
+    await supabase.from('rooms').update({ status: 'FINISHED' }).eq('id', roomId)
+    return
+  }
+
+  const randomId = await getRandomStarPlayerId()
+  console.log("Next Player ID:", randomId)
+
+  await supabase
+    .from('rooms')
+    .update({ 
+      current_round: currentRound + 1, 
+      current_player_id: randomId 
+    })
+    .eq('id', roomId)
+}
+
+FILE_END
+==================================================
+
+FILE_START: app/layout.tsx
+--------------------------------------------------
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Create Next App",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}
+
+
+FILE_END
+==================================================
+
+FILE_START: app/page.tsx
+--------------------------------------------------
+import { createRoom, joinRoom } from './actions'
+import { Trophy, Users } from 'lucide-react'
+
+export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-white">
+      <div className="w-full max-w-md space-y-8">
+        
+        {/* Header */}
+        <div className="text-center space-y-2">
+          <div className="flex justify-center">
+             <Trophy className="h-12 w-12 text-yellow-500" />
+          </div>
+          <h1 className="text-4xl font-black tracking-tighter uppercase italic">
+            Saturday to Sunday
+          </h1>
+          <p className="text-slate-400">Guess the college. Beat your friends.</p>
+        </div>
+
+        {/* Create Room Form */}
+        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-400" /> Host a Game
+          </h2>
+          <form action={createRoom} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">Your Name</label>
+              <input 
+                name="username" 
+                required 
+                placeholder="e.g. SickosMode"
+                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition"
+              />
+            </div>
+            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">
+              Create Room
+            </button>
+          </form>
+        </div>
+
+        {/* Join Room Form */}
+        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl">
+           <h2 className="text-xl font-bold mb-4">Join a Game</h2>
+           <form action={joinRoom} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">Your Name</label>
+                <input 
+                  name="username" 
+                  required 
+                  placeholder="Player 2"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">Room Code</label>
+                <input 
+                  name="code" 
+                  required 
+                  maxLength={4}
+                  placeholder="ABCD"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none uppercase tracking-widest text-center"
+                />
+              </div>
+            </div>
+            <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition">
+              Enter Room
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </main>
+  )
+}
+
+FILE_END
+==================================================
+
+FILE_START: app/globals.css
+--------------------------------------------------
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+
+FILE_END
+==================================================
+
+FILE_START: app/room/[code]/page.tsx
+--------------------------------------------------
+'use client'
+
+import { useEffect, useState, use } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import { startGame, nextRound } from '@/app/actions' 
+import GameView from '@/components/GameView'
+import { Trophy, Play, CheckCircle2, Clock, Users } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+export default function RoomPage({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = use(params)
+  const searchParams = useSearchParams()
+  const username = searchParams.get('username')
+  
+  const [room, setRoom] = useState<any>(null)
+  const [participants, setParticipants] = useState<any[]>([])
+
+  const currentUser = participants.find((u: any) => u.username === username)
+
+  // Calculate who is still thinking
+  // We check if their 'last_answered_round' matches the room's 'current_round'
+  const playersDone = participants.filter(p => p.last_answered_round === room?.current_round).length
+  const totalPlayers = participants.length
+  const everyoneAnswered = playersDone === totalPlayers && totalPlayers > 0
+
+  const refreshRoom = async () => {
+    if (!room?.id && !code) return
+    const query = room?.id ? supabase.from('rooms').select('*').eq('id', room.id) : supabase.from('rooms').select('*').eq('code', code)
+    const { data: roomData } = await query.single()
+    if (roomData) setRoom(roomData)
+    if (roomData?.id) {
+       const { data: usersData } = await supabase.from('participants').select('*').eq('room_id', roomData.id)
+       if (usersData) setParticipants(usersData)
+    }
+  }
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: roomData } = await supabase.from('rooms').select('*').eq('code', code).single()
+      setRoom(roomData)
+      if (roomData) {
+         const { data: usersData } = await supabase.from('participants').select('*').eq('room_id', roomData.id)
+         setParticipants(usersData || [])
+      }
+    }
+    init()
+
+    const channel = supabase
+      .channel('room_updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${code}` }, 
+        (payload: any) => setRoom(payload.new)
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'participants' }, 
+        async () => {
+             const { data } = await supabase.from('participants').select('*').eq('room_id', room?.id)
+             setParticipants(data || [])
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [code, room?.id]) 
+
+  if (!room) return <div className="text-white p-10 flex justify-center">Loading Room...</div>
+
+  const handleStartGame = async () => {
+    await startGame(room.id)
+    setTimeout(refreshRoom, 100) 
+  }
+
+  const handleNextRound = async () => {
+    await nextRound(room.id, room.current_round)
+    setTimeout(refreshRoom, 100)
+  }
+
+  const handleScoreUpdate = async (isCorrect: boolean, points: number) => {
+    if (!currentUser) return
+    
+    // Update Score AND mark this round as "answered"
+    const newScore = (currentUser.score || 0) + points
+    
+    await supabase.from('participants').update({ 
+      score: newScore,
+      last_answered_round: room.current_round 
+    }).eq('id', currentUser.id)
+  }
+
+  return (
+    <main className="min-h-screen bg-slate-950 text-white p-4 flex flex-col">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
+        <div className="text-sm font-mono text-slate-400">
+          ROOM: <span className="text-xl font-bold text-white tracking-widest">{room.code}</span>
+        </div>
+        
+        {/* Mobile-friendly Score for current user */}
+        <div className="flex items-center gap-2 md:hidden">
+           <Trophy className="w-4 h-4 text-yellow-500" />
+           <span className="font-bold">{currentUser?.score || 0}</span>
+        </div>
+      </div>
+
+      <div className="flex-1 max-w-6xl mx-auto w-full grid grid-cols-1 md:grid-cols-3 gap-8">
+        
+        {/* LEFT COLUMN: Main Game Area (Takes up 2/3 space) */}
+        <div className="md:col-span-2 space-y-6">
+          
+          {room?.status === 'WAITING' && (
+             <div className="text-center space-y-6 pt-10">
+                <h1 className="text-3xl font-bold">Waiting for players...</h1>
+                {currentUser?.is_host && (
+                  <button onClick={handleStartGame} className="w-full max-w-md mx-auto bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2">
+                    <Play className="fill-current" /> START GAME
+                  </button>
+                )}
+                {!currentUser?.is_host && <p className="text-slate-500 animate-pulse">Host will start soon...</p>}
+             </div>
+          )}
+
+          {room?.status === 'PLAYING' && (
+            <>
+               <div className="text-center">
+                 <span className="bg-slate-800 text-slate-300 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider shadow-sm">
+                   Round {room.current_round} / 10
+                 </span>
+               </div>
+               
+               <GameView 
+                 key={room.current_round} 
+                 playerId={room.current_player_id} 
+                 onGuess={handleScoreUpdate} 
+               />
+
+               {/* Host Controls */}
+               {currentUser?.is_host && (
+                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 mt-6 text-center">
+                    {everyoneAnswered ? (
+                        <button 
+                          onClick={handleNextRound} 
+                          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg animate-bounce-short transition-all"
+                        >
+                          Next Round &rarr;
+                        </button>
+                    ) : (
+                        <div className="flex items-center justify-center gap-2 text-slate-400 font-mono text-sm py-2">
+                          <Clock className="w-4 h-4 animate-spin-slow" />
+                          Waiting for {totalPlayers - playersDone} players...
+                        </div>
+                    )}
+                 </div>
+               )}
+            </>
+          )}
+
+          {room?.status === 'FINISHED' && (
+             <div className="text-center pt-10">
+                <h1 className="text-5xl font-black italic mb-2">GAME OVER</h1>
+                <p className="text-slate-400">Check the leaderboard to see who won!</p>
+             </div>
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: Live Leaderboard (Takes up 1/3 space) */}
+        <div className="hidden md:block bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden h-fit sticky top-4">
+          <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex items-center gap-2">
+            <Users className="w-4 h-4 text-slate-400" />
+            <h3 className="font-bold text-sm uppercase tracking-wider text-slate-300">Live Standings</h3>
+          </div>
+          <div className="divide-y divide-slate-800/50">
+            {participants.sort((a,b) => b.score - a.score).map((p, i) => {
+              // Check if this specific player is "Done" with the round
+              const isDone = p.last_answered_round === room?.current_round
+              const isMe = p.username === username
+              
+              return (
+                <div key={p.id} className={`p-4 flex items-center gap-3 ${isMe ? 'bg-blue-500/10' : ''}`}>
+                   <div className={`font-mono font-bold text-sm w-6 ${i===0 ? 'text-yellow-500' : 'text-slate-500'}`}>
+                     #{i+1}
+                   </div>
+                   <div className="flex-1">
+                     <div className={`font-bold text-sm ${isMe ? 'text-white' : 'text-slate-300'}`}>
+                       {p.username} {isMe && '(You)'}
+                     </div>
+                   </div>
+                   
+                   {/* Status Indicators */}
+                   {room?.status === 'PLAYING' && (
+                     <div className="flex items-center gap-3">
+                        {/* Show Checkmark if they answered */}
+                        {isDone ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border-2 border-slate-700 border-t-slate-400 animate-spin" />
+                        )}
+                        <span className="font-mono font-bold text-yellow-500">{p.score}</span>
+                     </div>
+                   )}
+                   
+                   {room?.status !== 'PLAYING' && (
+                      <span className="font-mono font-bold text-yellow-500">{p.score}</span>
+                   )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+      </div>
+    </main>
+  )
+}
+
+FILE_END
+==================================================
+
+FILE_START: components/GameView.tsx
+--------------------------------------------------
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import { Loader2, Timer } from 'lucide-react'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+type Player = {
+  id: number
+  name: string
+  team: string
+  position: string
+  college: string
+  image_url: string
+}
+
+export default function GameView({ 
+  playerId, 
+  onGuess 
+}: { 
+  playerId: number, 
+  onGuess: (isCorrect: boolean, points: number) => void 
+}) {
+  const [player, setPlayer] = useState<Player | null>(null)
+  const [options, setOptions] = useState<string[]>([])
+  
+  // Game State
+  const [answered, setAnswered] = useState(false)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [potentialPoints, setPotentialPoints] = useState(100)
+
+  // --- EFFECT 1: Fetch Data (Runs only when playerId changes) ---
+  useEffect(() => {
+    let isMounted = true
+
+    async function fetchQuestion() {
+      // 1. Reset State
+      setAnswered(false)
+      setSelected(null)
+      setPlayer(null)
+      setPotentialPoints(100) 
+
+      // 2. Fetch the Target Player
+      const { data: target } = await supabase.from('players').select('*').eq('id', playerId).single()
+      if (!target || !isMounted) return
+
+      // 3. Fetch Random Distractors (The Fix)
+      // We pick a random "start point" (offset) between 0 and 1000
+      // This ensures we get different colleges every time.
+      const randomOffset = Math.floor(Math.random() * 1000)
+      
+      const { data: randomChunk } = await supabase
+        .from('players')
+        .select('college')
+        .neq('college', target.college) // Don't pick the correct answer
+        .range(randomOffset, randomOffset + 49) // Grab 50 players to ensure variety
+
+      if (!randomChunk || !isMounted) return
+
+      // Extract just the college names and remove duplicates
+      const uniqueColleges = Array.from(new Set(randomChunk.map((p: any) => p.college)))
+      
+      // Shuffle them and take the first 3
+      const distractors = uniqueColleges
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+
+      // 4. Combine and Shuffle Options
+      const allOptions = [target.college, ...distractors]
+      setOptions(allOptions.sort(() => Math.random() - 0.5))
+      setPlayer(target)
+    }
+
+    fetchQuestion()
+
+    return () => { isMounted = false }
+  }, [playerId])
+
+  // --- EFFECT 2: The Timer ---
+  useEffect(() => {
+    if (!player || answered) return
+
+    const timerId = setInterval(() => {
+      setPotentialPoints((prev) => {
+        if (prev <= 10) {
+          clearInterval(timerId)
+          return 10
+        }
+        return prev - 5
+      })
+    }, 1000)
+
+    return () => clearInterval(timerId)
+  }, [player, answered]) 
+
+  if (!player) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-white" /></div>
+
+  const handleGuess = (college: string) => {
+    if (answered) return
+    
+    setAnswered(true)
+    setSelected(college)
+    
+    const isCorrect = college === player.college
+    onGuess(isCorrect, isCorrect ? potentialPoints : 0)
+  }
+
+  return (
+    <div className="flex flex-col items-center w-full max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4">
+      
+      {/* Score Countdown Bar */}
+      <div className="w-full bg-slate-800 rounded-full h-2 mb-6 overflow-hidden relative">
+        <div 
+          className="h-full bg-yellow-500 transition-all duration-1000 ease-linear"
+          style={{ width: `${potentialPoints}%` }}
+        />
+      </div>
+
+      <div className="bg-white p-4 rounded-xl shadow-2xl mb-6 w-full text-center text-slate-900 relative overflow-hidden">
+        <div className="absolute top-2 right-2 bg-slate-900 text-yellow-500 font-bold px-3 py-1 rounded-full text-xs flex items-center gap-1">
+          <Timer className="w-3 h-3" />
+          {potentialPoints} pts
+        </div>
+
+        <img 
+          src={player.image_url} 
+          alt="Player" 
+          className="w-32 h-32 mx-auto rounded-full object-cover border-4 border-slate-100 mb-4 bg-slate-200"
+        />
+        <h2 className="text-2xl font-black uppercase">{player.name}</h2>
+        <div className="flex justify-center gap-2 text-sm font-bold text-slate-500 mt-1">
+          <span>{player.team}</span>
+          <span>•</span>
+          <span>{player.position}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 w-full">
+        {options.map((college) => {
+          let btnColor = "bg-slate-800 hover:bg-slate-700 text-white"
+          
+          if (answered) {
+            if (college === player.college) btnColor = "bg-green-500 text-white"
+            else if (college === selected) btnColor = "bg-red-500 text-white"
+            else btnColor = "bg-slate-800 opacity-50"
+          }
+
+          return (
+            <button
+              key={college}
+              onClick={() => handleGuess(college)}
+              disabled={answered}
+              className={`p-4 rounded-lg font-bold text-lg transition-all transform active:scale-95 ${btnColor}`}
+            >
+              {college}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+FILE_END
+==================================================
+
