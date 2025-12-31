@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { User, Clock, Home, Loader2, Play, ArrowRight, Check, Trophy, Frown, Medal } from 'lucide-react'
+import { User, Clock, Home, Loader2, Play, ArrowRight, Check, Trophy, Frown, Medal, Coffee, Twitter } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -161,9 +161,8 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     )
   }
 
-  // 2. GAME OVER (UPDATED)
+  // 2. GAME OVER (UPDATED WITH LINKS)
   if (gameState === 'finished') {
-    // Determine user rank
     const myRankIndex = participants.findIndex(p => p.id === initialParticipant?.id)
     const myRank = myRankIndex + 1
     const totalPlayers = participants.length
@@ -173,7 +172,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     let icon = <Medal className="w-16 h-16 text-slate-400" />
     let titleColor = "text-slate-200"
 
-    // Logic for messages
     if (myRank === 1) {
         endMessage = "CHAMPION OF THE WORLD!"
         endSubMessage = "You know your ball. Respect."
@@ -218,6 +216,28 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 ))}
             </CardContent>
         </Card>
+
+        {/* --- SUPPORT BUTTONS --- */}
+        <div className="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a 
+                href="https://buymeacoffee.com/247highlighter" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 h-14 bg-[#FFDD00] hover:bg-[#FFEA00] text-slate-900 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105"
+            >
+                <Coffee className="w-5 h-5" /> Buy me a Coffee
+            </a>
+            
+            <a 
+                href="https://x.com/ClutchBrowser" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 h-14 bg-black hover:bg-slate-900 text-white border border-slate-800 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105"
+            >
+                <Twitter className="w-5 h-5 fill-white" /> Follow on X
+            </a>
+        </div>
+        {/* ----------------------- */}
 
         {/* Big 'Back Home' Button */}
         <Button 
