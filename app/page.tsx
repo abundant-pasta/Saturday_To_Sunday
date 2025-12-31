@@ -1,75 +1,54 @@
 import { createRoom, joinRoom } from './actions'
 import { Trophy, Users } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-slate-950 p-6 text-white">
-      <div className="w-full max-w-md space-y-8">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-8 animate-in fade-in duration-500">
+      
+      {/* HEADER */}
+      <div className="space-y-2 text-center">
+        <h1 className="text-6xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 drop-shadow-sm">
+          Saturday to Sunday
+        </h1>
+        <p className="text-xl font-medium text-slate-500 uppercase tracking-widest">
+          The Ultimate College-to-Pro Trivia
+        </p>
+      </div>
+
+      {/* ACTIONS */}
+      <div className="flex flex-col w-full max-w-sm gap-4">
         
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex justify-center">
-             <Trophy className="h-12 w-12 text-yellow-500" />
-          </div>
-          <h1 className="text-4xl font-black tracking-tighter uppercase italic">
-            Saturday to Sunday
-          </h1>
-          <p className="text-slate-400">Guess the college. Beat your friends.</p>
+        {/* CREATE ROOM */}
+        <form action={createRoom}>
+          <Button 
+            size="lg" 
+            className="w-full h-16 text-2xl font-black italic uppercase bg-blue-600 hover:bg-blue-700 shadow-xl transition-transform hover:-translate-y-1"
+          >
+            <Trophy className="w-8 h-8 mr-2 text-yellow-400" />
+            Start New Game
+          </Button>
+        </form>
+
+        <div className="relative flex items-center py-2">
+          <div className="flex-grow border-t border-slate-200"></div>
+          <span className="flex-shrink-0 mx-4 text-slate-400 font-bold text-sm uppercase">Or</span>
+          <div className="flex-grow border-t border-slate-200"></div>
         </div>
 
-        {/* Create Room Form */}
-        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl">
-          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-blue-400" /> Host a Game
-          </h2>
-          <form action={createRoom} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">Your Name</label>
-              <input 
-                name="username" 
-                required 
-                placeholder="e.g. SickosMode"
-                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition"
-              />
-            </div>
-            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-lg transition">
-              Create Room
-            </button>
-          </form>
-        </div>
-
-        {/* Join Room Form */}
-        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl">
-           <h2 className="text-xl font-bold mb-4">Join a Game</h2>
-           <form action={joinRoom} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">Your Name</label>
-                <input 
-                  name="username" 
-                  required 
-                  placeholder="Player 2"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1 uppercase">Room Code</label>
-                <input 
-                  name="code" 
-                  required 
-                  maxLength={4}
-                  placeholder="ABCD"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-emerald-500 outline-none uppercase tracking-widest text-center"
-                />
-              </div>
-            </div>
-            <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition">
-              Enter Room
-            </button>
-          </form>
-        </div>
+        {/* JOIN ROOM */}
+        <form action={joinRoom} className="flex gap-2">
+          <input 
+            name="code" 
+            placeholder="ENTER ROOM CODE..." 
+            className="flex-1 px-4 font-bold text-center uppercase border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none bg-slate-50"
+          />
+          <Button type="submit" size="lg" variant="outline" className="font-bold border-2">
+            <Users className="w-5 h-5" />
+          </Button>
+        </form>
 
       </div>
-    </main>
+    </div>
   )
 }

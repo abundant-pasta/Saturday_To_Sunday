@@ -5,21 +5,21 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { getSimilarDistractors } from '@/lib/conferences'
 
+// --- 1. CREATE ROOM ---
 export async function createRoom(formData: FormData) {
   const supabase = await createClient()
 
-  // 1. Get a list of ALL colleges to use for "smart distractors"
+  // Get colleges for distractors
   const { data: allCollegesData } = await supabase
     .from('players')
     .select('college')
     .not('college', 'is', null)
 
-  // FIX: We forcefully tell TypeScript this is a list of strings
   const collegeList = Array.from(new Set(
     allCollegesData?.map((c: any) => c.college) || []
   )) as string[]
 
-  // 2. Pick a Random Player (Rating > 0)
+  // Pick Random Player
   const { count } = await supabase
     .from('players')
     .select('*', { count: 'exact', head: true })
@@ -28,7 +28,6 @@ export async function createRoom(formData: FormData) {
   if (!count) throw new Error("No players found!")
 
   const randomOffset = Math.floor(Math.random() * count)
-
   const { data: players } = await supabase
     .from('players')
     .select('*')
@@ -39,13 +38,11 @@ export async function createRoom(formData: FormData) {
   const p = players?.[0]
   if (!p) throw new Error("Failed to pick a player")
 
-  // 3. Generate Smart Options
-  const correctCollege = p.college
-  const wrongColleges = getSimilarDistractors(correctCollege, collegeList)
-  
-  const options = [correctCollege, ...wrongColleges].sort(() => 0.5 - Math.random())
+  // Create Options
+  const wrongColleges = getSimilarDistractors(p.college, collegeList)
+  const options = [p.college, ...wrongColleges].sort(() => 0.5 - Math.random())
 
-  // 4. Create the Room
+  // Insert Room
   const { data: room, error } = await supabase
     .from('rooms')
     .insert({
@@ -60,14 +57,19 @@ export async function createRoom(formData: FormData) {
     .select()
     .single()
 
-  if (error) {
-    console.error(error)
-    throw new Error('Failed to create room')
-  }
-
+  if (error) throw new Error('Failed to create room')
   redirect(`/room/${room.id}`)
 }
 
+// --- 2. JOIN ROOM (This fixes the error in app/page.tsx) ---
+export async function joinRoom(formData: FormData) {
+  const code = formData.get('code') as string
+  if (code) {
+    redirect(`/room/${code}`)
+  }
+}
+
+// --- 3. SUBMIT ANSWER ---
 export async function submitAnswer(roomId: string, answer: string) {
   const supabase = await createClient()
 
@@ -84,20 +86,16 @@ export async function submitAnswer(roomId: string, answer: string) {
 
   // CHECK GAME OVER
   if (room.current_round >= room.total_rounds) {
-    await supabase
-      .from('rooms')
-      .update({ 
-        game_state: 'finished',
-        score: newScore 
-      })
-      .eq('id', roomId)
+    await supabase.from('rooms').update({ 
+      game_state: 'finished',
+      score: newScore 
+    }).eq('id', roomId)
     
     revalidatePath(`/room/${roomId}`)
     return { isCorrect, gameOver: true }
   }
 
-  // PREPARE NEXT ROUND
-  // We need the college list again for the next question
+  // NEXT ROUND SETUP
   const { data: allCollegesData } = await supabase
     .from('players')
     .select('college')
@@ -107,14 +105,12 @@ export async function submitAnswer(roomId: string, answer: string) {
     allCollegesData?.map((c: any) => c.college) || []
   )) as string[]
 
-  // Pick new player
   const { count } = await supabase
     .from('players')
     .select('*', { count: 'exact', head: true })
     .gt('rating', 0)
   
   const randomOffset = Math.floor(Math.random() * (count || 100))
-  
   const { data: players } = await supabase
     .from('players')
     .select('*')
@@ -128,16 +124,13 @@ export async function submitAnswer(roomId: string, answer: string) {
     const wrong = getSimilarDistractors(nextPlayer.college, collegeList)
     const nextOptions = [nextPlayer.college, ...wrong].sort(() => 0.5 - Math.random())
 
-    await supabase
-      .from('rooms')
-      .update({
+    await supabase.from('rooms').update({
         current_round: room.current_round + 1,
         score: newScore,
         current_player_id: nextPlayer.id,
         correct_answer: nextPlayer.college,
         options: nextOptions
-      })
-      .eq('id', roomId)
+      }).eq('id', roomId)
   }
 
   revalidatePath(`/room/${roomId}`)
