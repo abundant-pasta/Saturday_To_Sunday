@@ -1,54 +1,97 @@
 import { createRoom, joinRoom } from './actions'
 import { Trophy, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-8 animate-in fade-in duration-500">
       
       {/* HEADER */}
-      <div className="space-y-2 text-center">
-        <h1 className="text-6xl font-black italic tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 drop-shadow-sm">
+      <div className="flex flex-col items-center space-y-2 text-center">
+        <Trophy className="w-12 h-12 text-yellow-400" />
+        <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white drop-shadow-sm">
           Saturday to Sunday
         </h1>
-        <p className="text-xl font-medium text-slate-500 uppercase tracking-widest">
-          The Ultimate College-to-Pro Trivia
+        <p className="text-lg font-medium text-slate-400">
+          Guess the college. Beat your friends.
         </p>
       </div>
 
-      {/* ACTIONS */}
-      <div className="flex flex-col w-full max-w-sm gap-4">
-        
-        {/* CREATE ROOM */}
-        <form action={createRoom}>
-          <Button 
-            size="lg" 
-            className="w-full h-16 text-2xl font-black italic uppercase bg-blue-600 hover:bg-blue-700 shadow-xl transition-transform hover:-translate-y-1"
-          >
-            <Trophy className="w-8 h-8 mr-2 text-yellow-400" />
-            Start New Game
-          </Button>
-        </form>
+      {/* HOST A GAME CARD */}
+      <Card className="w-full max-w-md border-slate-800 bg-slate-900/50">
+        <CardHeader>
+          <CardTitle className="flex items-center text-white">
+            <Users className="w-6 h-6 mr-2" />
+            Host a Game
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={createRoom} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="host-name" className="text-slate-400">YOUR NAME</Label>
+              <Input 
+                id="host-name" 
+                name="playerName" 
+                placeholder="e.g. SickosMode" 
+                className="border-slate-700 bg-slate-950 text-white placeholder:text-slate-600"
+                required
+              />
+            </div>
+            <Button 
+              type="submit"
+              className="w-full text-lg font-bold uppercase bg-blue-600 hover:bg-blue-700"
+            >
+              Create Room
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-        <div className="relative flex items-center py-2">
-          <div className="flex-grow border-t border-slate-200"></div>
-          <span className="flex-shrink-0 mx-4 text-slate-400 font-bold text-sm uppercase">Or</span>
-          <div className="flex-grow border-t border-slate-200"></div>
-        </div>
+      {/* JOIN A GAME CARD */}
+      <Card className="w-full max-w-md border-slate-800 bg-slate-900/50">
+        <CardHeader>
+          <CardTitle className="text-white">
+            Join a Game
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={joinRoom} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="join-name" className="text-slate-400">YOUR NAME</Label>
+                <Input 
+                  id="join-name" 
+                  name="playerName" 
+                  placeholder="Player 2" 
+                  className="border-slate-700 bg-slate-950 text-white placeholder:text-slate-600"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="room-code" className="text-slate-400">ROOM CODE</Label>
+                <Input 
+                  id="room-code" 
+                  name="code" 
+                  placeholder="ABCD" 
+                  className="border-slate-700 bg-slate-950 text-white placeholder:text-slate-600 uppercase text-center font-mono"
+                  required
+                  maxLength={4}
+                />
+              </div>
+            </div>
+            <Button 
+              type="submit"
+              className="w-full text-lg font-bold uppercase bg-green-600 hover:bg-green-700 text-white"
+            >
+              Enter Room
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-        {/* JOIN ROOM */}
-        <form action={joinRoom} className="flex gap-2">
-          <input 
-            name="code" 
-            placeholder="ENTER ROOM CODE..." 
-            className="flex-1 px-4 font-bold text-center uppercase border-2 border-slate-200 rounded-lg focus:border-blue-500 focus:outline-none bg-slate-50"
-          />
-          <Button type="submit" size="lg" variant="outline" className="font-bold border-2">
-            <Users className="w-5 h-5" />
-          </Button>
-        </form>
-
-      </div>
     </div>
   )
 }
