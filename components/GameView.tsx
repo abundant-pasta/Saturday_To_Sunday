@@ -1,163 +1,153 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { Loader2, Timer } from 'lucide-react'
+import { useState } from 'react'
+import { submitAnswer } from '@/app/actions'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Trophy } from 'lucide-react'
+import Image from 'next/image'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-type Player = {
-  id: number
-  name: string
-  team: string
-  position: string
-  college: string
-  image_url: string
+type GameViewProps = {
+  initialRoom: any
+  player: any
 }
 
-export default function GameView({ 
-  playerId, 
-  onGuess 
-}: { 
-  playerId: number, 
-  onGuess: (isCorrect: boolean, points: number) => void 
-}) {
-  const [player, setPlayer] = useState<Player | null>(null)
-  const [options, setOptions] = useState<string[]>([])
+export default function GameView({ initialRoom, player }: GameViewProps) {
+  // THIS LINE WAS LIKELY MISSING OR NAMED WRONG BEFORE:
+  const [gameState, setGameState] = useState(initialRoom.game_state) 
   
-  // Game State
-  const [answered, setAnswered] = useState(false)
-  const [selected, setSelected] = useState<string | null>(null)
-  const [potentialPoints, setPotentialPoints] = useState(100)
+  const [score, setScore] = useState(initialRoom.score)
+  const [round, setRound] = useState(initialRoom.current_round)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [lastResult, setLastResult] = useState<'correct' | 'wrong' | null>(null)
 
-  // --- EFFECT 1: Fetch Data (Runs only when playerId changes) ---
-  useEffect(() => {
-    let isMounted = true
+  const handleGuess = async (college: string) => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
 
-    async function fetchQuestion() {
-      // 1. Reset State
-      setAnswered(false)
-      setSelected(null)
-      setPlayer(null)
-      setPotentialPoints(100) 
-
-      // 2. Fetch the Target Player
-      const { data: target } = await supabase.from('players').select('*').eq('id', playerId).single()
-      if (!target || !isMounted) return
-
-      // 3. Fetch Random Distractors (The Fix)
-      // We pick a random "start point" (offset) between 0 and 1000
-      // This ensures we get different colleges every time.
-      const randomOffset = Math.floor(Math.random() * 1000)
-      
-      const { data: randomChunk } = await supabase
-        .from('players')
-        .select('college')
-        .neq('college', target.college) // Don't pick the correct answer
-        .range(randomOffset, randomOffset + 49) // Grab 50 players to ensure variety
-
-      if (!randomChunk || !isMounted) return
-
-      // Extract just the college names and remove duplicates
-      const uniqueColleges = Array.from(new Set(randomChunk.map((p: any) => p.college)))
-      
-      // Shuffle them and take the first 3
-      const distractors = uniqueColleges
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-
-      // 4. Combine and Shuffle Options
-      const allOptions = [target.college, ...distractors]
-      setOptions(allOptions.sort(() => Math.random() - 0.5))
-      setPlayer(target)
+    const result = await submitAnswer(initialRoom.id, college)
+    
+    setLastResult(result.isCorrect ? 'correct' : 'wrong')
+    
+    if (result.isCorrect) {
+      setScore((prev: number) => prev + 1)
     }
 
-    fetchQuestion()
-
-    return () => { isMounted = false }
-  }, [playerId])
-
-  // --- EFFECT 2: The Timer ---
-  useEffect(() => {
-    if (!player || answered) return
-
-    const timerId = setInterval(() => {
-      setPotentialPoints((prev) => {
-        if (prev <= 10) {
-          clearInterval(timerId)
-          return 10
-        }
-        return prev - 5
-      })
+    setTimeout(() => {
+      setLastResult(null)
+      setIsSubmitting(false)
+      
+      if (result.gameOver) {
+        setGameState('finished')
+      } else {
+        setRound((prev: number) => prev + 1)
+      }
     }, 1000)
-
-    return () => clearInterval(timerId)
-  }, [player, answered]) 
-
-  if (!player) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-white" /></div>
-
-  const handleGuess = (college: string) => {
-    if (answered) return
-    
-    setAnswered(true)
-    setSelected(college)
-    
-    const isCorrect = college === player.college
-    onGuess(isCorrect, isCorrect ? potentialPoints : 0)
   }
 
+  // --- GAME OVER SCREEN ---
+  if (gameState === 'finished') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8 animate-in fade-in zoom-in duration-300">
+        
+        <div className="text-center space-y-2">
+          <h2 className="text-5xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-600 drop-shadow-sm">
+            Game Over
+          </h2>
+          <div className="flex items-center justify-center gap-2 text-3xl font-bold text-slate-800">
+            <Trophy className="w-8 h-8 text-yellow-500" />
+            <span>{score} / 10</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col w-full max-w-xs gap-3">
+          {/* Play Again */}
+          <Button 
+            onClick={() => window.location.href = '/'} 
+            size="lg" 
+            className="w-full text-xl font-black italic uppercase bg-blue-600 hover:bg-blue-700 shadow-xl transition-transform hover:-translate-y-1"
+          >
+            Play Again 🔄
+          </Button>
+
+          {/* Main Menu */}
+          <Button 
+            onClick={() => window.location.href = '/'} 
+            variant="outline"
+            size="lg" 
+            className="w-full text-lg font-bold uppercase tracking-wider border-2 border-slate-300 text-slate-600 hover:bg-slate-100"
+          >
+            Main Menu 🏠
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // --- ACTIVE GAME SCREEN ---
   return (
-    <div className="flex flex-col items-center w-full max-w-lg mx-auto animate-in fade-in slide-in-from-bottom-4">
-      
-      {/* Score Countdown Bar */}
-      <div className="w-full bg-slate-800 rounded-full h-2 mb-6 overflow-hidden relative">
-        <div 
-          className="h-full bg-yellow-500 transition-all duration-1000 ease-linear"
-          style={{ width: `${potentialPoints}%` }}
-        />
-      </div>
-
-      <div className="bg-white p-4 rounded-xl shadow-2xl mb-6 w-full text-center text-slate-900 relative overflow-hidden">
-        <div className="absolute top-2 right-2 bg-slate-900 text-yellow-500 font-bold px-3 py-1 rounded-full text-xs flex items-center gap-1">
-          <Timer className="w-3 h-3" />
-          {potentialPoints} pts
+    <div className="max-w-md mx-auto w-full space-y-6">
+      <div className="flex items-center justify-between px-4 py-3 bg-white rounded-full shadow-sm border border-slate-100">
+        <div className="flex items-center gap-2">
+          <Trophy className="w-5 h-5 text-yellow-500" />
+          <span className="font-bold text-slate-700 text-lg">{score}</span>
         </div>
-
-        <img 
-          src={player.image_url} 
-          alt="Player" 
-          className="w-32 h-32 mx-auto rounded-full object-cover border-4 border-slate-100 mb-4 bg-slate-200"
-        />
-        <h2 className="text-2xl font-black uppercase">{player.name}</h2>
-        <div className="flex justify-center gap-2 text-sm font-bold text-slate-500 mt-1">
-          <span>{player.team}</span>
-          <span>•</span>
-          <span>{player.position}</span>
+        <div className="font-mono font-bold text-slate-400">
+          ROUND {round} / 10
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 w-full">
-        {options.map((college) => {
-          let btnColor = "bg-slate-800 hover:bg-slate-700 text-white"
+      <Progress value={(round / 10) * 100} className="h-2 bg-slate-100" />
+
+      <Card className="overflow-hidden border-2 border-slate-100 shadow-xl bg-white relative">
+        <div className="aspect-square relative bg-slate-50">
+           {player.image_url ? (
+             <Image 
+               src={player.image_url} 
+               alt="Player" 
+               fill 
+               className="object-cover object-top"
+               priority
+             />
+           ) : (
+             <div className="flex items-center justify-center h-full text-slate-300">
+               No Image
+             </div>
+           )}
+        </div>
+        
+        <div className="p-4 text-center bg-white border-t border-slate-100">
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-slate-800">
+            {player.name}
+          </h2>
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">
+            {player.position} • {player.team}
+          </p>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-3">
+        {initialRoom.options.map((option: string) => {
+          let btnClass = "bg-white hover:bg-slate-50 border-2 border-slate-200 text-slate-700"
           
-          if (answered) {
-            if (college === player.college) btnColor = "bg-green-500 text-white"
-            else if (college === selected) btnColor = "bg-red-500 text-white"
-            else btnColor = "bg-slate-800 opacity-50"
+          if (lastResult) {
+            if (option === initialRoom.correct_answer) {
+               btnClass = "bg-green-500 border-green-600 text-white"
+            } else if (lastResult === 'wrong') {
+               btnClass = "bg-red-500 border-red-600 text-white opacity-50"
+            }
           }
 
           return (
-            <button
-              key={college}
-              onClick={() => handleGuess(college)}
-              disabled={answered}
-              className={`p-4 rounded-lg font-bold text-lg transition-all transform active:scale-95 ${btnColor}`}
+            <Button
+              key={option}
+              onClick={() => handleGuess(option)}
+              disabled={isSubmitting}
+              className={`h-14 text-lg font-bold uppercase tracking-wide shadow-sm transition-all ${btnClass}`}
             >
-              {college}
-            </button>
+              {option}
+            </Button>
           )
         })}
       </div>

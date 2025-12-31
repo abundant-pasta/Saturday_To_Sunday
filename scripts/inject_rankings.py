@@ -11,7 +11,7 @@ url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
 
 # --- IMPORTANT: PASTE YOUR SERVICE ROLE KEY HERE ---
 # The Anon key blocked us. This key bypasses RLS permissions.
-key = "sb_secret_vvFE7QZj_fKY2ekwUJ4KSQ_59J_bKuY" 
+key = "xxx" 
 
 if key == "PASTE_YOUR_SERVICE_ROLE_KEY_HERE":
     print("❌ STOP: You need to paste your Service Role Key into the script on line 14!")
