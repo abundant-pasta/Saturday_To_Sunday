@@ -18,7 +18,6 @@ const decodeText = (text: string) => {
   return txt.value
 }
 
-// Helper to adjust font size for long names in the quad box
 const getFontSize = (text: string) => {
   if (text.length > 20) return "text-xs"
   if (text.length > 15) return "text-sm"
@@ -35,34 +34,36 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const router = useRouter()
   const supabase = createClient()
   
-  // -- SYNC STATE --
   const [gameState, setGameState] = useState(initialRoom.game_state) 
   const [round, setRound] = useState(initialRoom.current_round)
   const [roomData, setRoomData] = useState(initialRoom)
-  
-  // -- LISTS --
   const [participants, setParticipants] = useState<any[]>([])
   const [submissions, setSubmissions] = useState<any[]>([])
-
-  // -- UI STATE --
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null)
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
-  
-  // --- NEW: Loading State for "Simultaneous Reveal" ---
   const [isImageReady, setIsImageReady] = useState(false)
 
-  // --- POLLING FOR SYNC (Every 2s) ---
+  // --- FAILSAFE TIMER ---
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (!isImageReady && gameState === 'playing') {
+      timer = setTimeout(() => {
+        setIsImageReady(true)
+      }, 3000)
+    }
+    return () => clearTimeout(timer)
+  }, [isImageReady, gameState, round])
+
+  // --- POLLING ---
   useEffect(() => {
     const fetchGameData = async () => {
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
-        
         if (r) {
             if (r.current_round !== round) {
-                // Round Changed!
-                setIsImageReady(false) // Hide content immediately
+                setIsImageReady(false) 
                 setRound(r.current_round)
                 setRoomData(r)
                 setHasAnswered(false)
@@ -77,44 +78,34 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 setRoomData(r)
             }
         }
-
         const { data: p } = await supabase.from('room_participants').select('*').eq('room_id', initialRoom.id).order('score', { ascending: false })
         if (p) setParticipants(p)
-
         const currentRoundNum = r ? r.current_round : round
         const { data: s } = await supabase.from('round_submissions').select('*').eq('room_id', initialRoom.id).eq('round_number', currentRoundNum)
         if (s) setSubmissions(s)
     }
-
     fetchGameData()
     const interval = setInterval(fetchGameData, 2000)
     return () => clearInterval(interval)
   }, [round, initialRoom.id, router])
 
-
-  // --- TIMER (UPDATED) ---
+  // --- TIMER ---
   useEffect(() => {
-    // FIX: Added !isImageReady check. Timer pauses if image is still loading.
     if (gameState !== 'playing' || selectedOption || hasAnswered || !isImageReady) return
-    
     const timer = setInterval(() => {
       setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
     }, 500)
     return () => clearInterval(timer)
-  }, [selectedOption, gameState, hasAnswered, isImageReady]) // Added isImageReady dependency
+  }, [selectedOption, gameState, hasAnswered, isImageReady])
 
-
-  // --- HANDLER: GUESS ---
+  // --- HANDLERS ---
   const handleGuess = async (college: string) => {
     if (isSubmitting || selectedOption || hasAnswered) return 
-    
     setIsSubmitting(true)
     setSelectedOption(college)
-    
     const isCorrect = college === roomData.correct_answer
     setResult(isCorrect ? 'correct' : 'wrong')
     setHasAnswered(true) 
-
     await submitAnswer(initialRoom.code, initialParticipant?.id, college, potentialPoints)
     setIsSubmitting(false)
   }
@@ -125,20 +116,14 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     setIsSubmitting(false)
   }
 
-
-  // ================= VIEWS =================
-
-  // 1. LOBBY (WAITING)
+  // 1. LOBBY
   if (gameState === 'waiting') {
     return (
       <div className="flex flex-col items-center min-h-screen bg-slate-950 text-white p-4 space-y-8 pt-20">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
-            Lobby
-          </h1>
+          <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Lobby</h1>
           <p className="text-slate-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
         </div>
-
         <Card className="w-full max-w-md bg-slate-900 border-slate-800">
             <CardHeader><CardTitle className="text-slate-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
             <CardContent className="space-y-2">
@@ -151,21 +136,12 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 ))}
             </CardContent>
         </Card>
-
         {initialParticipant?.is_host ? (
-             <Button 
-             size="lg" 
-             className="w-full max-w-md h-16 text-xl font-bold uppercase bg-green-600 hover:bg-green-700"
-             onClick={async () => {
-               await startGame(initialRoom.code)
-             }}
-           >
+             <Button size="lg" className="w-full max-w-md h-16 text-xl font-bold uppercase bg-green-600 hover:bg-green-700" onClick={async () => { await startGame(initialRoom.code) }}>
              <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
            </Button>
         ) : (
-            <div className="flex items-center gap-2 text-slate-500 animate-pulse">
-                <Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...
-            </div>
+            <div className="flex items-center gap-2 text-slate-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
         )}
       </div>
     )
@@ -173,7 +149,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
 
   // 2. GAME OVER
   if (gameState === 'finished') {
-     const myRankIndex = participants.findIndex(p => p.id === initialParticipant?.id)
+    const myRankIndex = participants.findIndex(p => p.id === initialParticipant?.id)
     const myRank = myRankIndex + 1
     const totalPlayers = participants.length
     
@@ -201,9 +177,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white space-y-8 p-4">
         <div className="text-center space-y-4 animate-in zoom-in duration-500">
             <div className="flex justify-center mb-4">{icon}</div>
-            <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>
-                {endMessage}
-            </h1>
+            <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>{endMessage}</h1>
             <p className="text-xl text-slate-400 font-medium">{endSubMessage}</p>
         </div>
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
@@ -244,9 +218,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <header className="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
         <div className="font-mono text-sm tracking-widest text-slate-400">ROOM: <span className="text-white font-bold">{initialRoom.code}</span></div>
-        <div className="absolute left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-bold uppercase text-slate-400">
-          Round {round} / 10
-        </div>
+        <div className="absolute left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-bold uppercase text-slate-400">Round {round} / 10</div>
         <Link href="/" className="text-xs font-bold text-slate-500 hover:text-white flex items-center gap-2"><Home className="w-4 h-4" /></Link>
       </header>
 
@@ -254,10 +226,9 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         <div className="lg:col-span-3 flex flex-col items-center space-y-4 max-w-xl mx-auto w-full">
           <Progress value={(round / 10) * 100} className="h-2 bg-slate-800 [&>div]:bg-yellow-500" />
 
-          {/* --- FIXED HEIGHT CARD CONTAINER --- */}
-          <Card className="w-full bg-white text-slate-900 overflow-hidden shadow-2xl relative border-0 h-[380px] flex flex-col justify-center">
+          {/* --- SLIMMED DOWN CARD CONTAINER (h-[260px]) --- */}
+          <Card className="w-full bg-white text-slate-900 overflow-hidden shadow-2xl relative border-0 h-[260px] flex flex-col justify-center">
             
-            {/* Status Badge */}
             <div className={`absolute top-4 right-4 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 transition-colors duration-300 z-10
               ${hasAnswered 
                   ? (result === 'correct' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')
@@ -267,10 +238,10 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
               <span>{hasAnswered ? (result === 'correct' ? 'Correct' : 'Wrong') : `${potentialPoints} pts`}</span>
             </div>
 
-            <CardContent className="flex flex-col items-center p-8 pt-12 space-y-4 h-full justify-center">
+            <CardContent className="flex flex-col items-center p-6 space-y-3 h-full justify-center">
                
-               {/* 1. IMAGE AREA */}
-               <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
+               {/* 1. SMALLER IMAGE (w-24 h-24) */}
+               <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
                  {player.image_url ? (
                    <>
                      <Image 
@@ -279,13 +250,10 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                         fill 
                         className={`object-cover transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
                         priority 
-                        onLoad={() => setIsImageReady(true)} 
+                        onLoad={() => setIsImageReady(true)}
+                        onError={() => setIsImageReady(true)}
                      />
-                     {!isImageReady && (
-                        <div className="absolute inset-0 bg-slate-200 animate-pulse flex items-center justify-center">
-                            <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
-                        </div>
-                     )}
+                     {!isImageReady && <div className="absolute inset-0 bg-slate-200 animate-pulse flex items-center justify-center"><Loader2 className="w-6 h-6 text-slate-400 animate-spin" /></div>}
                    </>
                  ) : (
                    <div className="w-full h-full flex items-center justify-center text-slate-300"><User /></div>
@@ -293,40 +261,26 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                </div>
 
                {/* 2. TEXT AREA */}
-               <div className={`text-center space-y-1 transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
-                 <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">{player.name}</h2>
-                 <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{player.team} • {player.position}</p>
+               <div className={`text-center space-y-0.5 transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
+                 <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">{player.name}</h2>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{player.team} • {player.position}</p>
                </div>
             </CardContent>
           </Card>
 
-          {/* --- QUAD BOX GRID (2x2) --- */}
+          {/* QUAD BOX GRID */}
           <div className="w-full grid grid-cols-2 gap-3 h-40">
             {roomData.options.map((option: string) => {
                 const isSelected = selectedOption === option
                 const isCorrectAnswer = option === roomData.correct_answer
-                
                 let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" 
-
                 if (hasAnswered) {
-                    if (isSelected) {
-                        btnClass = isCorrectAnswer ? "bg-green-600 text-white border-green-500 ring-2 ring-green-400" : "bg-red-600 text-white border-red-500 ring-2 ring-red-400"
-                    } else if (isCorrectAnswer) {
-                        btnClass = "bg-green-600 text-white border-green-500 opacity-100"
-                    } else {
-                        btnClass = "bg-slate-900 text-slate-600 border-slate-800 opacity-40"
-                    }
+                    if (isSelected) btnClass = isCorrectAnswer ? "bg-green-600 text-white border-green-500 ring-2 ring-green-400" : "bg-red-600 text-white border-red-500 ring-2 ring-red-400"
+                    else if (isCorrectAnswer) btnClass = "bg-green-600 text-white border-green-500 opacity-100"
+                    else btnClass = "bg-slate-900 text-slate-600 border-slate-800 opacity-40"
                 }
-
-                const fontSizeClass = getFontSize(decodeText(option))
-
                 return (
-                  <Button
-                    key={option}
-                    onClick={() => handleGuess(option)}
-                    disabled={hasAnswered || isSubmitting || !isImageReady} 
-                    className={`w-full h-full font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${fontSizeClass}`}
-                  >
+                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isImageReady} className={`w-full h-full font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
                     {decodeText(option)}
                   </Button>
                 )
@@ -336,24 +290,19 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
           <div className="w-full py-2 min-h-[60px]">
             {hasAnswered ? (
                 initialParticipant?.is_host ? (
-                    <Button 
-                        onClick={handleNextRound} 
-                        disabled={!allAnswered || isSubmitting}
-                        className="w-full h-14 text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                    <Button onClick={handleNextRound} disabled={!allAnswered || isSubmitting} className="w-full h-14 text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
                         {allAnswered ? <>Next Player <ArrowRight className="ml-2" /></> : `Waiting for players (${submissions.length}/${participants.length})...`}
                     </Button>
                 ) : (
                     <div className="w-full py-4 text-center text-slate-500 animate-pulse font-mono text-sm border border-slate-800 rounded-lg bg-slate-900/50">
-                        Waiting for host to advance round... ({submissions.length}/${participants.length} ready)
+                        Waiting for host to advance round... ({submissions.length}/{participants.length} ready)
                     </div>
                 )
             ) : null}
           </div>
         </div>
 
-        {/* SIDEBAR (Visible on all screens now) */}
-        {/* FIX: Removed 'hidden' so it stacks at bottom on mobile */}
+        {/* SIDEBAR */}
         <div className="w-full lg:col-span-1">
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden sticky top-24">
             <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800">
