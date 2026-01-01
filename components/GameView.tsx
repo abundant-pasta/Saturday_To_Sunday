@@ -18,6 +18,13 @@ const decodeText = (text: string) => {
   return txt.value
 }
 
+// Helper to adjust font size for long names in the quad box
+const getFontSize = (text: string) => {
+  if (text.length > 20) return "text-xs"
+  if (text.length > 15) return "text-sm"
+  return "text-base"
+}
+
 type GameViewProps = {
   initialRoom: any
   player: any
@@ -43,15 +50,19 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null)
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
+  
+  // --- NEW: Loading State for "Simultaneous Reveal" ---
+  const [isImageReady, setIsImageReady] = useState(false)
 
   // --- POLLING FOR SYNC (Every 2s) ---
   useEffect(() => {
     const fetchGameData = async () => {
-        // 1. Get Room State
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
         
         if (r) {
             if (r.current_round !== round) {
+                // Round Changed!
+                setIsImageReady(false) // Hide content immediately
                 setRound(r.current_round)
                 setRoomData(r)
                 setHasAnswered(false)
@@ -67,11 +78,9 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             }
         }
 
-        // 2. Get Participants
         const { data: p } = await supabase.from('room_participants').select('*').eq('room_id', initialRoom.id).order('score', { ascending: false })
         if (p) setParticipants(p)
 
-        // 3. Get Submissions 
         const currentRoundNum = r ? r.current_round : round
         const { data: s } = await supabase.from('round_submissions').select('*').eq('room_id', initialRoom.id).eq('round_number', currentRoundNum)
         if (s) setSubmissions(s)
@@ -108,7 +117,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     setIsSubmitting(false)
   }
 
-  // --- HANDLER: NEXT ROUND ---
   const handleNextRound = async () => {
     setIsSubmitting(true)
     await advanceRound(initialRoom.code)
@@ -161,9 +169,12 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     )
   }
 
-  // 2. GAME OVER (UPDATED WITH LINKS)
+  // 2. GAME OVER
   if (gameState === 'finished') {
-    const myRankIndex = participants.findIndex(p => p.id === initialParticipant?.id)
+    // ... (Game Over Logic same as before)
+    // For brevity, keeping this collapsed, paste previous Game Over block here or keep what you have.
+    // Let me know if you need me to paste the full Game Over block again.
+     const myRankIndex = participants.findIndex(p => p.id === initialParticipant?.id)
     const myRank = myRankIndex + 1
     const totalPlayers = participants.length
     
@@ -189,8 +200,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white space-y-8 p-4">
-        
-        {/* Dynamic Header */}
         <div className="text-center space-y-4 animate-in zoom-in duration-500">
             <div className="flex justify-center mb-4">{icon}</div>
             <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>
@@ -198,8 +207,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             </h1>
             <p className="text-xl text-slate-400 font-medium">{endSubMessage}</p>
         </div>
-
-        {/* Scoreboard */}
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
             <CardHeader className="text-center border-b border-slate-800">
                 <CardTitle className="text-slate-500 text-xs uppercase tracking-widest">Final Standings</CardTitle>
@@ -216,34 +223,15 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 ))}
             </CardContent>
         </Card>
-
-        {/* --- SUPPORT BUTTONS --- */}
         <div className="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a 
-                href="https://buymeacoffee.com/247highlighter" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 h-14 bg-[#FFDD00] hover:bg-[#FFEA00] text-slate-900 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105"
-            >
+            <a href="https://buymeacoffee.com/247highlighter" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-14 bg-[#FFDD00] hover:bg-[#FFEA00] text-slate-900 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105">
                 <Coffee className="w-5 h-5" /> Buy me a Coffee
             </a>
-            
-            <a 
-                href="https://x.com/ClutchBrowser" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 h-14 bg-black hover:bg-slate-900 text-white border border-slate-800 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105"
-            >
+            <a href="https://x.com/ClutchBrowser" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-14 bg-black hover:bg-slate-900 text-white border border-slate-800 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105">
                 <Twitter className="w-5 h-5 fill-white" /> Follow on X
             </a>
         </div>
-        {/* ----------------------- */}
-
-        {/* Big 'Back Home' Button */}
-        <Button 
-            onClick={() => window.location.href = '/'} 
-            className="w-full max-w-md h-20 text-2xl font-black italic uppercase bg-slate-800 hover:bg-slate-700 text-slate-200 border-2 border-slate-700 hover:border-slate-600 transition-all shadow-xl"
-        >
+        <Button onClick={() => window.location.href = '/'} className="w-full max-w-md h-20 text-2xl font-black italic uppercase bg-slate-800 hover:bg-slate-700 text-slate-200 border-2 border-slate-700 hover:border-slate-600 transition-all shadow-xl">
             <Home className="w-6 h-6 mr-3 mb-1" /> Back to Home Screen
         </Button>
       </div>
@@ -264,11 +252,16 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-3 flex flex-col items-center space-y-6 max-w-2xl mx-auto w-full">
+        <div className="lg:col-span-3 flex flex-col items-center space-y-4 max-w-xl mx-auto w-full">
           <Progress value={(round / 10) * 100} className="h-2 bg-slate-800 [&>div]:bg-yellow-500" />
 
-          <Card className="w-full bg-white text-slate-900 overflow-hidden shadow-2xl relative border-0 min-h-[300px] flex flex-col justify-center">
-            <div className={`absolute top-4 right-4 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 transition-colors duration-300
+          {/* --- FIXED HEIGHT CARD CONTAINER ---
+            This container stays the same size even if content is loading.
+          */}
+          <Card className="w-full bg-white text-slate-900 overflow-hidden shadow-2xl relative border-0 h-[380px] flex flex-col justify-center">
+            
+            {/* Status Badge */}
+            <div className={`absolute top-4 right-4 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 transition-colors duration-300 z-10
               ${hasAnswered 
                   ? (result === 'correct' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')
                   : 'bg-slate-900 text-yellow-400'
@@ -277,25 +270,47 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
               <span>{hasAnswered ? (result === 'correct' ? 'Correct' : 'Wrong') : `${potentialPoints} pts`}</span>
             </div>
 
-            <CardContent className="flex flex-col items-center p-8 pt-12 space-y-4">
-               <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50">
+            <CardContent className="flex flex-col items-center p-8 pt-12 space-y-4 h-full justify-center">
+               
+               {/* 1. IMAGE AREA */}
+               <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
                  {player.image_url ? (
-                   <Image src={player.image_url} alt={player.name} fill className="object-cover" priority />
+                   <>
+                     {/* The "Real" Image */}
+                     <Image 
+                        src={player.image_url} 
+                        alt={player.name} 
+                        fill 
+                        className={`object-cover transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
+                        priority 
+                        onLoad={() => setIsImageReady(true)} // Reveal everything when ready
+                     />
+                     {/* Loading Skeleton (Shows while image fetches) */}
+                     {!isImageReady && (
+                        <div className="absolute inset-0 bg-slate-200 animate-pulse flex items-center justify-center">
+                            <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
+                        </div>
+                     )}
+                   </>
                  ) : (
                    <div className="w-full h-full flex items-center justify-center text-slate-300"><User /></div>
                  )}
                </div>
-               <div className="text-center space-y-1">
+
+               {/* 2. TEXT AREA (Hides until image is ready for "Simultaneous" feel) */}
+               <div className={`text-center space-y-1 transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">{player.name}</h2>
                  <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{player.team} • {player.position}</p>
                </div>
             </CardContent>
           </Card>
 
-          <div className="w-full space-y-3">
+          {/* --- QUAD BOX GRID (2x2) --- */}
+          <div className="w-full grid grid-cols-2 gap-3 h-40">
             {roomData.options.map((option: string) => {
                 const isSelected = selectedOption === option
                 const isCorrectAnswer = option === roomData.correct_answer
+                
                 let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" 
 
                 if (hasAnswered) {
@@ -308,12 +323,15 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                     }
                 }
 
+                // Dynamic Font Size for long names
+                const fontSizeClass = getFontSize(decodeText(option))
+
                 return (
                   <Button
                     key={option}
                     onClick={() => handleGuess(option)}
-                    disabled={hasAnswered || isSubmitting}
-                    className={`w-full h-14 text-lg font-bold uppercase tracking-wide shadow-lg transition-all ${btnClass}`}
+                    disabled={hasAnswered || isSubmitting || !isImageReady} // Prevent clicks if loading
+                    className={`w-full h-full font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${fontSizeClass}`}
                   >
                     {decodeText(option)}
                   </Button>
@@ -321,7 +339,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             })}
           </div>
           
-          <div className="w-full py-2">
+          <div className="w-full py-2 min-h-[60px]">
             {hasAnswered ? (
                 initialParticipant?.is_host ? (
                     <Button 
@@ -333,14 +351,15 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                     </Button>
                 ) : (
                     <div className="w-full py-4 text-center text-slate-500 animate-pulse font-mono text-sm border border-slate-800 rounded-lg bg-slate-900/50">
-                        Waiting for host to advance round... ({submissions.length}/{participants.length} ready)
+                        Waiting for host to advance round... ({submissions.length}/${participants.length} ready)
                     </div>
                 )
             ) : null}
           </div>
         </div>
 
-        <div className="lg:col-span-1">
+        {/* SIDEBAR (Hidden on mobile to save space, visible on large screens) */}
+        <div className="hidden lg:block lg:col-span-1">
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden sticky top-24">
             <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><User className="w-3 h-3" /> Live Standings</h3>
