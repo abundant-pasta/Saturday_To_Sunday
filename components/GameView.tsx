@@ -92,14 +92,16 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   }, [round, initialRoom.id, router])
 
 
-  // --- TIMER ---
+  // --- TIMER (UPDATED) ---
   useEffect(() => {
-    if (gameState !== 'playing' || selectedOption || hasAnswered) return
+    // FIX: Added !isImageReady check. Timer pauses if image is still loading.
+    if (gameState !== 'playing' || selectedOption || hasAnswered || !isImageReady) return
+    
     const timer = setInterval(() => {
       setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
     }, 500)
     return () => clearInterval(timer)
-  }, [selectedOption, gameState, hasAnswered])
+  }, [selectedOption, gameState, hasAnswered, isImageReady]) // Added isImageReady dependency
 
 
   // --- HANDLER: GUESS ---
@@ -171,9 +173,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
 
   // 2. GAME OVER
   if (gameState === 'finished') {
-    // ... (Game Over Logic same as before)
-    // For brevity, keeping this collapsed, paste previous Game Over block here or keep what you have.
-    // Let me know if you need me to paste the full Game Over block again.
      const myRankIndex = participants.findIndex(p => p.id === initialParticipant?.id)
     const myRank = myRankIndex + 1
     const totalPlayers = participants.length
@@ -255,9 +254,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         <div className="lg:col-span-3 flex flex-col items-center space-y-4 max-w-xl mx-auto w-full">
           <Progress value={(round / 10) * 100} className="h-2 bg-slate-800 [&>div]:bg-yellow-500" />
 
-          {/* --- FIXED HEIGHT CARD CONTAINER ---
-            This container stays the same size even if content is loading.
-          */}
+          {/* --- FIXED HEIGHT CARD CONTAINER --- */}
           <Card className="w-full bg-white text-slate-900 overflow-hidden shadow-2xl relative border-0 h-[380px] flex flex-col justify-center">
             
             {/* Status Badge */}
@@ -276,16 +273,14 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
                  {player.image_url ? (
                    <>
-                     {/* The "Real" Image */}
                      <Image 
                         src={player.image_url} 
                         alt={player.name} 
                         fill 
                         className={`object-cover transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
                         priority 
-                        onLoad={() => setIsImageReady(true)} // Reveal everything when ready
+                        onLoad={() => setIsImageReady(true)} 
                      />
-                     {/* Loading Skeleton (Shows while image fetches) */}
                      {!isImageReady && (
                         <div className="absolute inset-0 bg-slate-200 animate-pulse flex items-center justify-center">
                             <Loader2 className="w-8 h-8 text-slate-400 animate-spin" />
@@ -297,7 +292,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                  )}
                </div>
 
-               {/* 2. TEXT AREA (Hides until image is ready for "Simultaneous" feel) */}
+               {/* 2. TEXT AREA */}
                <div className={`text-center space-y-1 transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
                  <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">{player.name}</h2>
                  <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">{player.team} • {player.position}</p>
@@ -323,14 +318,13 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                     }
                 }
 
-                // Dynamic Font Size for long names
                 const fontSizeClass = getFontSize(decodeText(option))
 
                 return (
                   <Button
                     key={option}
                     onClick={() => handleGuess(option)}
-                    disabled={hasAnswered || isSubmitting || !isImageReady} // Prevent clicks if loading
+                    disabled={hasAnswered || isSubmitting || !isImageReady} 
                     className={`w-full h-full font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${fontSizeClass}`}
                   >
                     {decodeText(option)}
@@ -358,8 +352,9 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
           </div>
         </div>
 
-        {/* SIDEBAR (Hidden on mobile to save space, visible on large screens) */}
-        <div className="hidden lg:block lg:col-span-1">
+        {/* SIDEBAR (Visible on all screens now) */}
+        {/* FIX: Removed 'hidden' so it stacks at bottom on mobile */}
+        <div className="w-full lg:col-span-1">
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden sticky top-24">
             <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><User className="w-3 h-3" /> Live Standings</h3>
