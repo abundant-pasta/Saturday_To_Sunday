@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { User, Clock, Home, Loader2, Play, ArrowRight, Check, Trophy, Frown, Medal, Coffee, Twitter } from 'lucide-react'
+import { User, Clock, Home, Loader2, Play, ArrowRight, Check, Trophy, Frown, Medal, Coffee, Twitter, X } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -45,11 +45,9 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
   
-  // Start as FALSE so we default to skeleton
   const [isImageReady, setIsImageReady] = useState(false)
 
   // --- 1. CRITICAL FIX: RESET ON PLAYER CHANGE ---
-  // This ensures we hide content INSTANTLY when a new player prop arrives.
   useEffect(() => {
     setIsImageReady(false)
   }, [player.id, player.image_url])
@@ -72,7 +70,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
         if (r) {
             if (r.current_round !== round) {
-                // Round Changed!
                 setRound(r.current_round)
                 setRoomData(r)
                 setHasAnswered(false)
@@ -81,10 +78,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 setPotentialPoints(100)
                 setIsSubmitting(false)
                 setSubmissions([]) 
-                
-                // IMPORTANT: removed setIsImageReady(false) from here.
-                // We let the useEffect above handle it when the data actually updates.
-                
                 router.refresh() 
             } else {
                 setGameState(r.game_state)
@@ -241,14 +234,37 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
           {/* SLIMMED DOWN CARD CONTAINER */}
           <Card className="w-full bg-white text-slate-900 overflow-hidden shadow-2xl relative border-0 h-[260px] flex flex-col justify-center">
             
-            <div className={`absolute top-4 right-4 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 transition-colors duration-300 z-10
-              ${hasAnswered 
-                  ? (result === 'correct' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')
-                  : 'bg-slate-900 text-yellow-400'
-              }`}>
-              {hasAnswered ? (result === 'correct' ? <Check className="w-3 h-3"/> : <span className="text-xs">X</span>) : <Clock className="w-3 h-3" />}
-              <span>{hasAnswered ? (result === 'correct' ? 'Correct' : 'Wrong') : `${potentialPoints} pts`}</span>
+            {/* --- UPDATED HUD --- */}
+            <div className="absolute top-4 right-4 flex flex-col items-end gap-1 z-10">
+                {/* 1. POINTS BADGE (Always Visible) */}
+                <div className={`text-xs font-black px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm transition-all animate-in slide-in-from-right duration-300
+                    ${hasAnswered
+                        ? (result === 'correct' ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
+                        : 'bg-slate-900 text-yellow-400'
+                    }`}>
+                    {hasAnswered ? (
+                        // Score Result
+                        <span className="text-sm">
+                            {result === 'correct' ? `+${potentialPoints} PTS` : '+0 PTS'}
+                        </span>
+                    ) : (
+                        // Timer / Potential
+                        <>
+                            <Clock className="w-3 h-3" />
+                            <span>{potentialPoints} PTS</span>
+                        </>
+                    )}
+                </div>
+
+                {/* 2. RESULT LABEL (Pops in below) */}
+                {hasAnswered && (
+                    <div className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded animate-in zoom-in
+                        ${result === 'correct' ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}>
+                        {result === 'correct' ? 'CORRECT' : 'WRONG'}
+                    </div>
+                )}
             </div>
+            {/* ------------------- */}
 
             <CardContent className="flex flex-col items-center p-6 space-y-3 h-full justify-center">
                
@@ -256,7 +272,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
                  {player.image_url ? (
                    <>
-                     {/* KEY matches the URL. When this changes, it destroys the old image component. */}
                      <Image 
                         key={player.image_url} 
                         src={player.image_url} 
