@@ -45,11 +45,17 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
   
-  // Start as FALSE to ensure it's hidden until loaded
+  // Start as FALSE so we default to skeleton
   const [isImageReady, setIsImageReady] = useState(false)
 
+  // --- 1. CRITICAL FIX: RESET ON PLAYER CHANGE ---
+  // This ensures we hide content INSTANTLY when a new player prop arrives.
+  useEffect(() => {
+    setIsImageReady(false)
+  }, [player.id, player.image_url])
+
+
   // --- FAILSAFE TIMER ---
-  // Forces image to show after 3s if it gets stuck loading
   useEffect(() => {
     let timer: NodeJS.Timeout
     if (!isImageReady && gameState === 'playing') {
@@ -67,7 +73,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         if (r) {
             if (r.current_round !== round) {
                 // Round Changed!
-                setIsImageReady(false) // Hide immediately
                 setRound(r.current_round)
                 setRoomData(r)
                 setHasAnswered(false)
@@ -76,7 +81,11 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 setPotentialPoints(100)
                 setIsSubmitting(false)
                 setSubmissions([]) 
-                router.refresh() // Fetch new player data
+                
+                // IMPORTANT: removed setIsImageReady(false) from here.
+                // We let the useEffect above handle it when the data actually updates.
+                
+                router.refresh() 
             } else {
                 setGameState(r.game_state)
                 setRoomData(r)
@@ -88,7 +97,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         const { data: s } = await supabase.from('round_submissions').select('*').eq('room_id', initialRoom.id).eq('round_number', currentRoundNum)
         if (s) setSubmissions(s)
     }
-    // Poll every 2 seconds
     const interval = setInterval(fetchGameData, 2000)
     return () => clearInterval(interval)
   }, [round, initialRoom.id, router])
@@ -248,7 +256,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
                  {player.image_url ? (
                    <>
-                     {/* ADDED KEY: This forces the image to unmount/remount when URL changes, preventing the 'flicker' */}
+                     {/* KEY matches the URL. When this changes, it destroys the old image component. */}
                      <Image 
                         key={player.image_url} 
                         src={player.image_url} 
