@@ -44,9 +44,12 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null)
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
+  
+  // Start as FALSE to ensure it's hidden until loaded
   const [isImageReady, setIsImageReady] = useState(false)
 
   // --- FAILSAFE TIMER ---
+  // Forces image to show after 3s if it gets stuck loading
   useEffect(() => {
     let timer: NodeJS.Timeout
     if (!isImageReady && gameState === 'playing') {
@@ -55,7 +58,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
       }, 3000)
     }
     return () => clearTimeout(timer)
-  }, [isImageReady, gameState, round])
+  }, [isImageReady, gameState])
 
   // --- POLLING ---
   useEffect(() => {
@@ -63,7 +66,8 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
         if (r) {
             if (r.current_round !== round) {
-                setIsImageReady(false) 
+                // Round Changed!
+                setIsImageReady(false) // Hide immediately
                 setRound(r.current_round)
                 setRoomData(r)
                 setHasAnswered(false)
@@ -72,7 +76,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 setPotentialPoints(100)
                 setIsSubmitting(false)
                 setSubmissions([]) 
-                router.refresh()
+                router.refresh() // Fetch new player data
             } else {
                 setGameState(r.game_state)
                 setRoomData(r)
@@ -84,7 +88,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         const { data: s } = await supabase.from('round_submissions').select('*').eq('room_id', initialRoom.id).eq('round_number', currentRoundNum)
         if (s) setSubmissions(s)
     }
-    fetchGameData()
+    // Poll every 2 seconds
     const interval = setInterval(fetchGameData, 2000)
     return () => clearInterval(interval)
   }, [round, initialRoom.id, router])
@@ -226,7 +230,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         <div className="lg:col-span-3 flex flex-col items-center space-y-4 max-w-xl mx-auto w-full">
           <Progress value={(round / 10) * 100} className="h-2 bg-slate-800 [&>div]:bg-yellow-500" />
 
-          {/* --- SLIMMED DOWN CARD CONTAINER (h-[260px]) --- */}
+          {/* SLIMMED DOWN CARD CONTAINER */}
           <Card className="w-full bg-white text-slate-900 overflow-hidden shadow-2xl relative border-0 h-[260px] flex flex-col justify-center">
             
             <div className={`absolute top-4 right-4 text-xs font-black px-3 py-1 rounded-full flex items-center gap-1 transition-colors duration-300 z-10
@@ -240,11 +244,13 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
 
             <CardContent className="flex flex-col items-center p-6 space-y-3 h-full justify-center">
                
-               {/* 1. SMALLER IMAGE (w-24 h-24) */}
+               {/* 1. IMAGE AREA */}
                <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 shadow-inner bg-slate-50 shrink-0">
                  {player.image_url ? (
                    <>
+                     {/* ADDED KEY: This forces the image to unmount/remount when URL changes, preventing the 'flicker' */}
                      <Image 
+                        key={player.image_url} 
                         src={player.image_url} 
                         alt={player.name} 
                         fill 
