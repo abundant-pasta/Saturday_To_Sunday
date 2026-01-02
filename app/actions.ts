@@ -23,7 +23,6 @@ function getSimilarDistractors(correctCollege: string, allColleges: string[]) {
 }
 
 // --- 1. CREATE ROOM ---
-// FIXED: Changed signature to accept 'string' instead of 'FormData'
 export async function createRoom(hostName: string) {
   const supabase = await createClient()
   const safeHostName = hostName || 'Host'
@@ -168,4 +167,37 @@ export async function advanceRound(roomCode: string) {
 
   revalidatePath(`/room/${roomCode}`)
   return { success: true }
+}
+
+// --- 6. ADMIN FUNCTIONS (ADDED BACK) ---
+export async function deletePlayer(playerId: string) {
+  const supabase = await createClient()
+  
+  const { error } = await supabase
+    .from('players')
+    .delete()
+    .eq('id', playerId)
+
+  if (error) {
+    console.error('Error deleting player:', error)
+    throw new Error('Failed to delete player')
+  }
+
+  revalidatePath('/admin')
+}
+
+export async function updatePlayerImage(playerId: string, imageUrl: string) {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('players')
+    .update({ image_url: imageUrl })
+    .eq('id', playerId)
+
+  if (error) {
+    console.error('Error updating player image:', error)
+    throw new Error('Failed to update player image')
+  }
+
+  revalidatePath('/admin')
 }
