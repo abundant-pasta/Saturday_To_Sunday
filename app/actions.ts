@@ -2,6 +2,8 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+// IMPORT YOUR NEW LOGIC HERE:
+import { getSimilarDistractors } from '@/lib/conferences'
 
 // --- Helper: Generate Random Room Code ---
 function generateRoomCode() {
@@ -13,11 +15,7 @@ function generateRoomCode() {
   return result
 }
 
-// --- Helper: Distractors ---
-function getSimilarDistractors(correctCollege: string, allColleges: string[]) {
-  const pool = allColleges.filter(c => c && c !== correctCollege)
-  return pool.sort(() => 0.5 - Math.random()).slice(0, 3)
-}
+// (Removed the inlined getSimilarDistractors function since we import it now)
 
 // --- 1. CREATE ROOM ---
 export async function createRoom(hostName: string) {
@@ -32,10 +30,13 @@ export async function createRoom(hostName: string) {
   
   if (!p) throw new Error("Failed to pick a player")
 
-  // Generate Options
+  // Generate REALISTIC Options using your new lib
   const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
+  
+  // LOGIC UPGRADE:
   const wrongColleges = getSimilarDistractors(p.college, collegeList)
+  
   const options = [p.college, ...wrongColleges].sort(() => 0.5 - Math.random())
   const roomCode = generateRoomCode() 
 
@@ -71,8 +72,7 @@ export async function createRoom(hostName: string) {
   return { success: true, code: room.code, playerId: participant.id }
 }
 
-// --- 2. JOIN ROOM (FIXED SIGNATURE) ---
-// Changed from expecting FormData to expecting two strings
+// --- 2. JOIN ROOM ---
 export async function joinRoom(roomCode: string, playerName: string) {
   const supabase = await createClient()
   const safeName = playerName || 'Player'
@@ -155,9 +155,12 @@ export async function advanceRound(roomCode: string) {
   const nextPlayer = players?.[0]
 
   if (nextPlayer) {
+    // LOGIC UPGRADE: Use the new realistic logic
     const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
     const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
+    
     const wrong = getSimilarDistractors(nextPlayer.college, collegeList)
+    
     const nextOptions = [nextPlayer.college, ...wrong].sort(() => 0.5 - Math.random())
 
     await supabase.from('rooms').update({

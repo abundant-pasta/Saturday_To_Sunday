@@ -1,30 +1,48 @@
-import type { Metadata, Viewport } from "next"; // <--- Import Viewport
-import { Inter } from "next/font/google"; 
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import './globals.css'
+import Script from 'next/script'
+import { Analytics } from '@vercel/analytics/react'
 
-const inter = Inter({ subsets: ["latin"] }); 
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+})
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
-  title: "Saturday to Sunday",
-  description: "The ultimate college-to-pro football trivia game.",
-};
-
-// --- NEW VIEWPORT SETTING ---
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false, // This stops the zooming
+  title: 'Saturday to Sunday',
+  description: 'Test your College Football knowledge.',
 }
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <head>
+        {/* Google AdSense Script */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE" // <--- REMEMBER TO PASTE YOUR ID HERE
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+        
+        {/* Vercel Analytics */}
+        <Analytics />
+      </body>
     </html>
-  );
+  )
 }
