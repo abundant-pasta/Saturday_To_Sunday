@@ -159,3 +159,19 @@ export async function advanceRound(roomCode: string) {
   revalidatePath(`/room/${roomCode}`)
   return { success: true }
 }
+
+// ... existing code ...
+
+// --- ADMIN TOOLS ---
+
+export async function deletePlayer(playerId: string) {
+  const supabase = await createClient()
+  await supabase.from('players').delete().eq('id', playerId)
+  revalidatePath('/admin')
+}
+
+export async function updatePlayerImage(playerId: string, newUrl: string) {
+  const supabase = await createClient()
+  await supabase.from('players').update({ image_url: newUrl }).eq('id', playerId)
+  revalidatePath('/admin')
+}
