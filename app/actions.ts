@@ -3,8 +3,8 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getSimilarDistractors } from '@/lib/conferences'
 
+// --- Helper: Generate Random Room Code ---
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   let result = ''
@@ -14,16 +14,26 @@ function generateRoomCode() {
   return result
 }
 
+// --- Helper: Distractors (Inlined for safety) ---
+function getSimilarDistractors(correctCollege: string, allColleges: string[]) {
+  // Filter out the correct answer and empty values
+  const pool = allColleges.filter(c => c && c !== correctCollege)
+  // Shuffle and pick 3
+  return pool.sort(() => 0.5 - Math.random()).slice(0, 3)
+}
+
 // --- 1. CREATE ROOM ---
-export async function createRoom(formData: FormData) {
+// FIXED: Changed signature to accept 'string' instead of 'FormData'
+export async function createRoom(hostName: string) {
   const supabase = await createClient()
-  const playerName = formData.get('playerName') as string || 'Host'
+  const safeHostName = hostName || 'Host'
 
   // Fetch initial player
   const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
   const randomOffset = Math.floor(Math.random() * (count || 100))
   const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)
   const p = players?.[0]
+  
   if (!p) throw new Error("Failed to pick a player")
 
   // Generate Options
@@ -45,21 +55,24 @@ export async function createRoom(formData: FormData) {
       current_player_id: p.id,
       correct_answer: p.college,
       options: options,
-      host_name: playerName 
+      host_name: safeHostName 
     })
     .select()
     .single()
 
-  if (error) throw new Error('Failed to create room')
+  if (error) {
+    console.error("Room Creation Error:", error)
+    throw new Error('Failed to create room')
+  }
 
   // Add Host
   const { data: participant } = await supabase
     .from('room_participants')
-    .insert({ room_id: room.id, name: playerName, is_host: true })
+    .insert({ room_id: room.id, name: safeHostName, is_host: true })
     .select()
     .single()
 
-  // FIX: Standardized to 'playerId' (no more 'pid')
+  // Redirect
   redirect(`/room/${room.code}?playerId=${participant.id}`) 
 }
 
@@ -80,7 +93,6 @@ export async function joinRoom(formData: FormData) {
     .select()
     .single()
 
-  // FIX: Standardized to 'playerId'
   redirect(`/room/${room.code}?playerId=${participant.id}`)
 }
 
@@ -109,10 +121,10 @@ export async function submitAnswer(roomCode: string, participantId: string, answ
     }
   }
 
-  // FIX: Using 'player_id' to match your database column name
+  // Record Submission
   await supabase.from('round_submissions').insert({
     room_id: room.id,
-    player_id: participantId, // <--- CHANGED FROM participant_id
+    player_id: participantId,
     round_number: room.current_round
   })
 
@@ -127,12 +139,14 @@ export async function advanceRound(roomCode: string) {
   const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
   if (!room) return
 
+  // Check Game Over
   if (room.current_round >= room.total_rounds) {
     await supabase.from('rooms').update({ game_state: 'finished' }).eq('id', room.id)
     revalidatePath(`/room/${roomCode}`)
     return { gameOver: true }
   }
 
+  // Get Next Player
   const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
   const randomOffset = Math.floor(Math.random() * (count || 100))
   const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)

@@ -30,7 +30,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (Critical for security)
 .env*
 
 # vercel
@@ -42,3 +42,8 @@ next-env.d.ts
 
 # keys
 scripts/config.py
+
+# --- PYTHON SPECIFIC (Add this!) ---
+venv/
+__pycache__/
+*.pyc
