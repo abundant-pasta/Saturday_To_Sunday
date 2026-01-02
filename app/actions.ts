@@ -2,7 +2,6 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-// Removed 'redirect' import as we are returning data instead
 
 // --- Helper: Generate Random Room Code ---
 function generateRoomCode() {
@@ -14,7 +13,7 @@ function generateRoomCode() {
   return result
 }
 
-// --- Helper: Distractors (Inlined for safety) ---
+// --- Helper: Distractors ---
 function getSimilarDistractors(correctCollege: string, allColleges: string[]) {
   const pool = allColleges.filter(c => c && c !== correctCollege)
   return pool.sort(() => 0.5 - Math.random()).slice(0, 3)
@@ -69,28 +68,33 @@ export async function createRoom(hostName: string) {
     .select()
     .single()
 
-  // FIXED: Return data object instead of redirecting
   return { success: true, code: room.code, playerId: participant.id }
 }
 
-// --- 2. JOIN ROOM ---
-export async function joinRoom(formData: FormData) {
+// --- 2. JOIN ROOM (FIXED SIGNATURE) ---
+// Changed from expecting FormData to expecting two strings
+export async function joinRoom(roomCode: string, playerName: string) {
   const supabase = await createClient()
-  const code = formData.get('code') as string
-  const playerName = formData.get('playerName') as string || 'Player'
+  const safeName = playerName || 'Player'
 
-  if (!code) return { success: false, error: 'No code provided' }
+  if (!roomCode) return { success: false, error: 'No code provided' }
 
-  const { data: room } = await supabase.from('rooms').select('id, code').eq('code', code.toUpperCase()).single()
+  // Check if room exists
+  const { data: room } = await supabase.from('rooms').select('id, code').eq('code', roomCode.toUpperCase()).single()
   if (!room) return { success: false, error: 'Room not found' }
 
-  const { data: participant } = await supabase
+  // Add participant
+  const { data: participant, error: joinError } = await supabase
     .from('room_participants')
-    .insert({ room_id: room.id, name: playerName, is_host: false })
+    .insert({ room_id: room.id, name: safeName, is_host: false })
     .select()
     .single()
 
-  // FIXED: Return data object instead of redirecting
+  if (joinError) {
+    console.error('Error joining room:', joinError)
+    return { success: false, error: 'Failed to join room' }
+  }
+
   return { success: true, code: room.code, playerId: participant.id }
 }
 
@@ -171,32 +175,20 @@ export async function advanceRound(roomCode: string) {
 // --- 6. ADMIN FUNCTIONS ---
 export async function deletePlayer(playerId: string) {
   const supabase = await createClient()
-  
-  const { error } = await supabase
-    .from('players')
-    .delete()
-    .eq('id', playerId)
-
+  const { error } = await supabase.from('players').delete().eq('id', playerId)
   if (error) {
     console.error('Error deleting player:', error)
     throw new Error('Failed to delete player')
   }
-
   revalidatePath('/admin')
 }
 
 export async function updatePlayerImage(playerId: string, imageUrl: string) {
   const supabase = await createClient()
-
-  const { error } = await supabase
-    .from('players')
-    .update({ image_url: imageUrl })
-    .eq('id', playerId)
-
+  const { error } = await supabase.from('players').update({ image_url: imageUrl }).eq('id', playerId)
   if (error) {
     console.error('Error updating player image:', error)
     throw new Error('Failed to update player image')
   }
-
   revalidatePath('/admin')
 }
