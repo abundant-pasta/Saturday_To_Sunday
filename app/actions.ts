@@ -1,8 +1,8 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { getSimilarDistractors } from '@/lib/conferences'
 
 function generateRoomCode() {
@@ -19,27 +19,28 @@ export async function createRoom(formData: FormData) {
   const supabase = await createClient()
   const playerName = formData.get('playerName') as string || 'Host'
 
-  // Fetch initial player (Same as before)
+  // Fetch initial player
   const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
   const randomOffset = Math.floor(Math.random() * (count || 100))
   const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)
   const p = players?.[0]
   if (!p) throw new Error("Failed to pick a player")
 
+  // Generate Options
   const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
   const wrongColleges = getSimilarDistractors(p.college, collegeList)
   const options = [p.college, ...wrongColleges].sort(() => 0.5 - Math.random())
   const roomCode = generateRoomCode() 
 
-  // A. Create Room
+  // Create Room
   const { data: room, error } = await supabase
     .from('rooms')
     .insert({
       code: roomCode, 
       current_round: 1,
       total_rounds: 10,
-      score: 0, // Legacy field, ignored now
+      score: 0,
       game_state: 'waiting',
       current_player_id: p.id,
       correct_answer: p.college,
@@ -51,15 +52,15 @@ export async function createRoom(formData: FormData) {
 
   if (error) throw new Error('Failed to create room')
 
-  // B. Add Host as Participant
+  // Add Host
   const { data: participant } = await supabase
     .from('room_participants')
     .insert({ room_id: room.id, name: playerName, is_host: true })
     .select()
     .single()
 
-  // Redirect with PID (Participant ID) so we know who is who
-  redirect(`/room/${room.code}?pid=${participant.id}`) 
+  // FIX: Standardized to 'playerId' (no more 'pid')
+  redirect(`/room/${room.code}?playerId=${participant.id}`) 
 }
 
 // --- 2. JOIN ROOM ---
@@ -70,18 +71,17 @@ export async function joinRoom(formData: FormData) {
 
   if (!code) return
 
-  // Find Room
   const { data: room } = await supabase.from('rooms').select('id, code').eq('code', code.toUpperCase()).single()
   if (!room) throw new Error("Room not found")
 
-  // Add Participant
   const { data: participant } = await supabase
     .from('room_participants')
     .insert({ room_id: room.id, name: playerName, is_host: false })
     .select()
     .single()
 
-  redirect(`/room/${room.code}?pid=${participant.id}`)
+  // FIX: Standardized to 'playerId'
+  redirect(`/room/${room.code}?playerId=${participant.id}`)
 }
 
 // --- 3. START GAME ---
@@ -91,7 +91,7 @@ export async function startGame(roomCode: string) {
   revalidatePath(`/room/${roomCode}`)
 }
 
-// --- 4. SUBMIT ANSWER (Does NOT advance round anymore) ---
+// --- 4. SUBMIT ANSWER ---
 export async function submitAnswer(roomCode: string, participantId: string, answer: string, points: number) {
   const supabase = await createClient()
 
@@ -103,18 +103,16 @@ export async function submitAnswer(roomCode: string, participantId: string, answ
 
   // Update Participant Score
   if (pointsToAdd > 0) {
-    // We need to fetch current score first to increment safely, or use an RPC. 
-    // For simplicity, we'll just fetch-update.
     const { data: p } = await supabase.from('room_participants').select('score').eq('id', participantId).single()
     if (p) {
         await supabase.from('room_participants').update({ score: p.score + pointsToAdd }).eq('id', participantId)
     }
   }
 
-  // Mark as Submitted for this round
+  // FIX: Using 'player_id' to match your database column name
   await supabase.from('round_submissions').insert({
     room_id: room.id,
-    participant_id: participantId,
+    player_id: participantId, // <--- CHANGED FROM participant_id
     round_number: room.current_round
   })
 
@@ -122,21 +120,19 @@ export async function submitAnswer(roomCode: string, participantId: string, answ
   return { isCorrect, waiting: true }
 }
 
-// --- 5. ADVANCE ROUND (Host Only) ---
+// --- 5. ADVANCE ROUND ---
 export async function advanceRound(roomCode: string) {
   const supabase = await createClient()
 
   const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
   if (!room) return
 
-  // Check Game Over
   if (room.current_round >= room.total_rounds) {
     await supabase.from('rooms').update({ game_state: 'finished' }).eq('id', room.id)
     revalidatePath(`/room/${roomCode}`)
     return { gameOver: true }
   }
 
-  // Setup Next Player
   const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
   const randomOffset = Math.floor(Math.random() * (count || 100))
   const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)
@@ -158,20 +154,4 @@ export async function advanceRound(roomCode: string) {
 
   revalidatePath(`/room/${roomCode}`)
   return { success: true }
-}
-
-// ... existing code ...
-
-// --- ADMIN TOOLS ---
-
-export async function deletePlayer(playerId: string) {
-  const supabase = await createClient()
-  await supabase.from('players').delete().eq('id', playerId)
-  revalidatePath('/admin')
-}
-
-export async function updatePlayerImage(playerId: string, newUrl: string) {
-  const supabase = await createClient()
-  await supabase.from('players').update({ image_url: newUrl }).eq('id', playerId)
-  revalidatePath('/admin')
 }

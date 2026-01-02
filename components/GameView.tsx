@@ -8,14 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { User, Home, Loader2, Play, ArrowRight, Trophy, Frown, Medal, Coffee, Twitter } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import PlayerCard from './PlayerCard' // Import the new component
+import { useRouter, useSearchParams } from 'next/navigation'
+import PlayerCard from './PlayerCard' 
 
 const decodeText = (text: string) => {
   if (!text) return ''
-  const txt = document.createElement("textarea")
-  txt.innerHTML = text
-  return txt.value
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const txt = document.createElement("textarea")
+      txt.innerHTML = text
+      return txt.value
+  }
+  return text
 }
 
 const getFontSize = (text: string) => {
@@ -32,8 +35,12 @@ type GameViewProps = {
 
 export default function GameView({ initialRoom, player, initialParticipant }: GameViewProps) {
   const router = useRouter()
+  const searchParams = useSearchParams() 
   const supabase = createClient()
   
+  // FIX: Use URL ID if available to prevent identity loss on refresh
+  const playerId = searchParams.get('playerId') || initialParticipant?.id
+
   const [gameState, setGameState] = useState(initialRoom.game_state) 
   const [round, setRound] = useState(initialRoom.current_round)
   const [roomData, setRoomData] = useState(initialRoom)
@@ -45,10 +52,19 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
   
-  // NOTE: We removed isImageReady and useEffects related to images. 
-  // That is now handled 100% by <PlayerCard />
+  // FIX: Keep isCardReady to prevent the "flicker" glitch
+  const [isCardReady, setIsCardReady] = useState(false)
 
-  // --- POLLING ---
+  // Determine Host Status
+  const myself = participants.find(p => p.id === playerId)
+  const isHost = myself?.is_host || initialParticipant?.is_host
+
+  // Reset ready state immediately when player changes (Fixes flicker)
+  useEffect(() => {
+    setIsCardReady(false)
+  }, [player.id])
+
+  // --- POLLING (Restored to your original logic) ---
   useEffect(() => {
     const fetchGameData = async () => {
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
@@ -79,16 +95,17 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     return () => clearInterval(interval)
   }, [round, initialRoom.id, router])
 
-  // --- TIMER ---
+  // --- TIMER (Linked to isCardReady) ---
   useEffect(() => {
-    if (gameState !== 'playing' || selectedOption || hasAnswered) return // Removed isImageReady check
+    // Only run timer if card is loaded
+    if (gameState !== 'playing' || selectedOption || hasAnswered || !isCardReady) return 
     const timer = setInterval(() => {
       setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
     }, 500)
     return () => clearInterval(timer)
-  }, [selectedOption, gameState, hasAnswered])
+  }, [selectedOption, gameState, hasAnswered, isCardReady])
 
-  // --- HANDLERS ---
+  // --- HANDLERS (Restored to your original logic) ---
   const handleGuess = async (college: string) => {
     if (isSubmitting || selectedOption || hasAnswered) return 
     setIsSubmitting(true)
@@ -96,7 +113,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     const isCorrect = college === roomData.correct_answer
     setResult(isCorrect ? 'correct' : 'wrong')
     setHasAnswered(true) 
-    await submitAnswer(initialRoom.code, initialParticipant?.id, college, potentialPoints)
+    await submitAnswer(initialRoom.code, playerId, college, potentialPoints)
     setIsSubmitting(false)
   }
 
@@ -105,6 +122,9 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     await advanceRound(initialRoom.code)
     setIsSubmitting(false)
   }
+
+  // --- CALCULATION (Restored to your original logic) ---
+  const allAnswered = participants.length > 0 && submissions.length >= participants.length
 
   // 1. LOBBY
   if (gameState === 'waiting') {
@@ -126,7 +146,8 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 ))}
             </CardContent>
         </Card>
-        {initialParticipant?.is_host ? (
+        
+        {isHost ? (
              <Button size="lg" className="w-full max-w-md h-16 text-xl font-bold uppercase bg-green-600 hover:bg-green-700" onClick={async () => { await startGame(initialRoom.code) }}>
              <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
            </Button>
@@ -139,7 +160,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
 
   // 2. GAME OVER
   if (gameState === 'finished') {
-    const myRankIndex = participants.findIndex(p => p.id === initialParticipant?.id)
+    const myRankIndex = participants.findIndex(p => p.id === playerId)
     const myRank = myRankIndex + 1
     const totalPlayers = participants.length
     
@@ -176,10 +197,10 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             </CardHeader>
             <CardContent className="p-0">
                 {participants.map((p, i) => (
-                    <div key={p.id} className={`flex justify-between items-center p-4 border-b border-slate-800 last:border-0 ${p.id === initialParticipant?.id ? 'bg-blue-900/20' : ''}`}>
+                    <div key={p.id} className={`flex justify-between items-center p-4 border-b border-slate-800 last:border-0 ${p.id === playerId ? 'bg-blue-900/20' : ''}`}>
                         <div className="flex items-center gap-3">
                             <span className={`font-black text-xl w-6 ${i === 0 ? 'text-yellow-400' : 'text-slate-500'}`}>#{i+1}</span>
-                            <span className={`font-bold ${p.id === initialParticipant?.id ? 'text-white' : 'text-slate-300'}`}>{p.name} {p.id === initialParticipant?.id && '(You)'}</span>
+                            <span className={`font-bold ${p.id === playerId ? 'text-white' : 'text-slate-300'}`}>{p.name} {p.id === playerId && '(You)'}</span>
                         </div>
                         <span className="font-mono font-bold text-yellow-400">{p.score} pts</span>
                     </div>
@@ -202,8 +223,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   }
 
   // 3. PLAYING
-  const allAnswered = participants.length > 0 && submissions.length >= participants.length
-  
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       <header className="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
@@ -216,18 +235,14 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
         <div className="lg:col-span-3 flex flex-col items-center space-y-4 max-w-xl mx-auto w-full">
           <Progress value={(round / 10) * 100} className="h-2 bg-slate-800 [&>div]:bg-yellow-500" />
 
-          {/* KEY PROP STRATEGY: 
-             We pass `key={player.id || round}`. 
-             When this changes, React TRASHES the old PlayerCard and builds a new one.
-             This forces the new card to start at "Loading: true" every single time.
-             No hydration flickering possible.
-          */}
+          {/* PlayerCard Component */}
           <PlayerCard 
             key={player.id || round} 
             player={player} 
             hasAnswered={hasAnswered} 
             result={result} 
-            potentialPoints={potentialPoints} 
+            potentialPoints={potentialPoints}
+            onReady={() => setIsCardReady(true)}
           />
 
           {/* QUAD BOX GRID */}
@@ -242,7 +257,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                     else btnClass = "bg-slate-900 text-slate-600 border-slate-800 opacity-40"
                 }
                 return (
-                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting} className={`w-full h-full font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
+                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isCardReady} className={`w-full h-full font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
                     {decodeText(option)}
                   </Button>
                 )
@@ -251,7 +266,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
           
           <div className="w-full py-2 min-h-[60px]">
             {hasAnswered ? (
-                initialParticipant?.is_host ? (
+                isHost ? (
                     <Button onClick={handleNextRound} disabled={!allAnswered || isSubmitting} className="w-full h-14 text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
                         {allAnswered ? <>Next Player <ArrowRight className="ml-2" /></> : `Waiting for players (${submissions.length}/${participants.length})...`}
                     </Button>
@@ -272,10 +287,10 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             </div>
             <div className="p-2 space-y-1">
               {participants.map((p, i) => (
-                  <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg border ${p.id === initialParticipant?.id ? 'bg-blue-900/20 border-blue-900/50' : 'bg-slate-800/20 border-transparent'}`}>
+                  <div key={p.id} className={`flex items-center justify-between p-3 rounded-lg border ${p.id === playerId ? 'bg-blue-900/20 border-blue-900/50' : 'bg-slate-800/20 border-transparent'}`}>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-black text-yellow-500">#{i+1}</span>
-                      <span className={`text-sm font-bold ${p.id === initialParticipant?.id ? 'text-blue-200' : 'text-slate-300'}`}>{p.name}</span>
+                      <span className={`text-sm font-bold ${p.id === playerId ? 'text-blue-200' : 'text-slate-300'}`}>{p.name}</span>
                     </div>
                     <span className="text-sm font-mono font-bold text-white">{p.score}</span>
                   </div>
