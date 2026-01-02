@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
+// Removed 'redirect' import as we are returning data instead
 
 // --- Helper: Generate Random Room Code ---
 function generateRoomCode() {
@@ -16,9 +16,7 @@ function generateRoomCode() {
 
 // --- Helper: Distractors (Inlined for safety) ---
 function getSimilarDistractors(correctCollege: string, allColleges: string[]) {
-  // Filter out the correct answer and empty values
   const pool = allColleges.filter(c => c && c !== correctCollege)
-  // Shuffle and pick 3
   return pool.sort(() => 0.5 - Math.random()).slice(0, 3)
 }
 
@@ -71,8 +69,8 @@ export async function createRoom(hostName: string) {
     .select()
     .single()
 
-  // Redirect
-  redirect(`/room/${room.code}?playerId=${participant.id}`) 
+  // FIXED: Return data object instead of redirecting
+  return { success: true, code: room.code, playerId: participant.id }
 }
 
 // --- 2. JOIN ROOM ---
@@ -81,10 +79,10 @@ export async function joinRoom(formData: FormData) {
   const code = formData.get('code') as string
   const playerName = formData.get('playerName') as string || 'Player'
 
-  if (!code) return
+  if (!code) return { success: false, error: 'No code provided' }
 
   const { data: room } = await supabase.from('rooms').select('id, code').eq('code', code.toUpperCase()).single()
-  if (!room) throw new Error("Room not found")
+  if (!room) return { success: false, error: 'Room not found' }
 
   const { data: participant } = await supabase
     .from('room_participants')
@@ -92,7 +90,8 @@ export async function joinRoom(formData: FormData) {
     .select()
     .single()
 
-  redirect(`/room/${room.code}?playerId=${participant.id}`)
+  // FIXED: Return data object instead of redirecting
+  return { success: true, code: room.code, playerId: participant.id }
 }
 
 // --- 3. START GAME ---
@@ -169,7 +168,7 @@ export async function advanceRound(roomCode: string) {
   return { success: true }
 }
 
-// --- 6. ADMIN FUNCTIONS (ADDED BACK) ---
+// --- 6. ADMIN FUNCTIONS ---
 export async function deletePlayer(playerId: string) {
   const supabase = await createClient()
   
