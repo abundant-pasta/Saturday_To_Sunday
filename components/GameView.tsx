@@ -138,7 +138,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   // 1. LOBBY
   if (gameState === 'waiting') {
     return (
-      <div className="flex flex-col items-center min-h-screen bg-slate-950 text-white p-4 space-y-8 pt-20">
+      <div className="flex flex-col items-center min-h-[100dvh] bg-slate-950 text-white p-4 space-y-8 pt-20">
          <Link href="/" className="absolute top-4 left-4 text-slate-500 hover:text-white"><Home /></Link>
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Lobby</h1>
@@ -188,10 +188,10 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     }
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white space-y-8 p-4">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-slate-950 text-white space-y-6 p-4">
         <div className="text-center space-y-4 animate-in zoom-in duration-500">
-            <div className="flex justify-center mb-4">{icon}</div>
-            <h1 className={`text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>{endMessage}</h1>
+            <div className="flex justify-center mb-2">{icon}</div>
+            <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>{endMessage}</h1>
         </div>
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
             <CardHeader className="text-center border-b border-slate-800">
@@ -199,7 +199,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             </CardHeader>
             <CardContent className="p-0">
                 {participants.map((p, i) => (
-                    <div key={p.id} className={`flex justify-between items-center p-4 border-b border-slate-800 last:border-0 ${p.id === playerId ? 'bg-blue-900/20' : ''}`}>
+                    <div key={p.id} className={`flex justify-between items-center p-3 md:p-4 border-b border-slate-800 last:border-0 ${p.id === playerId ? 'bg-blue-900/20' : ''}`}>
                         <div className="flex items-center gap-3">
                             <span className={`font-black text-xl w-6 ${i === 0 ? 'text-yellow-400' : 'text-slate-500'}`}>#{i+1}</span>
                             <span className={`font-bold ${p.id === playerId ? 'text-white' : 'text-slate-300'}`}>{p.name} {p.id === playerId && '(You)'}</span>
@@ -210,16 +210,16 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             </CardContent>
         </Card>
 
-        <Button onClick={handleShare} className="w-full max-w-md h-16 text-xl font-black uppercase bg-indigo-600 hover:bg-indigo-500">
-            <Share2 className="w-6 h-6 mr-2" /> Share Score
+        <Button onClick={handleShare} className="w-full max-w-md h-14 md:h-16 text-lg md:text-xl font-black uppercase bg-indigo-600 hover:bg-indigo-500">
+            <Share2 className="w-5 h-5 md:w-6 md:h-6 mr-2" /> Share Score
         </Button>
 
-        <div className="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a href="https://buymeacoffee.com/247highlighter" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-14 bg-[#FFDD00] hover:bg-[#FFEA00] text-slate-900 font-black uppercase rounded-lg shadow-lg">
-                <Coffee className="w-5 h-5" /> Buy me a Coffee
+        <div className="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a href="https://buymeacoffee.com/247highlighter" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-12 md:h-14 bg-[#FFDD00] hover:bg-[#FFEA00] text-slate-900 font-black uppercase rounded-lg shadow-lg">
+                <Coffee className="w-4 h-4 md:w-5 md:h-5" /> Buy me a Coffee
             </a>
-            <a href="https://x.com/ClutchBrowser" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-14 bg-black hover:bg-slate-900 text-white border border-slate-800 font-black uppercase rounded-lg shadow-lg">
-                <Twitter className="w-5 h-5 fill-white" /> Follow on X
+            <a href="https://x.com/ClutchBrowser" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-12 md:h-14 bg-black hover:bg-slate-900 text-white border border-slate-800 font-black uppercase rounded-lg shadow-lg">
+                <Twitter className="w-4 h-4 md:w-5 md:h-5 fill-white" /> Follow on X
             </a>
         </div>
         
@@ -228,11 +228,11 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             <p className="text-center text-slate-500 text-[10px] uppercase tracking-widest mb-3 font-bold">More by ClutchBrowser</p>
             <div className="grid grid-cols-2 gap-3">
                 <a href="https://chromewebstore.google.com/detail/247sports-highlighter/mddcidpppapjmbhjhpenalkoedbobano" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors group">
-                    <span className="text-green-400 font-black text-sm group-hover:underline">247 Highlighter</span>
+                    <span className="text-green-400 font-black text-xs md:text-sm group-hover:underline">247 Highlighter</span>
                     <span className="text-slate-500 text-[10px]">Chrome Extension</span>
                 </a>
                 <a href="https://chromewebstore.google.com/detail/score-shield-espn-blocker/lcldoddeckephdndinmdneblghpfeaih" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors group">
-                    <span className="text-red-400 font-black text-sm group-hover:underline">Score Shield</span>
+                    <span className="text-red-400 font-black text-xs md:text-sm group-hover:underline">Score Shield</span>
                     <span className="text-slate-500 text-[10px]">Chrome Extension</span>
                 </a>
             </div>
@@ -245,24 +245,29 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
 
   // 3. PLAYING
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      <header className="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-            {/* HOME ICON */}
-            <Link href="/" className="text-slate-500 hover:text-white"><Home className="w-5 h-5" /></Link>
-            <div className="font-mono text-sm tracking-widest text-slate-400">ROOM: <span className="text-white font-bold">{initialRoom.code}</span></div>
+    <div className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden">
+      {/* Header */}
+      <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+        <div className="flex items-center gap-3">
+            <Link href="/" className="text-slate-500 hover:text-white"><Home className="w-4 h-4" /></Link>
+            <div className="font-mono text-xs md:text-sm tracking-widest text-slate-400">ROOM: <span className="text-white font-bold">{initialRoom.code}</span></div>
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-bold uppercase text-slate-400">Round {round} / 10</div>
+        <div className="flex items-center gap-2">
+            <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] md:text-xs font-bold uppercase text-slate-400">R {round}/10</div>
+        </div>
       </header>
+      
+      {/* Progress Bar */}
+      <Progress value={(round / 10) * 100} className="h-1 bg-slate-800 [&>div]:bg-yellow-500 shrink-0" />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Main Content Area */}
+      <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 overflow-hidden">
         
-        {/* UPDATED: Changed max-w-xl to max-w-sm to make photo smaller */}
-        <div className="lg:col-span-3 flex flex-col items-center space-y-4 max-w-sm mx-auto w-full">
-          <Progress value={(round / 10) * 100} className="h-2 bg-slate-800 [&>div]:bg-yellow-500" />
+        {/* GAME AREA - Flex Column to fill space */}
+        <div className="lg:col-span-3 flex flex-col h-full gap-4 max-w-md lg:max-w-none mx-auto w-full">
 
-          {/* --- THE CARD --- */}
-          <div className="relative w-full aspect-[3/4] bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
+          {/* THE CARD - Flex 1 to take remaining space */}
+          <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
                 {/* Image */}
                 {player.image_url ? (
                     <Image 
@@ -277,7 +282,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                     <div className="flex items-center justify-center h-full text-slate-600">No Image</div>
                 )}
 
-                {/* Loading Spinner */}
                 {!isImageReady && (
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
                         <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
@@ -285,19 +289,19 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 )}
 
                 {/* --- THE DOUBLE PILL UI --- */}
-                <div className="absolute top-4 right-4 flex flex-col items-end gap-2 z-20">
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
                     {/* Points Pill */}
-                    <div className={`px-4 py-1.5 rounded-full font-black text-xl shadow-xl border border-black/10 transition-all ${
+                    <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
                         hasAnswered 
                             ? (result === 'correct' ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
                             : 'bg-yellow-400 text-black'
                     }`}>
-                        {hasAnswered ? (result === 'correct' ? `+${potentialPoints} PTS` : '+0 PTS') : `${potentialPoints} PTS`}
+                        {hasAnswered ? (result === 'correct' ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
                     </div>
 
                     {/* Result Pill */}
                     {hasAnswered && (
-                        <div className={`px-3 py-1 rounded-full font-bold text-xs uppercase tracking-widest shadow-xl border border-black/10 ${
+                        <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${
                             result === 'correct' ? 'bg-white text-green-700' : 'bg-white text-red-600'
                         }`}>
                             {result === 'correct' ? 'CORRECT' : 'WRONG'}
@@ -306,13 +310,13 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 </div>
 
                 {/* Player Name Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-6 pt-24 z-10">
-                    <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{player.name}</h2>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{player.name}</h2>
                 </div>
           </div>
 
-          {/* OPTIONS GRID */}
-          <div className="w-full grid grid-cols-2 gap-3 min-h-20">
+          {/* OPTIONS GRID - Fixed height */}
+          <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
             {roomData.options.map((option: string) => {
                 const isSelected = selectedOption === option
                 const isCorrectAnswer = option === roomData.correct_answer
@@ -323,31 +327,31 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                     else btnClass = "bg-slate-900 text-slate-600 border-slate-800 opacity-40"
                 }
                 return (
-                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isImageReady} className={`w-full h-16 font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
+                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
                     {decodeText(option)}
                   </Button>
                 )
             })}
           </div>
-          
-          <div className="w-full py-2 min-h-[60px]">
-            {hasAnswered ? (
-                isHost ? (
-                    <Button onClick={handleNextRound} disabled={!allAnswered || isSubmitting} className="w-full h-14 text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {allAnswered ? <>Next Player <ArrowRight className="ml-2" /></> : `Waiting for players (${submissions.length}/${participants.length})...`}
+
+            {/* Next Button (Host Only) */}
+           {hasAnswered && isHost && (
+                <div className="w-full shrink-0">
+                    <Button onClick={handleNextRound} disabled={!allAnswered || isSubmitting} className="w-full h-12 md:h-14 text-base md:text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {allAnswered ? <>Next Player <ArrowRight className="ml-2" /></> : `Waiting (${submissions.length}/${participants.length})...`}
                     </Button>
-                ) : (
-                    <div className="w-full py-4 text-center text-slate-500 animate-pulse font-mono text-sm border border-slate-800 rounded-lg bg-slate-900/50">
-                        Waiting for host to advance round... ({submissions.length}/{participants.length} ready)
-                    </div>
-                )
-            ) : null}
-          </div>
+                </div>
+            )}
+             {hasAnswered && !isHost && (
+                 <div className="w-full shrink-0 py-2 text-center text-slate-500 animate-pulse font-mono text-xs border border-slate-800 rounded-lg bg-slate-900/50">
+                    Waiting for host...
+                </div>
+            )}
         </div>
 
-        {/* SIDEBAR */}
-        <div className="w-full lg:col-span-1">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden sticky top-24">
+        {/* SIDEBAR (Desktop Only) */}
+        <div className="hidden lg:block w-full lg:col-span-1 h-full overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden h-full">
             <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><User className="w-3 h-3" /> Live Standings</h3>
             </div>

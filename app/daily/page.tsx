@@ -90,12 +90,12 @@ export default function DailyGame() {
     }
   }
 
-  if (gameState === 'loading') return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading Daily Challenge...</div>
+  if (gameState === 'loading') return <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading Daily Challenge...</div>
 
   // --- GAME OVER SCREEN ---
   if (gameState === 'finished') {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-8">
+      <div className="min-h-[100dvh] bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-8">
         <Trophy className="w-20 h-20 text-yellow-400 animate-bounce" />
         <div className="text-center space-y-2">
             <h1 className="text-4xl font-black italic uppercase">Daily Complete</h1>
@@ -129,31 +129,35 @@ export default function DailyGame() {
 
   // --- PLAYING SCREEN ---
   const q = questions[currentIndex]
-  // FIX: This variable was missing in the previous version
   const isCorrect = selectedOption === q.correct_answer
   
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
+    <div className="h-[100dvh] bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
       {/* Header */}
-      <header className="h-16 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
-         <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-xl">S2S DAILY</Link>
-         <div className="flex items-center gap-4">
-             <div className="text-sm font-bold text-white flex items-center gap-1">
-                <Timer className="w-4 h-4 text-slate-400" />
-                <span className={`${potentialPoints <= 30 ? 'text-red-500 animate-pulse' : 'text-yellow-400'}`}>{potentialPoints} pts</span>
+      <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+         <div className="flex items-center gap-2">
+             <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
+             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-white font-bold">{score}</span></div>
+         </div>
+         <div className="flex items-center gap-3">
+             <div className="text-xs font-bold text-white flex items-center gap-1 bg-slate-900 px-2 py-1 rounded border border-slate-800">
+                <Timer className="w-3 h-3 text-slate-400" />
+                <span className={`${potentialPoints <= 30 ? 'text-red-500 animate-pulse' : 'text-yellow-400'}`}>{potentialPoints}</span>
              </div>
-             <div className="text-sm font-mono text-slate-400">Q {currentIndex + 1} / 10</div>
+             <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
          </div>
       </header>
+      
+      {/* Progress Bar */}
+      <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-slate-800 shrink-0" />
 
-      {/* Main Container: max-w-sm for smaller card */}
-      <main className="flex-1 max-w-sm mx-auto w-full p-4 flex flex-col gap-6">
-        <Progress value={((currentIndex) / 10) * 100} className="h-2 bg-slate-800" />
+      {/* Main Container: Flex Col to fill space */}
+      <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
         
-        {/* CARD CONTAINER */}
-        <div className="relative aspect-[3/4] bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl">
+        {/* IMAGE CARD - FLEX 1 to take remaining space */}
+        <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
            
-           {/* THE IMAGE */}
+           {/* THE IMAGE - Object Contain to ensure full visibility without overflow */}
            {q.image_url ? (
              <Image 
                 src={q.image_url} 
@@ -174,19 +178,19 @@ export default function DailyGame() {
            )}
 
             {/* --- THE DOUBLE PILL UI --- */}
-            <div className="absolute top-4 right-4 flex flex-col items-end gap-2 z-20">
+            <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
                 {/* 1. POINTS PILL */}
-                <div className={`px-4 py-1.5 rounded-full font-black text-xl shadow-xl border border-black/10 transition-all ${
+                <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
                     showResult 
                         ? (isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
                         : 'bg-yellow-400 text-black'
                 }`}>
-                    {showResult ? (isCorrect ? `+${potentialPoints} PTS` : '+0 PTS') : `${potentialPoints} PTS`}
+                    {showResult ? (isCorrect ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
                 </div>
 
                 {/* 2. STATUS PILL */}
                 {showResult && (
-                    <div className={`px-3 py-1 rounded-full font-bold text-xs uppercase tracking-widest shadow-xl border border-black/10 ${
+                    <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${
                         isCorrect ? 'bg-white text-green-700' : 'bg-white text-red-600'
                     }`}>
                         {isCorrect ? 'CORRECT' : 'WRONG'}
@@ -195,13 +199,13 @@ export default function DailyGame() {
             </div>
 
            {/* Player Name Overlay */}
-           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-6 pt-24 z-10">
-              <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
+           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+              <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
            </div>
         </div>
 
-        {/* Options Grid */}
-        <div className="grid grid-cols-2 gap-3 pb-8">
+        {/* OPTIONS GRID - Fixed height at bottom */}
+        <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
             {q.options.map((opt: string) => {
                 let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
                 if (showResult) {
@@ -215,7 +219,7 @@ export default function DailyGame() {
                         key={opt} 
                         onClick={() => handleGuess(opt)} 
                         disabled={showResult || !isImageReady} 
-                        className={`h-20 text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}
+                        className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}
                     >
                         {opt}
                     </Button>
