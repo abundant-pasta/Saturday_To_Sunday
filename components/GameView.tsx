@@ -135,38 +135,48 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
 
   const allAnswered = participants.length > 0 && submissions.length >= participants.length
 
-  // 1. LOBBY
-  if (gameState === 'waiting') {
-    return (
-      <div className="flex flex-col items-center min-h-[100dvh] bg-slate-950 text-white p-4 space-y-8 pt-20">
-         <Link href="/" className="absolute top-4 left-4 text-slate-500 hover:text-white"><Home /></Link>
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Lobby</h1>
-          <p className="text-slate-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
-        </div>
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800">
-            <CardHeader><CardTitle className="text-slate-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-                {participants.length === 0 && <div className="text-slate-600 italic">Waiting...</div>}
-                {participants.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-slate-800/50">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold">{p.name[0]}</div>
-                        <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
-                    </div>
-                ))}
-            </CardContent>
-        </Card>
-        
-        {isHost ? (
-             <Button size="lg" className="w-full max-w-md h-16 text-xl font-bold uppercase bg-green-600 hover:bg-green-700" onClick={async () => { await startGame(initialRoom.code) }}>
-             <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
-           </Button>
-        ) : (
-            <div className="flex items-center gap-2 text-slate-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
-        )}
+// 1. LOBBY
+if (gameState === 'waiting') {
+  return (
+    // Background changed to a deep charcoal (neutral-950)
+    <div className="flex flex-col items-center min-h-[100dvh] bg-neutral-950 text-white p-4 space-y-8 pt-20">
+       <Link href="/" className="absolute top-4 left-4 text-neutral-500 hover:text-white"><Home /></Link>
+      <div className="text-center space-y-2">
+        {/* THEME UPDATE: Swapped Blue/Indigo for Neon Green Gradient */}
+        <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00ff80]">Lobby</h1>
+        <p className="text-neutral-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
       </div>
-    )
-  }
+      
+      {/* Card styling set to dark neutral to match brand */}
+      <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
+          <CardHeader><CardTitle className="text-neutral-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+              {participants.length === 0 && <div className="text-neutral-600 italic">Waiting...</div>}
+              {participants.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-neutral-800/50">
+                      {/* Avatar background changed to Neon Green */}
+                      <div className="w-8 h-8 rounded-full bg-[#00ff80] text-black flex items-center justify-center font-bold">{p.name[0]}</div>
+                      <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
+                  </div>
+              ))}
+          </CardContent>
+      </Card>
+      
+      {isHost ? (
+           /* THEME UPDATE: Swapped Green-600 for Brand Neon #00ff80 */
+           <Button 
+              size="lg" 
+              className="w-full max-w-md h-16 text-xl font-bold uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
+              onClick={async () => { await startGame(initialRoom.code) }}
+           >
+           <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
+         </Button>
+      ) : (
+          <div className="flex items-center gap-2 text-neutral-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
+      )}
+    </div>
+  )
+}
 
   // 2. GAME OVER
   if (gameState === 'finished') {

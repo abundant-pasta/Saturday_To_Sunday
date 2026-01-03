@@ -49,19 +49,21 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center p-4 font-sans overflow-hidden">
+    // THEME: Swapped bg-slate-950 for bg-neutral-950 to get a deeper charcoal finish
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden">
       <div className="w-full max-w-md flex flex-col gap-4">
         
-        {/* LOGO AREA - Compacted for Mobile */}
+        {/* LOGO AREA */}
         <div className="text-center space-y-2 py-2">
           <div className="flex justify-center">
+            {/* Yellow trophy provides great contrast against the neon brand color */}
             <Trophy className="w-8 h-8 md:w-12 md:h-12 text-yellow-400" />
           </div>
           <div>
             <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-tight">
               Saturday To Sunday
             </h1>
-            <p className="text-slate-400 font-bold text-xs md:text-sm tracking-wide">Guess the college. Beat your friends.</p>
+            <p className="text-neutral-400 font-bold text-xs md:text-sm tracking-wide">Guess the college. Beat your friends.</p>
           </div>
         </div>
 
@@ -69,31 +71,35 @@ export default function Home() {
             
             {/* 1. DAILY CHALLENGE CARD */}
             <Link href="/daily" className="block group">
-                <div className="bg-gradient-to-r from-indigo-900 to-purple-900 border border-indigo-500/50 p-1 rounded-xl hover:scale-[1.02] transition-transform cursor-pointer">
-                    <div className="bg-slate-900/50 rounded-lg p-3 md:p-4 flex items-center justify-between">
+                {/* NEON BRAND: Swapped indigo for a deep emerald gradient and neon green hover border */}
+                <div className="bg-gradient-to-r from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer">
+                    <div className="bg-neutral-900/50 rounded-lg p-3 md:p-4 flex items-center justify-between">
                         <div>
-                            <div className="text-indigo-300 font-black uppercase text-[10px] md:text-sm tracking-widest mb-0.5">Single Player</div>
+                            {/* Neon Text using Hex Code */}
+                            <div className="text-[#00ff80] font-black uppercase text-[10px] md:text-sm tracking-widest mb-0.5">Single Player</div>
                             <div className="text-white font-bold text-lg md:text-xl flex items-center gap-2"><Calendar className="w-4 h-4 md:w-5 md:h-5" /> Daily Challenge</div>
                         </div>
-                        <div className="bg-indigo-600 text-white px-3 py-1.5 md:px-4 md:py-2 rounded font-black uppercase text-xs md:text-sm">Play</div>
+                        {/* Neon Button: Swapped bg-indigo for Hex #00ff80 */}
+                        <div className="bg-[#00ff80] text-black px-3 py-1.5 md:px-4 md:py-2 rounded font-black uppercase text-xs md:text-sm transition-colors group-hover:bg-white">Play</div>
                     </div>
                 </div>
             </Link>
 
             {/* 2. HOST GAME CARD */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
-                <div className="flex items-center gap-2 text-blue-400 font-black uppercase text-[10px] md:text-xs tracking-widest">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
+                {/* Blue text swapped for Neon Green */}
+                <div className="flex items-center gap-2 text-[#00ff80] font-black uppercase text-[10px] md:text-xs tracking-widest">
                     <Users className="w-3 h-3 md:w-4 md:h-4" /> Host a Game
                 </div>
                 <div className="space-y-2 md:space-y-3">
                     <Input 
                         placeholder="Your Name (e.g. SickosMode)" 
-                        className="bg-slate-950 border-slate-800 h-10 md:h-12 font-bold text-white placeholder:text-slate-600"
+                        className="bg-neutral-950 border-neutral-800 h-10 md:h-12 font-bold text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
                         value={hostName}
                         onChange={(e) => setHostName(e.target.value)}
                     />
                     <Button 
-                        className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 text-white transition-all" 
+                        className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
                         onClick={handleCreate} 
                         disabled={isLoading || !hostName}
                     >
@@ -103,20 +109,20 @@ export default function Home() {
             </div>
 
             {/* 3. JOIN GAME CARD */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
-                <div className="flex items-center gap-2 text-green-400 font-black uppercase text-[10px] md:text-xs tracking-widest">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
+                <div className="flex items-center gap-2 text-[#00ff80] font-black uppercase text-[10px] md:text-xs tracking-widest">
                     <Play className="w-3 h-3 md:w-4 md:h-4 fill-current" /> Join a Game
                 </div>
                 <div className="grid grid-cols-5 gap-2 md:gap-3">
                     <Input 
                         placeholder="Your Name" 
-                        className="col-span-3 bg-slate-950 border-slate-800 h-10 md:h-12 font-bold text-white placeholder:text-slate-600"
+                        className="col-span-3 bg-neutral-950 border-neutral-800 h-10 md:h-12 font-bold text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
                         value={joinName}
                         onChange={(e) => setJoinName(e.target.value)}
                     />
                     <Input 
                         placeholder="ABCD" 
-                        className="col-span-2 bg-slate-950 border-slate-800 h-10 md:h-12 font-black text-center uppercase text-white placeholder:text-slate-700"
+                        className="col-span-2 bg-neutral-950 border-neutral-800 h-10 md:h-12 font-black text-center uppercase text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
                         maxLength={4}
                         value={roomCode}
                         onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
@@ -124,7 +130,7 @@ export default function Home() {
                 </div>
                 {error && <div className="text-red-500 text-xs font-bold text-center">{error}</div>}
                 <Button 
-                    className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-green-600 hover:bg-green-500 text-white transition-all" 
+                    className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
                     onClick={handleJoin} 
                     disabled={isLoading || !roomCode || !joinName}
                 >
