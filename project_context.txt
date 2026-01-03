@@ -59,6 +59,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
     "@radix-ui/react-tabs": "^1.1.13",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
+    "@vercel/analytics": "^1.6.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
@@ -12534,9 +12535,9 @@ export default nextConfig;
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { getSimilarDistractors } from '@/lib/conferences'
 
+// --- Helper: Generate Random Room Code ---
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   let result = ''
@@ -12547,21 +12548,24 @@ function generateRoomCode() {
 }
 
 // --- 1. CREATE ROOM ---
-export async function createRoom(formData: FormData) {
+export async function createRoom(hostName: string) {
   const supabase = await createClient()
-  const playerName = formData.get('playerName') as string || 'Host'
+  const safeHostName = hostName || 'Host'
 
   // Fetch initial player
   const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
   const randomOffset = Math.floor(Math.random() * (count || 100))
   const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)
   const p = players?.[0]
+  
   if (!p) throw new Error("Failed to pick a player")
 
-  // Generate Options
+  // Generate REALISTIC Options using your new lib
   const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
+  
   const wrongColleges = getSimilarDistractors(p.college, collegeList)
+  
   const options = [p.college, ...wrongColleges].sort(() => 0.5 - Math.random())
   const roomCode = generateRoomCode() 
 
@@ -12577,43 +12581,50 @@ export async function createRoom(formData: FormData) {
       current_player_id: p.id,
       correct_answer: p.college,
       options: options,
-      host_name: playerName 
+      host_name: safeHostName 
     })
     .select()
     .single()
 
-  if (error) throw new Error('Failed to create room')
+  if (error) {
+    console.error("Room Creation Error:", error)
+    throw new Error('Failed to create room')
+  }
 
   // Add Host
   const { data: participant } = await supabase
     .from('room_participants')
-    .insert({ room_id: room.id, name: playerName, is_host: true })
+    .insert({ room_id: room.id, name: safeHostName, is_host: true })
     .select()
     .single()
 
-  // FIX: Standardized to 'playerId' (no more 'pid')
-  redirect(`/room/${room.code}?playerId=${participant.id}`) 
+  return { success: true, code: room.code, playerId: participant.id }
 }
 
 // --- 2. JOIN ROOM ---
-export async function joinRoom(formData: FormData) {
+export async function joinRoom(roomCode: string, playerName: string) {
   const supabase = await createClient()
-  const code = formData.get('code') as string
-  const playerName = formData.get('playerName') as string || 'Player'
+  const safeName = playerName || 'Player'
 
-  if (!code) return
+  if (!roomCode) return { success: false, error: 'No code provided' }
 
-  const { data: room } = await supabase.from('rooms').select('id, code').eq('code', code.toUpperCase()).single()
-  if (!room) throw new Error("Room not found")
+  // Check if room exists
+  const { data: room } = await supabase.from('rooms').select('id, code').eq('code', roomCode.toUpperCase()).single()
+  if (!room) return { success: false, error: 'Room not found' }
 
-  const { data: participant } = await supabase
+  // Add participant
+  const { data: participant, error: joinError } = await supabase
     .from('room_participants')
-    .insert({ room_id: room.id, name: playerName, is_host: false })
+    .insert({ room_id: room.id, name: safeName, is_host: false })
     .select()
     .single()
 
-  // FIX: Standardized to 'playerId'
-  redirect(`/room/${room.code}?playerId=${participant.id}`)
+  if (joinError) {
+    console.error('Error joining room:', joinError)
+    return { success: false, error: 'Failed to join room' }
+  }
+
+  return { success: true, code: room.code, playerId: participant.id }
 }
 
 // --- 3. START GAME ---
@@ -12641,10 +12652,10 @@ export async function submitAnswer(roomCode: string, participantId: string, answ
     }
   }
 
-  // FIX: Using 'player_id' to match your database column name
+  // Record Submission
   await supabase.from('round_submissions').insert({
     room_id: room.id,
-    player_id: participantId, // <--- CHANGED FROM participant_id
+    player_id: participantId,
     round_number: room.current_round
   })
 
@@ -12659,21 +12670,26 @@ export async function advanceRound(roomCode: string) {
   const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
   if (!room) return
 
+  // Check Game Over
   if (room.current_round >= room.total_rounds) {
     await supabase.from('rooms').update({ game_state: 'finished' }).eq('id', room.id)
     revalidatePath(`/room/${roomCode}`)
     return { gameOver: true }
   }
 
+  // Get Next Player
   const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
   const randomOffset = Math.floor(Math.random() * (count || 100))
   const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)
   const nextPlayer = players?.[0]
 
   if (nextPlayer) {
+    // Realistic Options Logic
     const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
     const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
+    
     const wrong = getSimilarDistractors(nextPlayer.college, collegeList)
+    
     const nextOptions = [nextPlayer.college, ...wrong].sort(() => 0.5 - Math.random())
 
     await supabase.from('rooms').update({
@@ -12687,38 +12703,133 @@ export async function advanceRound(roomCode: string) {
   revalidatePath(`/room/${roomCode}`)
   return { success: true }
 }
+
+// --- 6. ADMIN FUNCTIONS ---
+export async function deletePlayer(playerId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('players').delete().eq('id', playerId)
+  if (error) {
+    console.error('Error deleting player:', error)
+    throw new Error('Failed to delete player')
+  }
+  revalidatePath('/admin')
+}
+
+export async function updatePlayerImage(playerId: string, imageUrl: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('players').update({ image_url: imageUrl }).eq('id', playerId)
+  if (error) {
+    console.error('Error updating player image:', error)
+    throw new Error('Failed to update player image')
+  }
+  revalidatePath('/admin')
+}
+
+// --- 7. DAILY GAME (NEW) ---
+export async function getDailyGame() {
+  const supabase = await createClient()
+  const today = new Date().toISOString().split('T')[0] 
+
+  // 1. Check if today's game exists
+  const { data: existing } = await supabase
+    .from('daily_games')
+    .select('content')
+    .eq('date', today)
+    .single()
+
+  if (existing) return existing.content
+
+  // 2. Generate New Game (Lazy Load)
+  const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
+  const maxOffset = Math.max(0, (count || 0) - 60)
+  const randomOffset = Math.floor(Math.random() * maxOffset)
+  
+  // Fetch a pool to pick from
+  const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset + 59)
+  
+  if (!players || players.length < 10) return null
+
+  // Shuffle and pick 10 unique players
+  const dailyPlayers = players.sort(() => 0.5 - Math.random()).slice(0, 10)
+
+  // Get College List for distractors
+  const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
+  const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
+
+  // Build Questions
+  const questions = dailyPlayers.map(p => {
+    const wrong = getSimilarDistractors(p.college, collegeList)
+    const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
+    return {
+      id: p.id,
+      name: p.name,
+      image_url: p.image_url,
+      correct_answer: p.college,
+      options: options
+    }
+  })
+
+  // 3. Save to DB
+  const { error } = await supabase.from('daily_games').insert({ date: today, content: questions })
+
+  // If insert failed (race condition), fetch existing
+  if (error) {
+    const { data: retry } = await supabase.from('daily_games').select('content').eq('date', today).single()
+    return retry?.content
+  }
+
+  return questions
+}
 --- END FILE: app/actions.ts ---
 
 --- START FILE: app/layout.tsx ---
-import type { Metadata, Viewport } from "next"; // <--- Import Viewport
-import { Inter } from "next/font/google"; 
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import './globals.css'
+import Script from 'next/script'
+import { Analytics } from '@vercel/analytics/react'
 
-const inter = Inter({ subsets: ["latin"] }); 
+const geistSans = Geist({
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
+})
+
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+})
 
 export const metadata: Metadata = {
-  title: "Saturday to Sunday",
-  description: "The ultimate college-to-pro football trivia game.",
-};
-
-// --- NEW VIEWPORT SETTING ---
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false, // This stops the zooming
+  title: 'Saturday to Sunday',
+  description: 'Test your College Football knowledge.',
 }
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <head>
+        {/* Google AdSense Script */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE" // <--- REMEMBER TO PASTE YOUR ID HERE
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+        
+        {/* Vercel Analytics */}
+        <Analytics />
+      </body>
     </html>
-  );
+  )
 }
 --- END FILE: app/layout.tsx ---
 
@@ -12727,11 +12838,11 @@ export default function RootLayout({
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createRoom, joinRoom } from './actions'
+import { createRoom, joinRoom } from '@/app/actions'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Trophy, Users, Loader2 } from 'lucide-react'
+import { Users, Play, Loader2, Trophy, Calendar } from 'lucide-react'
+import Link from 'next/link'
 
 export default function Home() {
   const router = useRouter()
@@ -12739,135 +12850,132 @@ export default function Home() {
   const [joinName, setJoinName] = useState('')
   const [roomCode, setRoomCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleCreate = async () => {
     if (!hostName) return
     setIsLoading(true)
-    
     try {
-        const result = await createRoom(hostName)
-        if (result.success && result.code) {
+      const result = await createRoom(hostName)
+      if (result.success && result.code) {
         router.push(`/room/${result.code}?playerId=${result.playerId}`)
-        } else {
-        setIsLoading(false)
-        }
-    } catch (error) {
-        setIsLoading(false)
+      }
+    } catch (e) {
+      console.error(e)
+      setIsLoading(false)
     }
   }
 
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!joinName || !roomCode) return
+  const handleJoin = async () => {
+    if (!roomCode || !joinName) return
     setIsLoading(true)
-
+    setError('')
     try {
-        const result = await joinRoom(roomCode.toUpperCase(), joinName)
-        if (result.success) {
-        router.push(`/room/${roomCode.toUpperCase()}?playerId=${result.playerId}`)
-        } else {
-        alert(result.error) 
+      const result = await joinRoom(roomCode.toUpperCase(), joinName)
+      if (result.success) {
+        router.push(`/room/${result.code}?playerId=${result.playerId}`)
+      } else {
+        setError(result.error || 'Failed to join')
         setIsLoading(false)
-        }
-    } catch (error) {
-        setIsLoading(false)
+      }
+    } catch (e) {
+      setError('Failed to join room')
+      setIsLoading(false)
     }
   }
 
   return (
-    // FORCE DARK MODE: bg-slate-950 and text-white
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 p-4 space-y-8 animate-in fade-in duration-500 font-sans">
-      
-      {/* HEADER */}
-      <div className="flex flex-col items-center space-y-2 text-center">
-        <Trophy className="w-12 h-12 text-yellow-400" />
-        <h1 className="text-4xl font-black italic tracking-tighter uppercase text-white drop-shadow-sm">
-          Saturday to Sunday
-        </h1>
-        <p className="text-lg font-medium text-slate-400">
-          Guess the college. Beat your friends.
-        </p>
+    // THEME: Swapped bg-slate-950 for bg-neutral-950 to get a deeper charcoal finish
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden">
+      <div className="w-full max-w-md flex flex-col gap-4">
+        
+        {/* LOGO AREA */}
+        <div className="text-center space-y-2 py-2">
+          <div className="flex justify-center">
+            {/* Yellow trophy provides great contrast against the neon brand color */}
+            <Trophy className="w-8 h-8 md:w-12 md:h-12 text-yellow-400" />
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-tight">
+              Saturday To Sunday
+            </h1>
+            <p className="text-neutral-400 font-bold text-xs md:text-sm tracking-wide">Guess the college. Beat your friends.</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+            
+            {/* 1. DAILY CHALLENGE CARD */}
+            <Link href="/daily" className="block group">
+                {/* NEON BRAND: Swapped indigo for a deep emerald gradient and neon green hover border */}
+                <div className="bg-gradient-to-r from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer">
+                    <div className="bg-neutral-900/50 rounded-lg p-3 md:p-4 flex items-center justify-between">
+                        <div>
+                            {/* Neon Text using Hex Code */}
+                            <div className="text-[#00ff80] font-black uppercase text-[10px] md:text-sm tracking-widest mb-0.5">Single Player</div>
+                            <div className="text-white font-bold text-lg md:text-xl flex items-center gap-2"><Calendar className="w-4 h-4 md:w-5 md:h-5" /> Daily Challenge</div>
+                        </div>
+                        {/* Neon Button: Swapped bg-indigo for Hex #00ff80 */}
+                        <div className="bg-[#00ff80] text-black px-3 py-1.5 md:px-4 md:py-2 rounded font-black uppercase text-xs md:text-sm transition-colors group-hover:bg-white">Play</div>
+                    </div>
+                </div>
+            </Link>
+
+            {/* 2. HOST GAME CARD */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
+                {/* Blue text swapped for Neon Green */}
+                <div className="flex items-center gap-2 text-[#00ff80] font-black uppercase text-[10px] md:text-xs tracking-widest">
+                    <Users className="w-3 h-3 md:w-4 md:h-4" /> Host a Game
+                </div>
+                <div className="space-y-2 md:space-y-3">
+                    <Input 
+                        placeholder="Your Name (e.g. SickosMode)" 
+                        className="bg-neutral-950 border-neutral-800 h-10 md:h-12 font-bold text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
+                        value={hostName}
+                        onChange={(e) => setHostName(e.target.value)}
+                    />
+                    <Button 
+                        className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
+                        onClick={handleCreate} 
+                        disabled={isLoading || !hostName}
+                    >
+                        {isLoading ? <Loader2 className="animate-spin" /> : 'Create Room'}
+                    </Button>
+                </div>
+            </div>
+
+            {/* 3. JOIN GAME CARD */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
+                <div className="flex items-center gap-2 text-[#00ff80] font-black uppercase text-[10px] md:text-xs tracking-widest">
+                    <Play className="w-3 h-3 md:w-4 md:h-4 fill-current" /> Join a Game
+                </div>
+                <div className="grid grid-cols-5 gap-2 md:gap-3">
+                    <Input 
+                        placeholder="Your Name" 
+                        className="col-span-3 bg-neutral-950 border-neutral-800 h-10 md:h-12 font-bold text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
+                        value={joinName}
+                        onChange={(e) => setJoinName(e.target.value)}
+                    />
+                    <Input 
+                        placeholder="ABCD" 
+                        className="col-span-2 bg-neutral-950 border-neutral-800 h-10 md:h-12 font-black text-center uppercase text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
+                        maxLength={4}
+                        value={roomCode}
+                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                    />
+                </div>
+                {error && <div className="text-red-500 text-xs font-bold text-center">{error}</div>}
+                <Button 
+                    className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
+                    onClick={handleJoin} 
+                    disabled={isLoading || !roomCode || !joinName}
+                >
+                    {isLoading ? <Loader2 className="animate-spin" /> : 'Enter Room'}
+                </Button>
+            </div>
+
+        </div>
       </div>
-
-      {/* HOST A GAME CARD */}
-      <Card className="w-full max-w-md border-slate-800 bg-slate-900/50 shadow-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center text-white uppercase font-bold text-sm tracking-widest">
-            <Users className="w-5 h-5 mr-2 text-blue-500" />
-            Host a Game
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="host-name" className="text-xs font-bold text-slate-500 uppercase">Your Name</label>
-              <Input 
-                id="host-name" 
-                value={hostName}
-                onChange={(e) => setHostName(e.target.value)}
-                placeholder="e.g. SickosMode" 
-                className="border-slate-800 bg-slate-950 text-white placeholder:text-slate-600 h-12"
-                required
-              />
-            </div>
-            <Button 
-              type="submit"
-              disabled={isLoading || !hostName}
-              className="w-full h-12 text-lg font-bold uppercase bg-blue-600 hover:bg-blue-700 text-white transition-all"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Room'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* JOIN A GAME CARD */}
-      <Card className="w-full max-w-md border-slate-800 bg-slate-900/50 shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-white uppercase font-bold text-sm tracking-widest flex items-center">
-            <Users className="w-5 h-5 mr-2 text-green-500" />
-            Join a Game
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleJoin} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label htmlFor="join-name" className="text-xs font-bold text-slate-500 uppercase">Your Name</label>
-                <Input 
-                  id="join-name" 
-                  value={joinName}
-                  onChange={(e) => setJoinName(e.target.value)}
-                  placeholder="Player 2" 
-                  className="border-slate-800 bg-slate-950 text-white placeholder:text-slate-600 h-12"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="room-code" className="text-xs font-bold text-slate-500 uppercase">Room Code</label>
-                <Input 
-                  id="room-code" 
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  placeholder="ABCD" 
-                  className="border-slate-800 bg-slate-950 text-white placeholder:text-slate-600 uppercase text-center font-mono text-xl tracking-widest h-12"
-                  required
-                  maxLength={4}
-                />
-              </div>
-            </div>
-            <Button 
-              type="submit"
-              disabled={isLoading || !joinName || !roomCode}
-              className="w-full h-12 text-lg font-bold uppercase bg-green-600 hover:bg-green-700 text-white transition-all"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enter Room'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
     </div>
   )
 }
@@ -12992,6 +13100,244 @@ export default async function AdminPage() {
 }
 --- END FILE: app/admin/page.tsx ---
 
+--- START FILE: app/daily/page.tsx ---
+'use client'
+
+import { useState, useEffect } from 'react'
+import { getDailyGame } from '@/app/actions'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Home, Share2, Loader2, Trophy, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
+import Image from 'next/image'
+
+export default function DailyGame() {
+  const [questions, setQuestions] = useState<any[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [score, setScore] = useState(0)
+  const [gameState, setGameState] = useState<'loading' | 'playing' | 'finished'>('loading')
+  const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [showResult, setShowResult] = useState(false)
+  
+  // Logic: Points drop from 100
+  const [potentialPoints, setPotentialPoints] = useState(100)
+  const [isImageReady, setIsImageReady] = useState(false)
+
+  // Load Game
+  useEffect(() => {
+    const load = async () => {
+      const data = await getDailyGame()
+      if (data) {
+        setQuestions(data)
+        setResults(new Array(data.length).fill('pending'))
+        setGameState('playing')
+      }
+    }
+    load()
+  }, [])
+
+  // Timer: Drops 5 points every 0.5s
+  useEffect(() => {
+    if (gameState !== 'playing' || showResult || !isImageReady) return
+
+    const timer = setInterval(() => {
+      setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
+    }, 500)
+
+    return () => clearInterval(timer)
+  }, [gameState, showResult, isImageReady])
+
+  const handleGuess = (option: string) => {
+    if (showResult) return
+
+    setSelectedOption(option)
+    const currentQ = questions[currentIndex]
+    const isCorrect = option === currentQ.correct_answer
+    
+    // SCORING
+    if (isCorrect) {
+        setScore(s => s + potentialPoints)
+    }
+    
+    const newResults = [...results]
+    newResults[currentIndex] = isCorrect ? 'correct' : 'wrong'
+    setResults(newResults)
+
+    setShowResult(true)
+
+    // Auto Advance logic
+    setTimeout(() => {
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex(prev => prev + 1)
+        setSelectedOption(null)
+        setShowResult(false)
+        setPotentialPoints(100)
+        setIsImageReady(false) 
+      } else {
+        setGameState('finished')
+      }
+    }, 1500)
+  }
+
+  const handleShare = async () => {
+    const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
+    const text = `Saturday to Sunday Daily\n${new Date().toLocaleDateString()}\nScore: ${score}/1000\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
+    
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('Result copied! Paste in group chat.')
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  if (gameState === 'loading') return <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading Daily Challenge...</div>
+
+  // --- GAME OVER SCREEN ---
+  if (gameState === 'finished') {
+    return (
+      <div className="min-h-[100dvh] bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-8">
+        <Trophy className="w-20 h-20 text-yellow-400 animate-bounce" />
+        <div className="text-center space-y-2">
+            <h1 className="text-4xl font-black italic uppercase">Daily Complete</h1>
+            <p className="text-slate-400">Come back tomorrow for new players.</p>
+        </div>
+        
+        <Card className="w-full max-w-md bg-slate-900 border-slate-800">
+            <CardContent className="pt-6 text-center space-y-4">
+                <div className="flex flex-col items-center justify-center">
+                    <span className="text-slate-400 text-xs uppercase tracking-widest font-bold">Final Score</span>
+                    <div className="text-6xl font-black text-white tracking-tighter">{score}<span className="text-2xl text-slate-500">/1000</span></div>
+                </div>
+                <div className="flex justify-center gap-1 pt-2">
+                    {results.map((r, i) => (
+                        <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+
+        <Button onClick={handleShare} className="w-full max-w-md h-14 text-xl font-bold bg-indigo-600 hover:bg-indigo-500 transition-all hover:scale-105 shadow-lg">
+            <Share2 className="mr-2" /> Share Result
+        </Button>
+        
+        <Link href="/" className="text-slate-500 hover:text-white flex items-center gap-2">
+            <Home className="w-4 h-4" /> Back to Home
+        </Link>
+      </div>
+    )
+  }
+
+  // --- PLAYING SCREEN ---
+  const q = questions[currentIndex]
+  const isCorrect = selectedOption === q.correct_answer
+  
+  return (
+    <div className="h-[100dvh] bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
+      {/* Header */}
+      <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+         <div className="flex items-center gap-2">
+             <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
+             
+             {/* UPDATED: Brighter Green Score */}
+             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-green-400 font-black text-sm">{score}</span></div>
+         </div>
+         
+         {/* REMOVED: Duplicate Timer from here */}
+         <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
+      </header>
+      
+      {/* Progress Bar */}
+      <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-slate-800 shrink-0" />
+
+      {/* Main Container: Flex Col to fill space */}
+      <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
+        
+        {/* IMAGE CARD */}
+        <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
+           
+           {/* THE IMAGE */}
+           {q.image_url ? (
+             <Image 
+                src={q.image_url} 
+                alt="Player" 
+                fill 
+                className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
+                onLoadingComplete={() => setIsImageReady(true)}
+                priority={true}
+             />
+           ) : (
+             <div className="flex items-center justify-center h-full text-slate-600"><AlertCircle /> No Image</div>
+           )}
+           
+           {/* LOADING STATE - Spinner */}
+           {!isImageReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-50">
+                    <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
+                </div>
+           )}
+
+            {/* SYNCHRONIZED REVEAL CONTAINER - Logic: opacity-0 until image is ready */}
+            <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
+                
+                {/* 1. TOP RIGHT PILLS */}
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
+                    {/* Points Pill */}
+                    <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
+                        showResult 
+                            ? (isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
+                            : 'bg-yellow-400 text-black'
+                    }`}>
+                        {showResult ? (isCorrect ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
+                    </div>
+
+                    {/* Result Pill */}
+                    {showResult && (
+                        <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${
+                            isCorrect ? 'bg-white text-green-700' : 'bg-white text-red-600'
+                        }`}>
+                            {isCorrect ? 'CORRECT' : 'WRONG'}
+                        </div>
+                    )}
+                </div>
+
+                {/* 2. PLAYER NAME OVERLAY */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
+                </div>
+            </div>
+        </div>
+
+        {/* OPTIONS GRID */}
+        <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
+            {q.options.map((opt: string) => {
+                let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                if (showResult) {
+                    if (opt === q.correct_answer) btnClass = "bg-green-600 text-white border-green-500 ring-2 ring-green-400"
+                    else if (opt === selectedOption) btnClass = "bg-red-600 text-white border-red-500"
+                    else btnClass = "bg-slate-900 text-slate-600 opacity-30"
+                }
+
+                return (
+                    <Button 
+                        key={opt} 
+                        onClick={() => handleGuess(opt)} 
+                        disabled={showResult || !isImageReady} 
+                        className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}
+                    >
+                        {opt}
+                    </Button>
+                )
+            })}
+        </div>
+      </main>
+    </div>
+  )
+}
+--- END FILE: app/daily/page.tsx ---
+
 --- START FILE: utils/supabase/client.ts ---
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -13093,11 +13439,12 @@ import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { User, Home, Loader2, Play, ArrowRight, Trophy, Frown, Medal, Coffee, Twitter } from 'lucide-react'
+import { User, Home, Loader2, Play, ArrowRight, Trophy, Frown, Medal, Coffee, Twitter, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import PlayerCard from './PlayerCard' 
+import Image from 'next/image'
 
+// --- HELPER: Decode Text ---
 const decodeText = (text: string) => {
   if (!text) return ''
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -13108,6 +13455,7 @@ const decodeText = (text: string) => {
   return text
 }
 
+// --- HELPER: Font Sizing ---
 const getFontSize = (text: string) => {
   if (text.length > 20) return "text-xs"
   if (text.length > 15) return "text-sm"
@@ -13125,7 +13473,6 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const searchParams = useSearchParams() 
   const supabase = createClient()
   
-  // FIX: Use URL ID if available to prevent identity loss on refresh
   const playerId = searchParams.get('playerId') || initialParticipant?.id
 
   const [gameState, setGameState] = useState(initialRoom.game_state) 
@@ -13139,19 +13486,18 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
   
-  // FIX: Keep isCardReady to prevent the "flicker" glitch
-  const [isCardReady, setIsCardReady] = useState(false)
+  const [isImageReady, setIsImageReady] = useState(false)
 
   // Determine Host Status
   const myself = participants.find(p => p.id === playerId)
   const isHost = myself?.is_host || initialParticipant?.is_host
 
-  // Reset ready state immediately when player changes (Fixes flicker)
+  // Reset ready state when player changes
   useEffect(() => {
-    setIsCardReady(false)
+    setIsImageReady(false)
   }, [player.id])
 
-  // --- POLLING (Restored to your original logic) ---
+  // --- POLLING ---
   useEffect(() => {
     const fetchGameData = async () => {
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
@@ -13182,17 +13528,16 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     return () => clearInterval(interval)
   }, [round, initialRoom.id, router])
 
-  // --- TIMER (Linked to isCardReady) ---
+  // --- TIMER ---
   useEffect(() => {
-    // Only run timer if card is loaded
-    if (gameState !== 'playing' || selectedOption || hasAnswered || !isCardReady) return 
+    if (gameState !== 'playing' || selectedOption || hasAnswered || !isImageReady) return 
     const timer = setInterval(() => {
       setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
     }, 500)
     return () => clearInterval(timer)
-  }, [selectedOption, gameState, hasAnswered, isCardReady])
+  }, [selectedOption, gameState, hasAnswered, isImageReady])
 
-  // --- HANDLERS (Restored to your original logic) ---
+  // --- HANDLERS ---
   const handleGuess = async (college: string) => {
     if (isSubmitting || selectedOption || hasAnswered) return 
     setIsSubmitting(true)
@@ -13210,73 +13555,86 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     setIsSubmitting(false)
   }
 
-  // --- CALCULATION (Restored to your original logic) ---
+  const handleShare = async () => {
+    const myScore = participants.find(p => p.id === playerId)?.score || 0
+    const text = `Saturday to Sunday 🏈\nI scored ${myScore} pts.\n\nCan you beat me?\nhttps://www.playsaturdaytosunday.com/`
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('Score copied to clipboard!')
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   const allAnswered = participants.length > 0 && submissions.length >= participants.length
 
-  // 1. LOBBY
-  if (gameState === 'waiting') {
-    return (
-      <div className="flex flex-col items-center min-h-screen bg-slate-950 text-white p-4 space-y-8 pt-20">
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Lobby</h1>
-          <p className="text-slate-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
-        </div>
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800">
-            <CardHeader><CardTitle className="text-slate-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-                {participants.length === 0 && <div className="text-slate-600 italic">Waiting...</div>}
-                {participants.map((p) => (
-                    <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-slate-800/50">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold">{p.name[0]}</div>
-                        <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
-                    </div>
-                ))}
-            </CardContent>
-        </Card>
-        
-        {isHost ? (
-             <Button size="lg" className="w-full max-w-md h-16 text-xl font-bold uppercase bg-green-600 hover:bg-green-700" onClick={async () => { await startGame(initialRoom.code) }}>
-             <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
-           </Button>
-        ) : (
-            <div className="flex items-center gap-2 text-slate-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
-        )}
+// 1. LOBBY
+if (gameState === 'waiting') {
+  return (
+    // Background changed to a deep charcoal (neutral-950)
+    <div className="flex flex-col items-center min-h-[100dvh] bg-neutral-950 text-white p-4 space-y-8 pt-20">
+       <Link href="/" className="absolute top-4 left-4 text-neutral-500 hover:text-white"><Home /></Link>
+      <div className="text-center space-y-2">
+        {/* THEME UPDATE: Swapped Blue/Indigo for Neon Green Gradient */}
+        <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00ff80]">Lobby</h1>
+        <p className="text-neutral-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
       </div>
-    )
-  }
+      
+      {/* Card styling set to dark neutral to match brand */}
+      <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
+          <CardHeader><CardTitle className="text-neutral-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+              {participants.length === 0 && <div className="text-neutral-600 italic">Waiting...</div>}
+              {participants.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-neutral-800/50">
+                      {/* Avatar background changed to Neon Green */}
+                      <div className="w-8 h-8 rounded-full bg-[#00ff80] text-black flex items-center justify-center font-bold">{p.name[0]}</div>
+                      <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
+                  </div>
+              ))}
+          </CardContent>
+      </Card>
+      
+      {isHost ? (
+           /* THEME UPDATE: Swapped Green-600 for Brand Neon #00ff80 */
+           <Button 
+              size="lg" 
+              className="w-full max-w-md h-16 text-xl font-bold uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
+              onClick={async () => { await startGame(initialRoom.code) }}
+           >
+           <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
+         </Button>
+      ) : (
+          <div className="flex items-center gap-2 text-neutral-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
+      )}
+    </div>
+  )
+}
 
   // 2. GAME OVER
   if (gameState === 'finished') {
     const myRankIndex = participants.findIndex(p => p.id === playerId)
     const myRank = myRankIndex + 1
-    const totalPlayers = participants.length
     
     let endMessage = "Good Game!"
-    let endSubMessage = "Thanks for playing."
     let icon = <Medal className="w-16 h-16 text-slate-400" />
     let titleColor = "text-slate-200"
 
     if (myRank === 1) {
-        endMessage = "CHAMPION OF THE WORLD!"
-        endSubMessage = "You know your ball. Respect."
+        endMessage = "CHAMPION!"
         icon = <Trophy className="w-20 h-20 text-yellow-400 animate-bounce" />
         titleColor = "text-yellow-400"
-    } else if (myRank === totalPlayers && totalPlayers >= 4) {
-        endMessage = "DANG... DO YOU EVEN KNOW BALL?"
-        endSubMessage = "Last place? Seriously? Go watch some tape."
+    } else if (myRank === participants.length && participants.length > 1) {
+        endMessage = "Better Luck Next Time"
         icon = <Frown className="w-20 h-20 text-red-500" />
         titleColor = "text-red-500"
-    } else {
-        endMessage = "Good Effort."
-        endSubMessage = `You finished #${myRank}. Not bad, not great.`
     }
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950 text-white space-y-8 p-4">
+      <div className="flex flex-col items-center justify-center min-h-[100dvh] bg-slate-950 text-white space-y-6 p-4">
         <div className="text-center space-y-4 animate-in zoom-in duration-500">
-            <div className="flex justify-center mb-4">{icon}</div>
+            <div className="flex justify-center mb-2">{icon}</div>
             <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>{endMessage}</h1>
-            <p className="text-xl text-slate-400 font-medium">{endSubMessage}</p>
         </div>
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
             <CardHeader className="text-center border-b border-slate-800">
@@ -13284,7 +13642,7 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
             </CardHeader>
             <CardContent className="p-0">
                 {participants.map((p, i) => (
-                    <div key={p.id} className={`flex justify-between items-center p-4 border-b border-slate-800 last:border-0 ${p.id === playerId ? 'bg-blue-900/20' : ''}`}>
+                    <div key={p.id} className={`flex justify-between items-center p-3 md:p-4 border-b border-slate-800 last:border-0 ${p.id === playerId ? 'bg-blue-900/20' : ''}`}>
                         <div className="flex items-center gap-3">
                             <span className={`font-black text-xl w-6 ${i === 0 ? 'text-yellow-400' : 'text-slate-500'}`}>#{i+1}</span>
                             <span className={`font-bold ${p.id === playerId ? 'text-white' : 'text-slate-300'}`}>{p.name} {p.id === playerId && '(You)'}</span>
@@ -13294,46 +13652,114 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                 ))}
             </CardContent>
         </Card>
-        <div className="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a href="https://buymeacoffee.com/247highlighter" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-14 bg-[#FFDD00] hover:bg-[#FFEA00] text-slate-900 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105">
-                <Coffee className="w-5 h-5" /> Buy me a Coffee
+
+        <Button onClick={handleShare} className="w-full max-w-md h-14 md:h-16 text-lg md:text-xl font-black uppercase bg-indigo-600 hover:bg-indigo-500">
+            <Share2 className="w-5 h-5 md:w-6 md:h-6 mr-2" /> Share Score
+        </Button>
+
+        <div className="w-full max-w-md grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a href="https://buymeacoffee.com/247highlighter" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-12 md:h-14 bg-[#FFDD00] hover:bg-[#FFEA00] text-slate-900 font-black uppercase rounded-lg shadow-lg">
+                <Coffee className="w-4 h-4 md:w-5 md:h-5" /> Buy me a Coffee
             </a>
-            <a href="https://x.com/ClutchBrowser" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-14 bg-black hover:bg-slate-900 text-white border border-slate-800 font-black uppercase rounded-lg shadow-lg transition-all transform hover:scale-105">
-                <Twitter className="w-5 h-5 fill-white" /> Follow on X
+            <a href="https://x.com/ClutchBrowser" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 h-12 md:h-14 bg-black hover:bg-slate-900 text-white border border-slate-800 font-black uppercase rounded-lg shadow-lg">
+                <Twitter className="w-4 h-4 md:w-5 md:h-5 fill-white" /> Follow on X
             </a>
         </div>
-        <Button onClick={() => window.location.href = '/'} className="w-full max-w-md h-20 text-2xl font-black italic uppercase bg-slate-800 hover:bg-slate-700 text-slate-200 border-2 border-slate-700 hover:border-slate-600 transition-all shadow-xl">
-            <Home className="w-6 h-6 mr-3 mb-1" /> Back to Home Screen
-        </Button>
+        
+        {/* Chrome Extensions Cross-Sell */}
+        <div className="w-full max-w-md pt-6 border-t border-slate-800/50">
+            <p className="text-center text-slate-500 text-[10px] uppercase tracking-widest mb-3 font-bold">More by ClutchBrowser</p>
+            <div className="grid grid-cols-2 gap-3">
+                <a href="https://chromewebstore.google.com/detail/247sports-highlighter/mddcidpppapjmbhjhpenalkoedbobano" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors group">
+                    <span className="text-green-400 font-black text-xs md:text-sm group-hover:underline">247 Highlighter</span>
+                    <span className="text-slate-500 text-[10px]">Chrome Extension</span>
+                </a>
+                <a href="https://chromewebstore.google.com/detail/score-shield-espn-blocker/lcldoddeckephdndinmdneblghpfeaih" target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center p-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors group">
+                    <span className="text-red-400 font-black text-xs md:text-sm group-hover:underline">Score Shield</span>
+                    <span className="text-slate-500 text-[10px]">Chrome Extension</span>
+                </a>
+            </div>
+        </div>
+
+        <Link href="/" className="text-slate-500 hover:text-white flex items-center gap-2"><Home className="w-4 h-4" /> Back to Home</Link>
       </div>
     )
   }
 
   // 3. PLAYING
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      <header className="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="font-mono text-sm tracking-widest text-slate-400">ROOM: <span className="text-white font-bold">{initialRoom.code}</span></div>
-        <div className="absolute left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-bold uppercase text-slate-400">Round {round} / 10</div>
-        <Link href="/" className="text-xs font-bold text-slate-500 hover:text-white flex items-center gap-2"><Home className="w-4 h-4" /></Link>
+    <div className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden">
+      {/* Header */}
+      <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+        <div className="flex items-center gap-3">
+            <Link href="/" className="text-slate-500 hover:text-white"><Home className="w-4 h-4" /></Link>
+            <div className="font-mono text-xs md:text-sm tracking-widest text-slate-400">ROOM: <span className="text-white font-bold">{initialRoom.code}</span></div>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] md:text-xs font-bold uppercase text-slate-400">R {round}/10</div>
+        </div>
       </header>
+      
+      {/* Progress Bar */}
+      <Progress value={(round / 10) * 100} className="h-1 bg-slate-800 [&>div]:bg-yellow-500 shrink-0" />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-8 grid grid-cols-1 lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-3 flex flex-col items-center space-y-4 max-w-xl mx-auto w-full">
-          <Progress value={(round / 10) * 100} className="h-2 bg-slate-800 [&>div]:bg-yellow-500" />
+      {/* Main Content Area */}
+      <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 overflow-hidden">
+        
+        {/* GAME AREA - Flex Column to fill space */}
+        <div className="lg:col-span-3 flex flex-col h-full gap-4 max-w-md lg:max-w-none mx-auto w-full">
 
-          {/* PlayerCard Component */}
-          <PlayerCard 
-            key={player.id || round} 
-            player={player} 
-            hasAnswered={hasAnswered} 
-            result={result} 
-            potentialPoints={potentialPoints}
-            onReady={() => setIsCardReady(true)}
-          />
+          {/* THE CARD - Flex 1 to take remaining space */}
+          <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
+                {/* Image */}
+                {player.image_url ? (
+                    <Image 
+                        src={player.image_url} 
+                        alt="Player" 
+                        fill 
+                        className={`object-cover transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
+                        onLoadingComplete={() => setIsImageReady(true)}
+                        priority
+                    />
+                ) : (
+                    <div className="flex items-center justify-center h-full text-slate-600">No Image</div>
+                )}
 
-          {/* QUAD BOX GRID */}
-          <div className="w-full grid grid-cols-2 gap-3 h-40">
+                {!isImageReady && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                        <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
+                    </div>
+                )}
+
+                {/* --- THE DOUBLE PILL UI --- */}
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
+                    {/* Points Pill */}
+                    <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
+                        hasAnswered 
+                            ? (result === 'correct' ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
+                            : 'bg-yellow-400 text-black'
+                    }`}>
+                        {hasAnswered ? (result === 'correct' ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
+                    </div>
+
+                    {/* Result Pill */}
+                    {hasAnswered && (
+                        <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${
+                            result === 'correct' ? 'bg-white text-green-700' : 'bg-white text-red-600'
+                        }`}>
+                            {result === 'correct' ? 'CORRECT' : 'WRONG'}
+                        </div>
+                    )}
+                </div>
+
+                {/* Player Name Overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{player.name}</h2>
+                </div>
+          </div>
+
+          {/* OPTIONS GRID - Fixed height */}
+          <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
             {roomData.options.map((option: string) => {
                 const isSelected = selectedOption === option
                 const isCorrectAnswer = option === roomData.correct_answer
@@ -13344,31 +13770,31 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
                     else btnClass = "bg-slate-900 text-slate-600 border-slate-800 opacity-40"
                 }
                 return (
-                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isCardReady} className={`w-full h-full font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
+                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
                     {decodeText(option)}
                   </Button>
                 )
             })}
           </div>
-          
-          <div className="w-full py-2 min-h-[60px]">
-            {hasAnswered ? (
-                isHost ? (
-                    <Button onClick={handleNextRound} disabled={!allAnswered || isSubmitting} className="w-full h-14 text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                        {allAnswered ? <>Next Player <ArrowRight className="ml-2" /></> : `Waiting for players (${submissions.length}/${participants.length})...`}
+
+            {/* Next Button (Host Only) */}
+           {hasAnswered && isHost && (
+                <div className="w-full shrink-0">
+                    <Button onClick={handleNextRound} disabled={!allAnswered || isSubmitting} className="w-full h-12 md:h-14 text-base md:text-lg font-black uppercase bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {allAnswered ? <>Next Player <ArrowRight className="ml-2" /></> : `Waiting (${submissions.length}/${participants.length})...`}
                     </Button>
-                ) : (
-                    <div className="w-full py-4 text-center text-slate-500 animate-pulse font-mono text-sm border border-slate-800 rounded-lg bg-slate-900/50">
-                        Waiting for host to advance round... ({submissions.length}/{participants.length} ready)
-                    </div>
-                )
-            ) : null}
-          </div>
+                </div>
+            )}
+             {hasAnswered && !isHost && (
+                 <div className="w-full shrink-0 py-2 text-center text-slate-500 animate-pulse font-mono text-xs border border-slate-800 rounded-lg bg-slate-900/50">
+                    Waiting for host...
+                </div>
+            )}
         </div>
 
-        {/* SIDEBAR */}
-        <div className="w-full lg:col-span-1">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden sticky top-24">
+        {/* SIDEBAR (Desktop Only) */}
+        <div className="hidden lg:block w-full lg:col-span-1 h-full overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden h-full">
             <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2"><User className="w-3 h-3" /> Live Standings</h3>
             </div>
@@ -13482,6 +13908,93 @@ export default function PlayerCard({
   )
 }
 --- END FILE: components/PlayerCard.tsx ---
+
+--- START FILE: components/IntroScreen.tsx ---
+import { ClockIcon, TrophyIcon, PlayIcon } from '@heroicons/react/24/outline';
+
+interface IntroScreenProps {
+  onStart: () => void;
+}
+
+export default function IntroScreen({ onStart }: IntroScreenProps) {
+  return (
+    <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center p-4 animate-in fade-in duration-500">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden dark:bg-slate-900 border border-slate-800">
+        
+        {/* Hero Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center">
+          <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase drop-shadow-md">
+            Daily Challenge
+          </h1>
+          <p className="text-blue-100 font-medium mt-2">
+            10 Players. Speed counts.
+          </p>
+        </div>
+
+        {/* Rules Body */}
+        <div className="p-6 space-y-6">
+            
+            {/* Rule 1 */}
+            <div className="flex items-start gap-4">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-900 dark:text-white font-bold text-lg">1</div>
+                <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">Guess the Player</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        An image will appear. You have 4 options. Select the correct player name instantly.
+                    </p>
+                </div>
+            </div>
+
+            {/* Rule 2 */}
+            <div className="flex items-start gap-4">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
+                    <ClockIcon className="w-6 h-6" />
+                </div>
+                <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">Speed = Points</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Points drop from <span className="font-bold text-green-600">100</span> to <span className="font-bold text-red-500">10</span> based on time. 
+                    </p>
+                    {/* Visual Bar */}
+                    <div className="mt-3 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <div className="h-full w-3/4 bg-gradient-to-r from-green-500 to-yellow-500" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Rule 3 */}
+            <div className="flex items-start gap-4">
+                <div className="h-10 w-10 shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <TrophyIcon className="w-6 h-6" />
+                </div>
+                <div>
+                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">Perfect Score: 1000</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Compete against the global leaderboard. One mistake breaks your perfect streak.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        {/* Footer Action */}
+        <div className="p-6 pt-0 bg-white dark:bg-slate-900">
+          <button 
+            onClick={onStart}
+            className="w-full group relative flex items-center justify-center gap-3 rounded-xl bg-slate-900 dark:bg-white py-4 text-lg font-black text-white dark:text-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+          >
+            <span>START GAME</span>
+            <PlayIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </button>
+          <p className="mt-4 text-center text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+            New Players Daily at 06:00 UTC
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+--- END FILE: components/IntroScreen.tsx ---
 
 --- START FILE: components/AdminCard.tsx ---
 'use client'

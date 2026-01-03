@@ -17,6 +17,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Saturday to Sunday',
   description: 'Test your College Football knowledge.',
+  // --- NEW: iPhone Home Screen Settings ---
+  appleWebApp: {
+    title: 'S2S', // <--- This sets the short name for the icon
+    statusBarStyle: 'black-translucent',
+    capable: true,
+  },
 }
 
 export default function RootLayout({
@@ -30,7 +36,7 @@ export default function RootLayout({
         {/* Google AdSense Script */}
         <Script
           async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE" // <--- REMEMBER TO PASTE YOUR ID HERE
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE"
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />

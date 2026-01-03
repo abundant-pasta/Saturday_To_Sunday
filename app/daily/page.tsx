@@ -8,12 +8,16 @@ import { Progress } from '@/components/ui/progress'
 import { Home, Share2, Loader2, Trophy, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import IntroScreen from '@/components/IntroScreen' // Make sure to import this
 
 export default function DailyGame() {
   const [questions, setQuestions] = useState<any[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
-  const [gameState, setGameState] = useState<'loading' | 'playing' | 'finished'>('loading')
+  
+  // UPDATED: Added 'intro' state
+  const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
+  
   const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
@@ -22,21 +26,35 @@ export default function DailyGame() {
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [isImageReady, setIsImageReady] = useState(false)
 
-  // Load Game
+  // Load Game Data & Check Intro Status
   useEffect(() => {
     const load = async () => {
       const data = await getDailyGame()
       if (data) {
         setQuestions(data)
         setResults(new Array(data.length).fill('pending'))
-        setGameState('playing')
+        
+        // CHECK: Has user seen the intro before?
+        const hasSeenIntro = localStorage.getItem('s2s_has_seen_intro')
+        if (hasSeenIntro) {
+            setGameState('playing')
+        } else {
+            setGameState('intro')
+        }
       }
     }
     load()
   }, [])
 
+  // Action: User clicks "Start Game" on Intro Screen
+  const handleStartGame = () => {
+      localStorage.setItem('s2s_has_seen_intro', 'true')
+      setGameState('playing')
+  }
+
   // Timer: Drops 5 points every 0.5s
   useEffect(() => {
+    // Logic: Timer only runs if explicitly 'playing'
     if (gameState !== 'playing' || showResult || !isImageReady) return
 
     const timer = setInterval(() => {
@@ -90,7 +108,14 @@ export default function DailyGame() {
     }
   }
 
+  // --- RENDER STATES ---
+
   if (gameState === 'loading') return <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading Daily Challenge...</div>
+
+  // NEW: Intro Screen
+  if (gameState === 'intro') {
+      return <IntroScreen onStart={handleStartGame} />
+  }
 
   // --- GAME OVER SCREEN ---
   if (gameState === 'finished') {
@@ -138,18 +163,17 @@ export default function DailyGame() {
          <div className="flex items-center gap-2">
              <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
              
-             {/* UPDATED: Brighter Green Score */}
+             {/* Score Display */}
              <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-green-400 font-black text-sm">{score}</span></div>
          </div>
          
-         {/* REMOVED: Duplicate Timer from here */}
          <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
       </header>
       
       {/* Progress Bar */}
       <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-slate-800 shrink-0" />
 
-      {/* Main Container: Flex Col to fill space */}
+      {/* Main Container */}
       <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
         
         {/* IMAGE CARD */}
@@ -176,7 +200,7 @@ export default function DailyGame() {
                 </div>
            )}
 
-            {/* SYNCHRONIZED REVEAL CONTAINER - Logic: opacity-0 until image is ready */}
+            {/* SYNCHRONIZED REVEAL CONTAINER */}
             <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
                 
                 {/* 1. TOP RIGHT PILLS */}
