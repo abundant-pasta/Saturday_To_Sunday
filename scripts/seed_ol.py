@@ -5,19 +5,24 @@ import nfl_data_py as nfl
 from supabase import create_client, Client
 
 # --- SETUP: Import keys from your local config.py ---
+# This adds the current directory (scripts/) to the search path
 import pathlib
 script_dir = pathlib.Path(__file__).parent.absolute()
 sys.path.append(str(script_dir))
 
 try:
     from config import SUPABASE_URL, SUPABASE_SERVICE_KEY
+    # Validation
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise ValueError("Keys are empty in config.py")
         
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
     print(f"✅ Connection Authorized: {SUPABASE_URL}")
-except Exception as e:
-    print(f"❌ Configuration Error: {e}")
+except ImportError:
+    print("❌ Error: Could not find config.py in the scripts folder.")
+    exit()
+except ValueError as e:
+    print(f"❌ Error: {e}")
     exit()
 
 # 2. The 50+ Offensive Line Stars
@@ -46,22 +51,30 @@ ol_stars = [
 
 def fetch_real_headshots():
     """
-    Downloads NFL roster data (2015-2024) to find real ESPN headshots.
+    Downloads NFL roster data from 2015-2024 to find real ESPN headshots.
+    Returns a dictionary: { 'Player Name': 'https://espn...png' }
     """
     print("🏈 Downloading NFL Roster Data (2015-2024)... this takes ~10 seconds.")
+    # We grab multiple years to ensure we catch retired legends like Joe Thomas/Yanda
+    years = range(2015, 2025)
+    
     try:
-        # Fetch multiple years to find retired legends
-        df = nfl.import_seasonal_rosters(range(2015, 2025))
-        # Sort by season desc to get the most recent photo
-        df = df.sort_values(by='season', ascending=False)
+        df = nfl.import_seasonal_rosters(years)
     except Exception as e:
         print(f"⚠️  NFL Data Download Error: {e}")
         return {}
     
+    # Sort by season descending so we grab the MOST RECENT headshot available
+    df = df.sort_values(by='season', ascending=False)
+    
+    # Create a lookup dictionary
     headshot_map = {}
+    
     for _, row in df.iterrows():
         name = row['player_name']
         url = row['headshot_url']
+        
+        # Only save if we haven't seen this player yet (keeps the most recent)
         if name not in headshot_map and pd.notna(url):
             headshot_map[name] = url
             
@@ -69,73 +82,59 @@ def fetch_real_headshots():
     return headshot_map
 
 def seed_ol_army():
+    # 1. Get the real photos first
     headshot_lookup = fetch_real_headshots()
     
-    print(f"\n🚀 Starting SAFE Injection of {len(ol_stars)} Offensive Linemen...")
+    print(f"\n🚀 Starting Injection of {len(ol_stars)} Offensive Linemen...")
     count_added = 0
     count_updated = 0
-    count_protected = 0
+    count_missing_img = 0
 
     for name in ol_stars:
+        # Check if we found a photo
         real_image = headshot_lookup.get(name)
         
-        # Base payload for NEW players
-        new_player_payload = {
+        if not real_image:
+            print(f"⚠️  No ESPN headshot found for {name}. Skipping to avoid placeholder.")
+            count_missing_img += 1
+            continue
+
+        payload = {
             "name": name,
             "image_url": real_image,
             "rating": 95, 
             "tier": 1,
-            "position": "OL",
+            "position": "OL",  # Defaulting to OL generic, or you can map specific positions
             "team": "Legend",
-            "college": "Unknown"
+            "college": "Unknown" # You can add a college lookup if needed
         }
 
         try:
-            # 1. Check if player exists
-            existing = supabase.table('players').select('id, image_url').eq('name', name).execute()
+            # 2. Check if player exists
+            existing = supabase.table('players').select('id').eq('name', name).execute()
             
             if not existing.data:
-                # --- INSERT NEW PLAYER ---
-                if not real_image:
-                    print(f"⚠️  Skipping new insert for {name} (No photo found)")
-                    continue
-                    
-                supabase.table('players').insert(new_player_payload).execute()
-                print(f"✨ Created New Legend: {name}")
+                # INSERT NEW
+                supabase.table('players').insert(payload).execute()
+                print(f"✨ Created: {name}")
                 count_added += 1
             else:
-                # --- UPDATE EXISTING PLAYER ---
-                current_img = existing.data[0].get('image_url')
-                
-                # Prepare update payload (stats only initially)
-                update_payload = {
+                # UPDATE EXISTING (Force update rating/tier/image for these legends)
+                supabase.table('players').update({
                     "rating": 95,
+                    "image_url": real_image,
                     "tier": 1
-                }
-                
-                # LOGIC: Only update image if the current one is MISSING
-                # If there is ANY text in image_url, we assume it's your manual photo and keep it.
-                if not current_img or current_img == "" or current_img == "None":
-                    if real_image:
-                        update_payload["image_url"] = real_image
-                        print(f"⚡ Added missing photo for: {name}")
-                    else:
-                        print(f"⚠️  No photo available to fill missing slot for: {name}")
-                else:
-                    count_protected += 1
-                    print(f"🛡️  Protected manual photo for: {name}")
-
-                # Execute update
-                supabase.table('players').update(update_payload).eq('name', name).execute()
+                }).eq('name', name).execute()
+                print(f"⚡ Updated: {name}")
                 count_updated += 1
                 
         except Exception as e:
             print(f"❌ Error processing {name}: {e}")
 
     print(f"\n🏆 OPERATION COMPLETE")
-    print(f"   ✨ New Recruits: {count_added}")
-    print(f"   ⚡ Ratings Updated: {count_updated}")
-    print(f"   🛡️  Photos Protected: {count_protected}")
+    print(f"   New Recruits: {count_added}")
+    print(f"   Veterans Updated: {count_updated}")
+    print(f"   Skipped (No Photo): {count_missing_img}")
 
 if __name__ == "__main__":
     seed_ol_army()
