@@ -2,7 +2,6 @@
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
-// IMPORT YOUR NEW LOGIC HERE:
 import { getSimilarDistractors } from '@/lib/conferences'
 
 // --- Helper: Generate Random Room Code ---
@@ -14,8 +13,6 @@ function generateRoomCode() {
   }
   return result
 }
-
-// (Removed the inlined getSimilarDistractors function since we import it now)
 
 // --- 1. CREATE ROOM ---
 export async function createRoom(hostName: string) {
@@ -34,7 +31,6 @@ export async function createRoom(hostName: string) {
   const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
   
-  // LOGIC UPGRADE:
   const wrongColleges = getSimilarDistractors(p.college, collegeList)
   
   const options = [p.college, ...wrongColleges].sort(() => 0.5 - Math.random())
@@ -155,7 +151,7 @@ export async function advanceRound(roomCode: string) {
   const nextPlayer = players?.[0]
 
   if (nextPlayer) {
-    // LOGIC UPGRADE: Use the new realistic logic
+    // Realistic Options Logic
     const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
     const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
     
@@ -194,4 +190,60 @@ export async function updatePlayerImage(playerId: string, imageUrl: string) {
     throw new Error('Failed to update player image')
   }
   revalidatePath('/admin')
+}
+
+// --- 7. DAILY GAME (NEW) ---
+export async function getDailyGame() {
+  const supabase = await createClient()
+  const today = new Date().toISOString().split('T')[0] 
+
+  // 1. Check if today's game exists
+  const { data: existing } = await supabase
+    .from('daily_games')
+    .select('content')
+    .eq('date', today)
+    .single()
+
+  if (existing) return existing.content
+
+  // 2. Generate New Game (Lazy Load)
+  const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
+  const maxOffset = Math.max(0, (count || 0) - 60)
+  const randomOffset = Math.floor(Math.random() * maxOffset)
+  
+  // Fetch a pool to pick from
+  const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset + 59)
+  
+  if (!players || players.length < 10) return null
+
+  // Shuffle and pick 10 unique players
+  const dailyPlayers = players.sort(() => 0.5 - Math.random()).slice(0, 10)
+
+  // Get College List for distractors
+  const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
+  const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
+
+  // Build Questions
+  const questions = dailyPlayers.map(p => {
+    const wrong = getSimilarDistractors(p.college, collegeList)
+    const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
+    return {
+      id: p.id,
+      name: p.name,
+      image_url: p.image_url,
+      correct_answer: p.college,
+      options: options
+    }
+  })
+
+  // 3. Save to DB
+  const { error } = await supabase.from('daily_games').insert({ date: today, content: questions })
+
+  // If insert failed (race condition), fetch existing
+  if (error) {
+    const { data: retry } = await supabase.from('daily_games').select('content').eq('date', today).single()
+    return retry?.content
+  }
+
+  return questions
 }
