@@ -5,7 +5,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Timer } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -137,15 +137,13 @@ export default function DailyGame() {
       <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
          <div className="flex items-center gap-2">
              <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
-             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-white font-bold">{score}</span></div>
+             
+             {/* UPDATED: Brighter Green Score */}
+             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-green-400 font-black text-sm">{score}</span></div>
          </div>
-         <div className="flex items-center gap-3">
-             <div className="text-xs font-bold text-white flex items-center gap-1 bg-slate-900 px-2 py-1 rounded border border-slate-800">
-                <Timer className="w-3 h-3 text-slate-400" />
-                <span className={`${potentialPoints <= 30 ? 'text-red-500 animate-pulse' : 'text-yellow-400'}`}>{potentialPoints}</span>
-             </div>
-             <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
-         </div>
+         
+         {/* REMOVED: Duplicate Timer from here */}
+         <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
       </header>
       
       {/* Progress Bar */}
@@ -154,16 +152,16 @@ export default function DailyGame() {
       {/* Main Container: Flex Col to fill space */}
       <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
         
-        {/* IMAGE CARD - FLEX 1 to take remaining space */}
+        {/* IMAGE CARD */}
         <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
            
-           {/* THE IMAGE - Object Contain to ensure full visibility without overflow */}
+           {/* THE IMAGE */}
            {q.image_url ? (
              <Image 
                 src={q.image_url} 
                 alt="Player" 
                 fill 
-                className={`object-cover transition-opacity duration-300 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
+                className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
                 onLoadingComplete={() => setIsImageReady(true)}
                 priority={true}
              />
@@ -171,40 +169,45 @@ export default function DailyGame() {
              <div className="flex items-center justify-center h-full text-slate-600"><AlertCircle /> No Image</div>
            )}
            
+           {/* LOADING STATE - Spinner */}
            {!isImageReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-50">
                     <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
                 </div>
            )}
 
-            {/* --- THE DOUBLE PILL UI --- */}
-            <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
-                {/* 1. POINTS PILL */}
-                <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
-                    showResult 
-                        ? (isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
-                        : 'bg-yellow-400 text-black'
-                }`}>
-                    {showResult ? (isCorrect ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
+            {/* SYNCHRONIZED REVEAL CONTAINER - Logic: opacity-0 until image is ready */}
+            <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
+                
+                {/* 1. TOP RIGHT PILLS */}
+                <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
+                    {/* Points Pill */}
+                    <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
+                        showResult 
+                            ? (isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
+                            : 'bg-yellow-400 text-black'
+                    }`}>
+                        {showResult ? (isCorrect ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
+                    </div>
+
+                    {/* Result Pill */}
+                    {showResult && (
+                        <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${
+                            isCorrect ? 'bg-white text-green-700' : 'bg-white text-red-600'
+                        }`}>
+                            {isCorrect ? 'CORRECT' : 'WRONG'}
+                        </div>
+                    )}
                 </div>
 
-                {/* 2. STATUS PILL */}
-                {showResult && (
-                    <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${
-                        isCorrect ? 'bg-white text-green-700' : 'bg-white text-red-600'
-                    }`}>
-                        {isCorrect ? 'CORRECT' : 'WRONG'}
-                    </div>
-                )}
+                {/* 2. PLAYER NAME OVERLAY */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
+                </div>
             </div>
-
-           {/* Player Name Overlay */}
-           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-              <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
-           </div>
         </div>
 
-        {/* OPTIONS GRID - Fixed height at bottom */}
+        {/* OPTIONS GRID */}
         <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
             {q.options.map((opt: string) => {
                 let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
