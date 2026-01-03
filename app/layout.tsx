@@ -17,11 +17,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Saturday to Sunday',
   description: 'Test your College Football knowledge.',
-  // --- NEW: iPhone Home Screen Settings ---
+  
   appleWebApp: {
-    title: 'S2S', // <--- This sets the short name for the icon
+    title: 'S2S',
     statusBarStyle: 'black-translucent',
     capable: true,
+  },
+
+  icons: {
+    icon: '/ios-icon.png',       // Browser tab
+    apple: '/ios-icon.png',      // <--- iPhone Home Screen (New Name)
   },
 }
 
