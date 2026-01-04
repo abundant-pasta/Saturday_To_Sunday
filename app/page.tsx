@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Users, Play, Loader2, Trophy, Calendar } from 'lucide-react'
 import Link from 'next/link'
 
+
 export default function Home() {
   const router = useRouter()
   const [hostName, setHostName] = useState('')
@@ -83,6 +84,14 @@ export default function Home() {
                         <div className="bg-[#00ff80] text-black px-3 py-1.5 md:px-4 md:py-2 rounded font-black uppercase text-xs md:text-sm transition-colors group-hover:bg-white">Play</div>
                     </div>
                 </div>
+            </Link>
+            <Link href="/leaderboard" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full h-14 text-lg font-black tracking-tighter border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+              >
+                <Trophy className="mr-2 w-5 h-5 text-yellow-500" /> View Today's Leaderboard
+              </Button>
             </Link>
 
             {/* 2. HOST GAME CARD */}
