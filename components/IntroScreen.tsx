@@ -29,7 +29,7 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
                 <div>
                     <h3 className="font-bold text-white text-lg uppercase tracking-tight">Test Your Knowledge</h3>
                     <p className="text-sm text-slate-400 leading-relaxed mt-1">
-                        A player will appear. You have 4 options. Select the correct college instantly.
+                        A player will appear. There will be 4 colleges displayed. Select the correct college as quickly as possible for maximum points.
                     </p>
                 </div>
             </div>

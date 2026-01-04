@@ -9,7 +9,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'a.espncdn.com', // <--- Added this one
+        hostname: 'a.espncdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com', // <--- Added for Google Auth Avatars
+        pathname: '/**', // Allows any path under this domain
       },
     ],
   },
