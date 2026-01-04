@@ -1,0 +1,103 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { X, Share, PlusSquare, MoreVertical, Download } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+export default function InstallPwa() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+  const [isStandalone, setIsStandalone] = useState(false)
+
+  useEffect(() => {
+    // 1. Check if already installed (Standalone mode)
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+    if (isStandaloneMode) {
+        setIsStandalone(true)
+        return // Don't show anything if already installed
+    }
+
+    // 2. Detect iOS
+    const userAgent = window.navigator.userAgent.toLowerCase()
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent)
+    setIsIOS(isIosDevice)
+  }, [])
+
+  if (isStandalone) return null
+
+  return (
+    <>
+      {/* TRIGGER BUTTON (Put this wherever you want the link to appear) */}
+      <button 
+        onClick={() => setIsOpen(true)}
+        className="text-[10px] uppercase font-bold tracking-widest text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1 mx-auto mt-4"
+      >
+        <Download className="w-3 h-3" /> Install App for easier access
+      </button>
+
+      {/* MODAL OVERLAY */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
+            
+            {/* Close Button */}
+            <button 
+                onClick={() => setIsOpen(false)}
+                className="absolute top-4 right-4 text-slate-500 hover:text-white"
+            >
+                <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-lg font-black italic uppercase text-white mb-2">
+                Install App
+            </h2>
+            <p className="text-sm text-slate-400 mb-6">
+                Add Saturday to Sunday to your home screen for full-screen gameplay and instant access.
+            </p>
+
+            {isIOS ? (
+                /* --- iOS INSTRUCTIONS --- */
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4 text-sm text-slate-300">
+                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold">1</span>
+                        </div>
+                        <p>Tap the <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Share className="w-3 h-3 mx-1" /> Share</span> button below.</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-slate-300">
+                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold">2</span>
+                        </div>
+                        <p>Scroll down and select <span className="text-white font-bold inline-flex items-center mx-1"><PlusSquare className="w-3 h-3 mx-1" /> Add to Home Screen</span>.</p>
+                    </div>
+                </div>
+            ) : (
+                /* --- ANDROID INSTRUCTIONS --- */
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4 text-sm text-slate-300">
+                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold">1</span>
+                        </div>
+                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreVertical className="w-3 h-3" /> Menu</span> (three dots).</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-slate-300">
+                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold">2</span>
+                        </div>
+                        <p>Select <span className="font-bold text-white">Install App</span> or <span className="font-bold text-white">Add to Home Screen</span>.</p>
+                    </div>
+                </div>
+            )}
+
+            <Button 
+                onClick={() => setIsOpen(false)}
+                className="w-full mt-8 bg-indigo-600 hover:bg-indigo-500 font-bold"
+            >
+                Got it
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}

@@ -12,6 +12,7 @@ import IntroScreen from '@/components/IntroScreen'
 import AuthButton from '@/components/AuthButton'
 import { createBrowserClient } from '@supabase/ssr'
 import Leaderboard from '@/components/Leaderboard'
+import InstallPWA from '@/components/InstallPWA' // <--- Added
 
 // --- HELPER: Get Date in Mountain Time logic (UTC - 6h) ---
 const getGameDate = () => {
@@ -76,7 +77,6 @@ export default function DailyGame() {
         const savedDate = localStorage.getItem('s2s_last_played_date')
         const savedResults = localStorage.getItem('s2s_daily_results') 
         
-        // Use adjusted date
         const today = getGameDate()
         const hasSeenIntro = localStorage.getItem('s2s_has_seen_intro')
 
@@ -110,7 +110,6 @@ export default function DailyGame() {
   useEffect(() => {
     const saveScore = async () => {
       if (gameState === 'finished' && user && !isSaved && score > 0) {
-        // Use adjusted date
         const todayISO = getGameDate() 
         const { error } = await supabase.from('daily_results').upsert({
             user_id: user.id,
@@ -146,7 +145,6 @@ export default function DailyGame() {
       setGameState('playing')
   }
 
-  // Timer Logic
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
     const timer = setInterval(() => {
@@ -155,7 +153,6 @@ export default function DailyGame() {
     return () => clearInterval(timer)
   }, [gameState, showResult, isImageReady])
 
-  // Guess Logic
   const handleGuess = (option: string) => {
     if (showResult) return
 
@@ -182,7 +179,6 @@ export default function DailyGame() {
         setPotentialPoints(100)
         setIsImageReady(false) 
       } else {
-        // Use adjusted date for storage
         localStorage.setItem('s2s_today_score', newScore.toString())
         localStorage.setItem('s2s_last_played_date', getGameDate())
         localStorage.setItem('s2s_daily_results', JSON.stringify(newResults))
@@ -244,7 +240,6 @@ export default function DailyGame() {
                                      <Button 
                                         variant="outline" 
                                         onClick={() => setIsEditingName(true)}
-                                        // UPDATED CLASSNAME: Added bg-transparent and text-slate-300 to fix white box issue
                                         className="w-full h-9 text-xs font-bold border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white uppercase tracking-wider"
                                      >
                                         <Pencil className="w-3 h-3 mr-2" /> Change Display Name
@@ -282,28 +277,28 @@ export default function DailyGame() {
                              </div>
                         </div>
                     ) : (
-                        /* 2. If Not Saved: Show Login Button */
+                    /* 2. If Not Saved: Show Login Button */
                     <>
-                    <AuthButton />
-                    <div className="flex flex-col gap-2 items-center">
-                        <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">
-                            {user ? (
-                                <span className="flex items-center gap-2 justify-center">
-                                    <Loader2 className="w-3 h-3 animate-spin" /> Saving...
-                                </span>
-                            ) : (
-                                "Sign in to save this score"
-                            )}
-                        </p>
-                        
-                        {/* --- THE TRUST NOTE --- */}
-                        {!user && (
-                            <p className="text-[10px] text-slate-500 leading-tight max-w-[300px] border-t border-slate-800 pt-2 italic">
-                                Note: The login screen shows a generic "supabase.co" URL. This is 100% safe — custom domains just cost $35/mo! 😅
+                        <AuthButton />
+                        <div className="flex flex-col gap-2 items-center">
+                            <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">
+                                {user ? (
+                                    <span className="flex items-center gap-2 justify-center">
+                                        <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+                                    </span>
+                                ) : (
+                                    "Sign in to save this score"
+                                )}
                             </p>
-                        )}
-                    </div>
-                </>
+                            
+                            {/* --- THE TRUST NOTE --- */}
+                            {!user && (
+                                <p className="text-[10px] text-slate-500 leading-tight max-w-[300px] border-t border-slate-800 pt-2 italic text-center">
+                                    Note: The login screen shows a generic "supabase.co" URL. This is 100% safe — custom domains just cost $35/mo! 😅
+                                </p>
+                            )}
+                        </div>
+                    </>
                     )}
                 </div>
 
@@ -313,6 +308,11 @@ export default function DailyGame() {
         <Button onClick={handleShare} className="w-full max-w-md h-14 text-xl font-bold bg-indigo-600 hover:bg-indigo-500 transition-all hover:scale-105 shadow-lg">
             <Share2 className="mr-2" /> Share Result
         </Button>
+
+        {/* --- INSTALL PWA BUTTON --- */}
+        <div className="w-full max-w-md flex justify-center">
+            <InstallPWA />
+        </div>
 
         <div className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-backwards">
             <Leaderboard currentUserId={user?.id} />

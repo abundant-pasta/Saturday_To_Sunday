@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Users, Play, Loader2, Trophy, Calendar } from 'lucide-react'
 import Link from 'next/link'
-
+import InstallPWA from '@/components/InstallPWA' // <--- Added
 
 export default function Home() {
   const router = useRouter()
@@ -50,14 +50,12 @@ export default function Home() {
   }
 
   return (
-    // THEME: Swapped bg-slate-950 for bg-neutral-950 to get a deeper charcoal finish
     <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden">
       <div className="w-full max-w-md flex flex-col gap-4">
         
         {/* LOGO AREA */}
         <div className="text-center space-y-2 py-2">
           <div className="flex justify-center">
-            {/* Yellow trophy provides great contrast against the neon brand color */}
             <Trophy className="w-8 h-8 md:w-12 md:h-12 text-yellow-400" />
           </div>
           <div>
@@ -72,23 +70,22 @@ export default function Home() {
             
             {/* 1. DAILY CHALLENGE CARD */}
             <Link href="/daily" className="block group">
-                {/* NEON BRAND: Swapped indigo for a deep emerald gradient and neon green hover border */}
                 <div className="bg-gradient-to-r from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer">
                     <div className="bg-neutral-900/50 rounded-lg p-3 md:p-4 flex items-center justify-between">
                         <div>
-                            {/* Neon Text using Hex Code */}
                             <div className="text-[#00ff80] font-black uppercase text-[10px] md:text-sm tracking-widest mb-0.5">Single Player</div>
                             <div className="text-white font-bold text-lg md:text-xl flex items-center gap-2"><Calendar className="w-4 h-4 md:w-5 md:h-5" /> Daily Challenge</div>
                         </div>
-                        {/* Neon Button: Swapped bg-indigo for Hex #00ff80 */}
                         <div className="bg-[#00ff80] text-black px-3 py-1.5 md:px-4 md:py-2 rounded font-black uppercase text-xs md:text-sm transition-colors group-hover:bg-white">Play</div>
                     </div>
                 </div>
             </Link>
+
+            {/* LEADERBOARD BUTTON */}
             <Link href="/leaderboard" className="w-full">
               <Button 
                 variant="outline" 
-                className="w-full h-14 text-lg font-black tracking-tighter border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white transition-all"
+                className="w-full h-14 text-lg font-black tracking-tighter border-neutral-800 bg-transparent text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all"
               >
                 <Trophy className="mr-2 w-5 h-5 text-yellow-500" /> View Today's Leaderboard
               </Button>
@@ -96,7 +93,6 @@ export default function Home() {
 
             {/* 2. HOST GAME CARD */}
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
-                {/* Blue text swapped for Neon Green */}
                 <div className="flex items-center gap-2 text-[#00ff80] font-black uppercase text-[10px] md:text-xs tracking-widest">
                     <Users className="w-3 h-3 md:w-4 md:h-4" /> Host a Game
                 </div>
@@ -146,6 +142,9 @@ export default function Home() {
                     {isLoading ? <Loader2 className="animate-spin" /> : 'Enter Room'}
                 </Button>
             </div>
+            
+             {/* INSTALL PWA BUTTON */}
+            <InstallPWA />
 
         </div>
       </div>
