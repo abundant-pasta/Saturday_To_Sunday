@@ -3,26 +3,25 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import type { Session } from '@supabase/supabase-js' // Fixes the 'any' type error
+import type { Session } from '@supabase/supabase-js'
 
 export default function AuthButton() {
   const [user, setUser] = useState<Session['user'] | null>(null)
+  const [loading, setLoading] = useState(true) // Prevent "Login" flash
   
-  // 1. Create the client manually (The new way)
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
   useEffect(() => {
-    // Check active session on load
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       setUser(session?.user ?? null)
+      setLoading(false)
     }
     getUser()
 
-    // Listen for login/logout events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
@@ -31,6 +30,7 @@ export default function AuthButton() {
   }, [supabase])
 
   const handleLogin = async () => {
+    // Uses location.origin to automatically detect Localhost vs Production
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -42,6 +42,12 @@ export default function AuthButton() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setUser(null)
+    window.location.reload()
+  }
+
+  // View: Loading (Prevents flicker)
+  if (loading) {
+    return <div className="h-8 w-24 bg-slate-800/50 rounded-full animate-pulse" />
   }
 
   // View: User is Logged In
@@ -58,7 +64,7 @@ export default function AuthButton() {
                 />
              ) : (
                 <div className="h-full w-full bg-green-500 flex items-center justify-center text-xs font-bold text-slate-900">
-                    {user.email?.[0].toUpperCase()}
+                    {user.email?.[0]?.toUpperCase()}
                 </div>
              )}
         </div>

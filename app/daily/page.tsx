@@ -13,6 +13,13 @@ import AuthButton from '@/components/AuthButton'
 import { createBrowserClient } from '@supabase/ssr'
 import Leaderboard from '@/components/Leaderboard'
 
+// --- HELPER: Get Date in Mountain Time logic (UTC - 6h) ---
+const getGameDate = () => {
+    const offset = 6 * 60 * 60 * 1000 
+    const adjustedTime = new Date(Date.now() - offset)
+    return adjustedTime.toISOString().split('T')[0]
+}
+
 export default function DailyGame() {
   const [questions, setQuestions] = useState<any[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -69,7 +76,8 @@ export default function DailyGame() {
         const savedDate = localStorage.getItem('s2s_last_played_date')
         const savedResults = localStorage.getItem('s2s_daily_results') 
         
-        const today = new Date().toDateString()
+        // Use adjusted date
+        const today = getGameDate()
         const hasSeenIntro = localStorage.getItem('s2s_has_seen_intro')
 
         if (savedScore && savedDate === today) {
@@ -102,7 +110,8 @@ export default function DailyGame() {
   useEffect(() => {
     const saveScore = async () => {
       if (gameState === 'finished' && user && !isSaved && score > 0) {
-        const todayISO = new Date().toISOString().split('T')[0] 
+        // Use adjusted date
+        const todayISO = getGameDate() 
         const { error } = await supabase.from('daily_results').upsert({
             user_id: user.id,
             score: score,
@@ -173,8 +182,9 @@ export default function DailyGame() {
         setPotentialPoints(100)
         setIsImageReady(false) 
       } else {
+        // Use adjusted date for storage
         localStorage.setItem('s2s_today_score', newScore.toString())
-        localStorage.setItem('s2s_last_played_date', new Date().toDateString())
+        localStorage.setItem('s2s_last_played_date', getGameDate())
         localStorage.setItem('s2s_daily_results', JSON.stringify(newResults))
         setGameState('finished')
       }
@@ -218,7 +228,7 @@ export default function DailyGame() {
                     ))}
                 </div>
 
-                {/* --- AUTH/SAVE SECTION --- */}
+                {/* --- CLEANER AUTH/SAVE SECTION --- */}
                 <div className="mt-6 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 flex flex-col items-center gap-3">
                     
                     {isSaved ? (
