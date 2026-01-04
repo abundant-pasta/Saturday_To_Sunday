@@ -282,19 +282,28 @@ export default function DailyGame() {
                              </div>
                         </div>
                     ) : (
-                        /* If Not Saved: Show Login Button */
-                        <>
-                            <AuthButton />
-                            <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">
-                                {user ? (
-                                    <span className="flex items-center gap-2 justify-center">
-                                        <Loader2 className="w-3 h-3 animate-spin" /> Saving...
-                                    </span>
-                                ) : (
-                                    "Sign in to save this score"
-                                )}
+                        /* 2. If Not Saved: Show Login Button */
+                    <>
+                    <AuthButton />
+                    <div className="flex flex-col gap-2 items-center">
+                        <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">
+                            {user ? (
+                                <span className="flex items-center gap-2 justify-center">
+                                    <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+                                </span>
+                            ) : (
+                                "Sign in to save this score"
+                            )}
+                        </p>
+                        
+                        {/* --- THE TRUST NOTE --- */}
+                        {!user && (
+                            <p className="text-[10px] text-slate-500 leading-tight max-w-[300px] border-t border-slate-800 pt-2 italic">
+                                Note: The login screen shows a generic "supabase.co" URL. This is 100% safe — custom domains just cost $35/mo! 😅
                             </p>
-                        </>
+                        )}
+                    </div>
+                </>
                     )}
                 </div>
 
