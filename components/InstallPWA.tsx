@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Share, PlusSquare, MoreVertical, Download } from 'lucide-react'
+import { X, Share, PlusSquare, MoreHorizontal, Download, Compass } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function InstallPwa() {
@@ -14,7 +14,7 @@ export default function InstallPwa() {
     const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
     if (isStandaloneMode) {
         setIsStandalone(true)
-        return // Don't show anything if already installed
+        return 
     }
 
     // 2. Detect iOS
@@ -27,7 +27,7 @@ export default function InstallPwa() {
 
   return (
     <>
-      {/* TRIGGER BUTTON (Put this wherever you want the link to appear) */}
+      {/* TRIGGER BUTTON */}
       <button 
         onClick={() => setIsOpen(true)}
         className="text-[10px] uppercase font-bold tracking-widest text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1 mx-auto mt-4"
@@ -40,7 +40,6 @@ export default function InstallPwa() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
             
-            {/* Close Button */}
             <button 
                 onClick={() => setIsOpen(false)}
                 className="absolute top-4 right-4 text-slate-500 hover:text-white"
@@ -48,41 +47,60 @@ export default function InstallPwa() {
                 <X className="w-5 h-5" />
             </button>
 
-            <h2 className="text-lg font-black italic uppercase text-white mb-2">
+            <h2 className="text-xl font-black italic uppercase text-white mb-2">
                 Install App
             </h2>
-            <p className="text-sm text-slate-400 mb-6">
-                Add Saturday to Sunday to your home screen for full-screen gameplay and instant access.
+            <p className="text-base text-slate-400 mb-6 leading-snug">
+                Add Saturday to Sunday to your home screen for full-screen gameplay.
             </p>
 
             {isIOS ? (
-                /* --- iOS INSTRUCTIONS --- */
-                <div className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm text-slate-300">
-                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
-                            <span className="font-bold">1</span>
+                /* --- iOS INSTRUCTIONS (Larger Text) --- */
+                <div className="space-y-5">
+                     {/* Step 1: Safari Check */}
+                    <div className="flex items-center gap-4 text-base text-slate-300">
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold text-lg">1</span>
                         </div>
-                        <p>Tap the <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Share className="w-3 h-3 mx-1" /> Share</span> button below.</p>
+                        <p>Make sure you are in <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Compass className="w-4 h-4 mx-1" /> Safari</span>.</p>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-300">
-                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
-                            <span className="font-bold">2</span>
+
+                    {/* Step 2: 3 Dots Menu */}
+                    <div className="flex items-center gap-4 text-base text-slate-300">
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold text-lg">2</span>
                         </div>
-                        <p>Scroll down and select <span className="text-white font-bold inline-flex items-center mx-1"><PlusSquare className="w-3 h-3 mx-1" /> Add to Home Screen</span>.</p>
+                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4 mx-1" /> Menu</span> (three dots).</p>
+                    </div>
+
+                    {/* Step 3: Share Button */}
+                    <div className="flex items-center gap-4 text-base text-slate-300">
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold text-lg">3</span>
+                        </div>
+                        <p>Tap <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Share className="w-4 h-4 mx-1" /> Share</span>.</p>
+                    </div>
+
+                    {/* Step 4: Add to Home Screen */}
+                    <div className="flex items-center gap-4 text-base text-slate-300">
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold text-lg">4</span>
+                        </div>
+                        <p>Scroll down and tap <span className="text-white font-bold inline-flex items-center mx-1"><PlusSquare className="w-4 h-4 mx-1" /> Add to Home Screen</span>.</p>
                     </div>
                 </div>
             ) : (
-                /* --- ANDROID INSTRUCTIONS --- */
-                <div className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm text-slate-300">
-                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
-                            <span className="font-bold">1</span>
+                /* --- ANDROID INSTRUCTIONS (Larger Text) --- */
+                <div className="space-y-5">
+                    <div className="flex items-center gap-4 text-base text-slate-300">
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold text-lg">1</span>
                         </div>
-                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreVertical className="w-3 h-3" /> Menu</span> (three dots).</p>
+                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4" /> Menu</span> (three dots).</p>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-slate-300">
-                        <div className="w-8 h-8 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
-                            <span className="font-bold">2</span>
+                    <div className="flex items-center gap-4 text-base text-slate-300">
+                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
+                            <span className="font-bold text-lg">2</span>
                         </div>
                         <p>Select <span className="font-bold text-white">Install App</span> or <span className="font-bold text-white">Add to Home Screen</span>.</p>
                     </div>
@@ -91,7 +109,7 @@ export default function InstallPwa() {
 
             <Button 
                 onClick={() => setIsOpen(false)}
-                className="w-full mt-8 bg-indigo-600 hover:bg-indigo-500 font-bold"
+                className="w-full mt-8 h-12 text-lg bg-indigo-600 hover:bg-indigo-500 font-bold"
             >
                 Got it
             </Button>
