@@ -1,11 +1,19 @@
 import { createClient } from '@/utils/supabase/server'
-import { deletePlayer, updatePlayerImage } from '@/app/actions'
-import Image from 'next/image'
-import AdminCard from '@/components/AdminCard' // We will create this component next
+import { redirect } from 'next/navigation' // <--- 1. Import Redirect
+import AdminCard from '@/components/AdminCard'
 
 export default async function AdminPage() {
   const supabase = await createClient()
 
+  // --- 2. SECURITY GATE (The Bouncer) ---
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Check if user exists AND matches your generic ADMIN_EMAIL variable
+  if (!user || user.email !== process.env.ADMIN_EMAIL) {
+    redirect('/') // Kick them out immediately
+  }
+
+  // --- 3. FETCH DATA (Only runs if you passed the gate) ---
   // Fetch ALL active players
   const { data: players } = await supabase
     .from('players')
