@@ -1,0 +1,224 @@
+import os
+import sys
+import time
+from supabase import create_client, Client
+
+# --- 1. SETUP CREDENTIALS ---
+try:
+    sys.path.append('scripts') 
+    from config import SUPABASE_URL as FILE_URL, SUPABASE_SERVICE_ROLE_KEY as FILE_KEY
+    SUPABASE_URL = FILE_URL
+    SUPABASE_KEY = FILE_KEY
+    print("✅ Loaded credentials from scripts/config.py")
+except ImportError:
+    print("⚠️  scripts/config.py not found. Using Environment Variables.")
+    SUPABASE_URL = os.environ.get("SUPABASE_URL") 
+    SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("❌ Error: Missing credentials.")
+    exit()
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# --- 2. THE MASTER LIST ---
+# Manually compiled based on your failure log
+MANUAL_COLLEGES = {
+    # Legends / Vets
+    "Tyron Smith": "USC",
+    "Christian Darrisaw": "Virginia Tech",
+    "Morgan Moses": "Virginia",
+    "Zack Martin": "Notre Dame",
+    "Marshal Yanda": "Iowa",
+    "David DeCastro": "Stanford",
+    "Richie Incognito": "Nebraska",
+    "Kevin Zeitler": "Wisconsin",
+    "Michael Onwenu": "Michigan",
+    "Teven Jenkins": "Oklahoma State",
+    "Rodger Saffold": "Indiana",
+    "Jason Kelce": "Cincinnati",
+    "Travis Frederick": "Wisconsin",
+    "Rodney Hudson": "Florida State",
+    "Corey Linsley": "Ohio State",
+    "Ryan Kalil": "USC",
+    "David Andrews": "Georgia",
+    "Erik McCoy": "Texas A&M",
+    "J.C. Tretter": "Cornell",
+    "Trent Williams": "Oklahoma",
+    "Trent McDuffie": "Washington",
+    
+    # Offense (QB/RB/WR/TE)
+    "Caleb Williams": "USC",
+    "Jayden Daniels": "LSU",
+    "Drake Maye": "North Carolina",
+    "Bryce Young": "Alabama",
+    "Will Levis": "Kentucky",
+    "Bo Nix": "Oregon",
+    "J.J. McCarthy": "Michigan",
+    "Michael Penix Jr": "Washington",
+    "Jacoby Brissett": "NC State",
+    "Daniel Jones": "Duke",
+    "Gardner Minshew": "Washington State",
+    
+    "Isiah Pacheco": "Rutgers",
+    "De'Von Achane": "Texas A&M",
+    "Zamir White": "Georgia",
+    "Jerome Ford": "Cincinnati",
+    "Jaylen Warren": "Oklahoma State",
+    "Kenneth Walker III": "Michigan State",
+    "Tyjae Spears": "Tulane",
+    "Trey Benson": "Florida State",
+    "Keaton Mitchell": "East Carolina",
+    "Jonathon Brooks": "Texas",
+    "Roschon Johnson": "Texas",
+    "Chase Brown": "Illinois",
+    "Blake Corum": "Michigan",
+    "Ty Chandler": "North Carolina",
+    "AJ Dillon": "Boston College",
+    "Khalil Herbert": "Kansas",
+
+    "Marvin Harrison Jr.": "Ohio State",
+    "Rome Odunze": "Washington",
+    "Zay Flowers": "Boston College",
+    "Gabe Davis": "UCF",
+    "Jameson Williams": "Alabama",
+    "Romeo Doubs": "Nevada",
+    "Christian Watson": "North Dakota State",
+    "Dontayvion Wicks": "Virginia",
+    "Tank Dell": "Houston",
+    "Josh Downs": "North Carolina",
+    "Jakobi Meyers": "NC State",
+    "Rashee Rice": "SMU",
+    "Rashid Shaheed": "Weber State",
+    "Jaxon Smith-Njigba": "Ohio State",
+    "Michael Wilson": "Stanford",
+    "Darnell Mooney": "Tulane",
+    "Rashod Bateman": "Minnesota",
+    "Keon Coleman": "Florida State",
+    "Khalil Shakir": "Boise State",
+    "Xavier Legette": "South Carolina",
+    "Troy Franklin": "Oregon",
+    "Elijah Moore": "Ole Miss",
+    "Brian Thomas Jr": "LSU",
+    "Xavier Worthy": "Texas",
+    "Quentin Johnston": "TCU",
+    "Ladd McConkey": "Georgia",
+    "Wan'Dale Robinson": "Kentucky",
+    "Adonai Mitchell": "Texas",
+    "Roman Wilson": "Michigan",
+    "Ricky Pearsall": "Florida",
+    "Jalen McMillan": "Washington",
+    "Travis Hunter": "Colorado",
+
+    "Trey McBride": "Colorado State",
+    "Isaiah Likely": "Coastal Carolina",
+    "Dalton Kincaid": "Utah",
+    "David Njoku": "Miami (FL)",
+    "Evan Engram": "Ole Miss",
+    "Luke Musgrave": "Oregon State",
+    "Tucker Kraft": "South Dakota State",
+    "Brock Bowers": "Georgia",
+    "Hunter Henry": "Arkansas",
+    "Pat Freiermuth": "Penn State",
+    "Michael Mayer": "Notre Dame",
+    "Chig Okonkwo": "Maryland",
+    "Taysom Hill": "BYU",
+    "Cade Otton": "Washington",
+    "Ben Sinnott": "Kansas State",
+
+    # Defense
+    "Jessie Bates III": "Wake Forest",
+    "Derrick Brown": "Auburn",
+    "Denzel Ward": "Ohio State",
+    "Jeremiah Owusu-Koramoah": "Notre Dame",
+    "DaRon Bland": "Fresno State",
+    "Dre Greenlaw": "Arkansas",
+    "Talanoa Hufanga": "USC",
+    "Alex Singleton": "Montana State",
+    "Aidan Hutchinson": "Michigan",
+    "Alim McNeill": "NC State",
+    "Terrion Arnold": "Alabama",
+    "Trevon Diggs": "Alabama",
+    "Will Anderson Jr.": "Alabama",
+    "Derek Stingley Jr.": "LSU",
+    "Laiatu Latu": "UCLA",
+    "Josh Hines-Allen": "Kentucky",
+    "Foyesade Oluokun": "Yale",
+    "Joe Alt": "Notre Dame",
+    "Kobie Turner": "Wake Forest",
+    "Jared Verse": "Florida State",
+    "Javon Hargrave": "South Carolina State",
+    "Christian Barmore": "Alabama",
+    "Taliese Fuaga": "Oregon State",
+    "Jevon Holland": "Oregon",
+    "Bobby Okereke": "Stanford",
+    "Andrew Thomas": "Georgia",
+    "Olu Fashanu": "Penn State",
+    "Jermaine Johnson": "Florida State",
+    "Will McDonald IV": "Iowa State",
+    "Jalen Carter": "Georgia",
+    "Quinyon Mitchell": "Toledo",
+    "Jaelan Phillips": "Miami (FL)",
+    "Patrick Queen": "LSU",
+    "Boye Mafe": "Minnesota",
+    "Leonard Williams": "USC",
+    "Devon Witherspoon": "Illinois",
+    "Riq Woolen": "UTSA",
+    "JC Latham": "Alabama",
+    "L'Jarius Sneed": "Louisiana Tech",
+    "BJ Ojulari": "LSU",
+    "Greg Rousseau": "Miami (FL)",
+    "Shaq Thompson": "Washington",
+    "Robert Hunt": "Louisiana",
+    "Kyler Gordon": "Washington",
+    "Orlando Brown Jr.": "Oklahoma",
+    "Tyson Campbell": "Georgia",
+    "Jack Campbell": "Iowa",
+    "Kerby Joseph": "Illinois",
+    "Lukas Van Ness": "Iowa",
+    "Quay Walker": "Georgia",
+    "Samson Ebukam": "Eastern Washington",
+    "Devin Lloyd": "Utah",
+    "Travon Walker": "Georgia",
+    "Odafe Oweh": "Penn State",
+    "Byron Young": "Tennessee",
+    "Jordyn Brooks": "Texas Tech",
+    "Willie Gay Jr.": "Mississippi State",
+    "Ivan Pace Jr.": "Cincinnati",
+    "Pete Werner": "Ohio State",
+    "Paulson Adebo": "Stanford",
+    "Andre Cisco": "Syracuse",
+    "Reed Blankenship": "Middle Tennessee",
+    "Jabrill Peppers": "Michigan",
+    "Bryce Huff": "Memphis",
+    "Uchenna Nwosu": "USC"
+}
+
+def main():
+    print(f"🚀 Starting Manual Fix for {len(MANUAL_COLLEGES)} players...")
+    
+    count = 0
+    errors = 0
+
+    for name, college in MANUAL_COLLEGES.items():
+        try:
+            # Update only if college is currently 'Unknown' (optional safeguard)
+            # or just force update to be sure.
+            response = supabase.table('players').update({"college": college}).eq('name', name).execute()
+            
+            # Check if any row was actually modified
+            if response.data:
+                print(f"   ✅ Fixed: {name} -> {college}")
+                count += 1
+            else:
+                # This happens if the name spelling in my list doesn't EXACTLY match the DB
+                print(f"   ⚠️  Name mismatch (not found in DB): {name}")
+                
+        except Exception as e:
+            print(f"   ❌ Error updating {name}: {e}")
+            errors += 1
+
+    print(f"\n🎉 Done! Updated {count} players. Errors: {errors}")
+
+if __name__ == "__main__":
+    main()

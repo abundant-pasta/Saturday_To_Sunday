@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy, User } from 'lucide-react' // Added User icon
+import { Loader2, Trophy, User } from 'lucide-react'
 import Image from 'next/image'
 
 type LeaderboardEntry = {
@@ -13,7 +13,7 @@ type LeaderboardEntry = {
     full_name: string | null
     avatar_url: string | null
     email: string | null
-    show_avatar: boolean | null // <--- Added
+    show_avatar: boolean | null
   }
 }
 
@@ -28,7 +28,14 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      const today = new Date().toISOString().split('T')[0]
+      // --- THE FIX: 6-Hour Shift Logic ---
+      const now = new Date()
+      // Subtract 6 hours (in milliseconds)
+      // This means 5:59 AM UTC is still "Yesterday"
+      // And 6:01 AM UTC becomes "Today"
+      const gameDayDate = new Date(now.getTime() - 6 * 60 * 60 * 1000)
+      const today = gameDayDate.toISOString().split('T')[0]
+      // ------------------------------------
 
       const { data, error } = await supabase
         .from('daily_results')
@@ -58,7 +65,10 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         <h3 className="font-bold text-slate-200 uppercase tracking-widest text-xs flex items-center gap-2">
           <Trophy className="w-4 h-4 text-yellow-500" /> Daily Leaderboard
         </h3>
-        <span className="text-[10px] text-slate-500 font-mono">{new Date().toLocaleDateString()}</span>
+        {/* We also update the display date to match the logic */}
+        <span className="text-[10px] text-slate-500 font-mono">
+            {new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()}
+        </span>
       </div>
 
       <div className="max-h-64 overflow-y-auto divide-y divide-slate-800/50 scrollbar-thin scrollbar-thumb-slate-700">
@@ -71,11 +81,9 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             const isMe = entry.user_id === currentUserId
             const rank = index + 1
             
-            // PRIORITY: Username -> Full Name -> Email part -> Anonymous
             let displayName = entry.profiles?.username || entry.profiles?.full_name || entry.profiles?.email?.split('@')[0] || 'Anonymous'
 
-            // AVATAR LOGIC
-            const showPhoto = entry.profiles?.show_avatar !== false // Default to true if null
+            const showPhoto = entry.profiles?.show_avatar !== false 
             const avatarUrl = entry.profiles?.avatar_url
 
             return (
@@ -83,7 +91,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                     key={index} 
                     className={`flex items-center px-4 py-3 text-sm ${isMe ? 'bg-indigo-900/20' : ''}`}
                 >
-                {/* Rank */}
                 <div className={`w-8 font-mono font-black ${
                     rank === 1 ? 'text-yellow-400' : 
                     rank === 2 ? 'text-slate-300' : 
@@ -92,13 +99,11 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                     {rank}
                 </div>
 
-                {/* Avatar + Name */}
                 <div className="flex-1 flex items-center gap-3">
                     <div className="relative w-6 h-6 rounded-full overflow-hidden bg-slate-800 border border-slate-700 shrink-0 flex items-center justify-center">
                         {showPhoto && avatarUrl ? (
                             <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
                         ) : (
-                            // Fallback Icon
                             <User className="w-3 h-3 text-slate-500" />
                         )}
                     </div>
@@ -107,7 +112,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                     </span>
                 </div>
 
-                {/* Score */}
                 <div className="font-mono font-bold text-green-400">
                     {entry.score}
                 </div>
