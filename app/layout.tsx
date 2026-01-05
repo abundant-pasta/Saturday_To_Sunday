@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
   icons: {
     icon: '/ios-icon.png',       // Browser tab
-    apple: '/ios-icon.png',      // <--- iPhone Home Screen (New Name)
+    apple: '/ios-icon.png',      // iPhone Home Screen
   },
 }
 
@@ -38,7 +38,24 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Google AdSense Script */}
+        {/* --- Google Analytics (GA4) --- */}
+        <Script
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-9ZR4V6KFK6"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+        >
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-9ZR4V6KFK6');
+          `}
+        </Script>
+
+        {/* --- Google AdSense --- */}
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE"
