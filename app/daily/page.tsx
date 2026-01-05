@@ -188,9 +188,33 @@ export default function DailyGame() {
   }
 
   const handleShare = async () => {
+    // 1. Emoji Grid
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
-    const text = `Saturday to Sunday Daily\n${new Date().toLocaleDateString()}\nScore: ${score}/1000\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
-    try { await navigator.clipboard.writeText(text); alert('Result copied!'); } catch (err) { console.error(err) }
+    
+    // 2. Date Fix (Match Leaderboard's 6 AM cutoff)
+    const dateStr = new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
+  
+    // 3. The Text
+    const text = `Saturday to Sunday Daily\n${dateStr}\nScore: ${score}/1000\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
+  
+    // 4. Native Mobile Share (Better for viral growth)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Saturday to Sunday', text })
+        return
+      } catch (err) {
+        // User cancelled share or failed, fall back to clipboard below
+        console.log('Share cancelled')
+      }
+    }
+  
+    // 5. Desktop Fallback
+    try { 
+      await navigator.clipboard.writeText(text)
+      alert('Result copied!') 
+    } catch (err) { 
+      console.error(err) 
+    }
   }
 
   if (gameState === 'loading') return <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>

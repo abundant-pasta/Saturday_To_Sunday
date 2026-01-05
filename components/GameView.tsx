@@ -11,7 +11,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 
-// --- HELPER: Decode Text ---
+// --- HELPER: Decode HTML Entities ---
 const decodeText = (text: string) => {
   if (!text) return ''
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -22,7 +22,7 @@ const decodeText = (text: string) => {
   return text
 }
 
-// --- HELPER: Font Sizing ---
+// --- HELPER: Dynamic Font Sizing for long college names ---
 const getFontSize = (text: string) => {
   if (text.length > 20) return "text-xs"
   if (text.length > 15) return "text-sm"
@@ -40,78 +40,100 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const searchParams = useSearchParams() 
   const supabase = createClient()
   
+  // Use ID from URL if present (for reconnects), otherwise initial prop
   const playerId = searchParams.get('playerId') || initialParticipant?.id
 
+  // --- STATE ---
   const [gameState, setGameState] = useState(initialRoom.game_state) 
   const [round, setRound] = useState(initialRoom.current_round)
   const [roomData, setRoomData] = useState(initialRoom)
+  
   const [participants, setParticipants] = useState<any[]>([])
   const [submissions, setSubmissions] = useState<any[]>([])
+  
+  // Gameplay State
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null)
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
-  
   const [isImageReady, setIsImageReady] = useState(false)
 
   // Determine Host Status
   const myself = participants.find(p => p.id === playerId)
   const isHost = myself?.is_host || initialParticipant?.is_host
+  const allAnswered = participants.length > 0 && submissions.length >= participants.length
 
-  // Reset ready state when player changes
+  // Reset image loading when player changes
   useEffect(() => {
     setIsImageReady(false)
   }, [player.id])
 
-  // --- POLLING ---
+  // --- POLLING (The Heartbeat) ---
   useEffect(() => {
     const fetchGameData = async () => {
+        // 1. Refresh Room Data
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
+        
         if (r) {
             if (r.current_round !== round) {
-                // Round Changed!
+                // Round Changed! Reset everything for next turn
                 setRound(r.current_round)
                 setRoomData(r)
+                
+                // Reset Round State
                 setHasAnswered(false)
                 setSelectedOption(null)
                 setResult(null)
                 setPotentialPoints(100)
                 setIsSubmitting(false)
                 setSubmissions([]) 
-                router.refresh() 
+                
+                router.refresh() // Triggers server re-fetch of 'player' prop
             } else {
+                // Just update status (e.g. waiting -> playing)
                 setGameState(r.game_state)
                 setRoomData(r)
             }
         }
+
+        // 2. Refresh Participants (Scores)
         const { data: p } = await supabase.from('room_participants').select('*').eq('room_id', initialRoom.id).order('score', { ascending: false })
         if (p) setParticipants(p)
+
+        // 3. Refresh Submissions (Who has answered?)
         const currentRoundNum = r ? r.current_round : round
         const { data: s } = await supabase.from('round_submissions').select('*').eq('room_id', initialRoom.id).eq('round_number', currentRoundNum)
         if (s) setSubmissions(s)
     }
+
     const interval = setInterval(fetchGameData, 2000)
     return () => clearInterval(interval)
   }, [round, initialRoom.id, router])
 
-  // --- TIMER ---
+  // --- COUNTDOWN TIMER ---
   useEffect(() => {
     if (gameState !== 'playing' || selectedOption || hasAnswered || !isImageReady) return 
+    
     const timer = setInterval(() => {
       setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
     }, 500)
+    
     return () => clearInterval(timer)
   }, [selectedOption, gameState, hasAnswered, isImageReady])
 
-  // --- HANDLERS ---
+  // --- ACTIONS ---
+
   const handleGuess = async (college: string) => {
     if (isSubmitting || selectedOption || hasAnswered) return 
+    
     setIsSubmitting(true)
     setSelectedOption(college)
+    
     const isCorrect = college === roomData.correct_answer
     setResult(isCorrect ? 'correct' : 'wrong')
     setHasAnswered(true) 
+    
     await submitAnswer(initialRoom.code, playerId, college, potentialPoints)
     setIsSubmitting(false)
   }
@@ -123,8 +145,29 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   }
 
   const handleShare = async () => {
-    const myScore = participants.find(p => p.id === playerId)?.score || 0
-    const text = `Saturday to Sunday 🏈\nI scored ${myScore} pts.\n\nCan you beat me?\nhttps://www.playsaturdaytosunday.com/`
+    // 1. Get Details
+    const myParticipant = participants.find(p => p.id === playerId)
+    const myScore = myParticipant?.score || 0
+    const myRank = participants.findIndex(p => p.id === playerId) + 1
+    
+    // 2. Build the "Flex" Text
+    let header = `Saturday to Sunday 🏈`
+    if (myRank === 1) header += `\n🏆 I took 1st Place!`
+    else header += `\nI finished #${myRank} with ${myScore} pts.`
+
+    const text = `${header}\n\nCan you beat me?\nhttps://www.playsaturdaytosunday.com/`
+
+    // 3. Native Mobile Share (The Viral feature)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Saturday to Sunday Party', text })
+        return
+      } catch (err) {
+        console.log('Share cancelled')
+      }
+    }
+
+    // 4. Desktop Fallback
     try {
       await navigator.clipboard.writeText(text)
       alert('Score copied to clipboard!')
@@ -133,52 +176,46 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     }
   }
 
-  const allAnswered = participants.length > 0 && submissions.length >= participants.length
-
-// 1. LOBBY
-if (gameState === 'waiting') {
-  return (
-    // Background changed to a deep charcoal (neutral-950)
-    <div className="flex flex-col items-center min-h-[100dvh] bg-neutral-950 text-white p-4 space-y-8 pt-20">
-       <Link href="/" className="absolute top-4 left-4 text-neutral-500 hover:text-white"><Home /></Link>
-      <div className="text-center space-y-2">
-        {/* THEME UPDATE: Swapped Blue/Indigo for Neon Green Gradient */}
-        <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00ff80]">Lobby</h1>
-        <p className="text-neutral-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
+  // --- RENDER: 1. LOBBY ---
+  if (gameState === 'waiting') {
+    return (
+      <div className="flex flex-col items-center min-h-[100dvh] bg-neutral-950 text-white p-4 space-y-8 pt-20">
+         <Link href="/" className="absolute top-4 left-4 text-neutral-500 hover:text-white"><Home /></Link>
+        
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00ff80]">Lobby</h1>
+          <p className="text-neutral-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
+        </div>
+        
+        <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
+            <CardHeader><CardTitle className="text-neutral-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+                {participants.length === 0 && <div className="text-neutral-600 italic">Waiting...</div>}
+                {participants.map((p) => (
+                    <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-neutral-800/50">
+                        <div className="w-8 h-8 rounded-full bg-[#00ff80] text-black flex items-center justify-center font-bold">{p.name[0]}</div>
+                        <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
+        
+        {isHost ? (
+             <Button 
+                size="lg" 
+                className="w-full max-w-md h-16 text-xl font-bold uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
+                onClick={async () => { await startGame(initialRoom.code) }}
+             >
+             <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
+           </Button>
+        ) : (
+            <div className="flex items-center gap-2 text-neutral-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
+        )}
       </div>
-      
-      {/* Card styling set to dark neutral to match brand */}
-      <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
-          <CardHeader><CardTitle className="text-neutral-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-              {participants.length === 0 && <div className="text-neutral-600 italic">Waiting...</div>}
-              {participants.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-neutral-800/50">
-                      {/* Avatar background changed to Neon Green */}
-                      <div className="w-8 h-8 rounded-full bg-[#00ff80] text-black flex items-center justify-center font-bold">{p.name[0]}</div>
-                      <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
-                  </div>
-              ))}
-          </CardContent>
-      </Card>
-      
-      {isHost ? (
-           /* THEME UPDATE: Swapped Green-600 for Brand Neon #00ff80 */
-           <Button 
-              size="lg" 
-              className="w-full max-w-md h-16 text-xl font-bold uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
-              onClick={async () => { await startGame(initialRoom.code) }}
-           >
-           <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
-         </Button>
-      ) : (
-          <div className="flex items-center gap-2 text-neutral-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
-      )}
-    </div>
-  )
-}
+    )
+  }
 
-  // 2. GAME OVER
+  // --- RENDER: 2. GAME OVER ---
   if (gameState === 'finished') {
     const myRankIndex = participants.findIndex(p => p.id === playerId)
     const myRank = myRankIndex + 1
@@ -203,6 +240,7 @@ if (gameState === 'waiting') {
             <div className="flex justify-center mb-2">{icon}</div>
             <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>{endMessage}</h1>
         </div>
+        
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
             <CardHeader className="text-center border-b border-slate-800">
                 <CardTitle className="text-slate-500 text-xs uppercase tracking-widest">Final Standings</CardTitle>
@@ -253,7 +291,7 @@ if (gameState === 'waiting') {
     )
   }
 
-  // 3. PLAYING
+  // --- RENDER: 3. PLAYING ---
   return (
     <div className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header */}
@@ -273,10 +311,10 @@ if (gameState === 'waiting') {
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 overflow-hidden">
         
-        {/* GAME AREA - Flex Column to fill space */}
+        {/* GAME AREA - Flex Column */}
         <div className="lg:col-span-3 flex flex-col h-full gap-4 max-w-md lg:max-w-none mx-auto w-full">
 
-          {/* THE CARD - Flex 1 to take remaining space */}
+          {/* THE CARD - Flex 1 */}
           <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
                 {/* Image */}
                 {player.image_url ? (
@@ -298,7 +336,7 @@ if (gameState === 'waiting') {
                     </div>
                 )}
 
-                {/* --- THE DOUBLE PILL UI --- */}
+                {/* --- FEEDBACK UI --- */}
                 <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
                     {/* Points Pill */}
                     <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
@@ -325,19 +363,27 @@ if (gameState === 'waiting') {
                 </div>
           </div>
 
-          {/* OPTIONS GRID - Fixed height */}
+          {/* OPTIONS GRID */}
           <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
             {roomData.options.map((option: string) => {
                 const isSelected = selectedOption === option
                 const isCorrectAnswer = option === roomData.correct_answer
+                
                 let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" 
+                
                 if (hasAnswered) {
                     if (isSelected) btnClass = isCorrectAnswer ? "bg-green-600 text-white border-green-500 ring-2 ring-green-400" : "bg-red-600 text-white border-red-500 ring-2 ring-red-400"
                     else if (isCorrectAnswer) btnClass = "bg-green-600 text-white border-green-500 opacity-100"
                     else btnClass = "bg-slate-900 text-slate-600 border-slate-800 opacity-40"
                 }
+                
                 return (
-                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
+                  <Button 
+                    key={option} 
+                    onClick={() => handleGuess(option)} 
+                    disabled={hasAnswered || isSubmitting || !isImageReady} 
+                    className={`h-full text-xs md:text-sm font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}
+                  >
                     {decodeText(option)}
                   </Button>
                 )
@@ -352,9 +398,11 @@ if (gameState === 'waiting') {
                     </Button>
                 </div>
             )}
+            
+             {/* Waiting Indicator (Guest) */}
              {hasAnswered && !isHost && (
                  <div className="w-full shrink-0 py-2 text-center text-slate-500 animate-pulse font-mono text-xs border border-slate-800 rounded-lg bg-slate-900/50">
-                    Waiting for host...
+                    Waiting for host to advance...
                 </div>
             )}
         </div>
