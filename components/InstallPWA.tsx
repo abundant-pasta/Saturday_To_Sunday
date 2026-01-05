@@ -62,7 +62,7 @@ export default function InstallPwa() {
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">1</span>
                         </div>
-                        <p>Make sure you are in <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Compass className="w-4 h-4 mx-1" /> Safari</span>.</p>
+                        <p>Make sure you are in <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Compass className="w-4 h-4 mx-1" /> Safari</span></p>
                     </div>
 
                     {/* Step 2: 3 Dots Menu */}
@@ -70,7 +70,7 @@ export default function InstallPwa() {
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">2</span>
                         </div>
-                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4 mx-1" /> Menu</span> (three dots).</p>
+                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4 mx-1" /> Menu</span> (three dots)</p>
                     </div>
 
                     {/* Step 3: Share Button */}
@@ -78,7 +78,7 @@ export default function InstallPwa() {
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">3</span>
                         </div>
-                        <p>Tap <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Share className="w-4 h-4 mx-1" /> Share</span>.</p>
+                        <p>Tap <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Share className="w-4 h-4 mx-1" /> Share</span></p>
                     </div>
 
                     {/* Step 4: Add to Home Screen */}
@@ -86,7 +86,7 @@ export default function InstallPwa() {
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">4</span>
                         </div>
-                        <p>Scroll down and tap <span className="text-white font-bold inline-flex items-center mx-1"><PlusSquare className="w-4 h-4 mx-1" /> Add to Home Screen</span>.</p>
+                        <p>Scroll down and tap <span className="text-white font-bold inline-flex items-center mx-1"><PlusSquare className="w-4 h-4 mx-1" /> Add to Home Screen</span></p>
                     </div>
                 </div>
             ) : (
@@ -96,13 +96,13 @@ export default function InstallPwa() {
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">1</span>
                         </div>
-                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4" /> Menu</span> (three dots).</p>
+                        <p>Tap the<span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4" /> Menu</span></p>
                     </div>
                     <div className="flex items-center gap-4 text-base text-slate-300">
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">2</span>
                         </div>
-                        <p>Select <span className="font-bold text-white">Install App</span> or <span className="font-bold text-white">Add to Home Screen</span>.</p>
+                        <p>Select <span className="font-bold text-white">Install App</span> or <span className="font-bold text-white">Add to Home Screen</span></p>
                     </div>
                 </div>
             )}
