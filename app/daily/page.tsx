@@ -70,31 +70,14 @@ export default function DailyGame() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // 1. Load Game + Check User + Check Profile Settings
+  // 1. INITIAL LOAD: Fetch Game Data & Restore Local State
   useEffect(() => {
-    const load = async () => {
+    const loadGame = async () => {
       const data = await getDailyGame()
       if (data) {
         setQuestions(data)
         
-        const { data: { session } } = await supabase.auth.getSession()
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-
-        if (currentUser) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('show_avatar, username, current_streak')
-                .eq('id', currentUser.id)
-                .single()
-            
-            if (profile) {
-                if (profile.show_avatar !== null) setShowAvatar(profile.show_avatar)
-                if (profile.username) setNewUsername(profile.username)
-                if (profile.current_streak) setStreak(profile.current_streak)
-            }
-        }
-
+        // Restore local storage state
         const savedScore = localStorage.getItem('s2s_today_score')
         const savedDate = localStorage.getItem('s2s_last_played_date')
         const savedResults = localStorage.getItem('s2s_daily_results') 
@@ -121,15 +104,49 @@ export default function DailyGame() {
         }
       }
     }
-    load()
+    loadGame()
+  }, [])
 
+  // 2. AUTH LISTENER: Handles "Race Condition"
+  // This ensures we catch the user session even if it loads 500ms after the page
+  useEffect(() => {
+    // Check session immediately
+    const checkSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+            setUser(session.user)
+        }
+    }
+    checkSession()
+
+    // Listen for changes (Login, Logout, Auto-Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
   }, [])
 
-  // 2. THE SAVE LOGIC (Streak Update)
+  // 3. PROFILE FETCH: Runs WHENEVER 'user' is found
+  useEffect(() => {
+    const fetchProfile = async () => {
+        if (!user) return
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('show_avatar, username, current_streak')
+            .eq('id', user.id)
+            .single()
+        
+        if (profile) {
+            if (profile.show_avatar !== null) setShowAvatar(profile.show_avatar)
+            if (profile.username) setNewUsername(profile.username)
+            if (profile.current_streak) setStreak(profile.current_streak)
+        }
+    }
+    fetchProfile()
+  }, [user]) // <--- Dependency array ensures this runs when User state updates
+
+  // 4. THE SAVE LOGIC (Streak Update)
   useEffect(() => {
     const saveScore = async () => {
       if (gameState === 'finished' && user && !isSaved && score > 0) {
@@ -184,7 +201,7 @@ export default function DailyGame() {
     saveScore()
   }, [gameState, user, score, isSaved])
 
-  // 3. RANK FETCH LOGIC
+  // 5. RANK FETCH LOGIC
   useEffect(() => {
     const fetchRank = async () => {
         if (gameState === 'finished' && score > 0) {
@@ -233,7 +250,7 @@ export default function DailyGame() {
       setGameState('playing')
   }
 
-  // --- UPDATED TIMER LOGIC (With 1s Delay) ---
+  // --- TIMER LOGIC (With 1s Delay) ---
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
 
@@ -297,8 +314,6 @@ export default function DailyGame() {
     
     const streakText = streak > 1 ? `🔥 ${streak}` : ''
     
-    // --- UPDATED SHARE TEXT FORMAT ---
-    // Max score is now 1350 due to multipliers
     const text = `Saturday to Sunday Daily Challenge\n${dateStr}\nScore: ${score}/1350 ${streakText}\n\n${squares}\n\nCan you beat me? Try here:\nhttps://www.playsaturdaytosunday.com/daily`
   
     if (navigator.share) {

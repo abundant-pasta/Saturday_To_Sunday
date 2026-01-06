@@ -1,22 +1,65 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createRoom, joinRoom } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Users, Play, Loader2, Trophy, Calendar } from 'lucide-react'
+import { Users, Play, Loader2, Trophy, Calendar, User as UserIcon, LogOut } from 'lucide-react'
 import Link from 'next/link'
-import InstallPWA from '@/components/InstallPWA' // <--- Added
+import Image from 'next/image' // <--- Added for Avatar
+import InstallPWA from '@/components/InstallPWA'
+import { createBrowserClient } from '@supabase/ssr' // <--- Added for Auth
 
 export default function Home() {
   const router = useRouter()
+  
+  // Auth State
+  const [user, setUser] = useState<any>(null)
+  const [showSignOut, setShowSignOut] = useState(false)
+  
+  // Game State
   const [hostName, setHostName] = useState('')
   const [joinName, setJoinName] = useState('')
   const [roomCode, setRoomCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  // 1. Check Session on Mount
+  useEffect(() => {
+    const getUser = async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
+    }
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // 2. Auth Handlers
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+        }
+    })
+  }
+
+  const handleSignOut = async () => {
+      await supabase.auth.signOut()
+      setShowSignOut(false)
+  }
+
+  // 3. Game Handlers
   const handleCreate = async () => {
     if (!hostName) return
     setIsLoading(true)
@@ -50,7 +93,48 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden">
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden relative">
+      
+      {/* --- TOP RIGHT PROFILE ICON --- */}
+      <div className="absolute top-4 right-4 z-50">
+        {user ? (
+            <div className="relative">
+                <button 
+                    onClick={() => setShowSignOut(!showSignOut)}
+                    className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative"
+                >
+                    {user.user_metadata?.avatar_url ? (
+                        <Image src={user.user_metadata.avatar_url} alt="User" fill className="object-cover" />
+                    ) : (
+                        <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                             <UserIcon className="w-5 h-5 text-neutral-400" />
+                        </div>
+                    )}
+                </button>
+                {/* Sign Out Dropdown */}
+                {showSignOut && (
+                    <div className="absolute top-12 right-0 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl py-1 w-32 animate-in slide-in-from-top-2 fade-in">
+                        <button 
+                            onClick={handleSignOut}
+                            className="w-full text-left px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-400 hover:bg-neutral-800 flex items-center gap-2"
+                        >
+                            <LogOut className="w-3 h-3" /> Sign Out
+                        </button>
+                    </div>
+                )}
+            </div>
+        ) : (
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleGoogleLogin}
+                className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 rounded-full w-10 h-10"
+            >
+                <UserIcon className="w-6 h-6" />
+            </Button>
+        )}
+      </div>
+
       <div className="w-full max-w-md flex flex-col gap-4">
         
         {/* LOGO AREA */}
@@ -145,6 +229,18 @@ export default function Home() {
             
              {/* INSTALL PWA BUTTON */}
             <InstallPWA />
+
+            {/* --- FOOTER: ABOUT / LEGAL --- */}
+            <div className="pt-8 pb-4 flex flex-col items-center gap-3 border-t border-neutral-900 mt-4">
+                <p className="text-neutral-700 text-[10px] font-black uppercase tracking-widest">About</p>
+                <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-neutral-500 uppercase tracking-widest">
+                    <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+                    <span className="text-neutral-800">•</span>
+                    <Link href="/termsofservice" className="hover:text-white transition-colors">Terms</Link>
+                    <span className="text-neutral-800">•</span>
+                    <a href="mailto:support@playsaturdaytosunday.com" className="hover:text-white transition-colors">Support</a>
+                </div>
+            </div>
 
         </div>
       </div>
