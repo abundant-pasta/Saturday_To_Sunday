@@ -270,7 +270,7 @@ export default function DailyGame() {
     const streakText = streak > 1 ? `🔥 ${streak}` : ''
     
     // --- UPDATED SHARE TEXT FORMAT ---
-    const text = `Saturday to Sunday Daily Challenge\n${dateStr}\nScore: ${score}/1000 ${streakText}\n\n${squares}\n\nCan you beat my score? Try it out:\nhttps://www.playsaturdaytosunday.com/daily`
+    const text = `Saturday to Sunday Daily Challenge\n${dateStr}\nScore: ${score}/1000 ${streakText}\n\n${squares}\n\nCan you beat me? Try here:\nhttps://www.playsaturdaytosunday.com/daily`
   
     if (navigator.share) {
       try {

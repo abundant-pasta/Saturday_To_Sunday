@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy, User } from 'lucide-react'
+import { Loader2, Trophy, User, CalendarDays, Flame } from 'lucide-react'
 import Image from 'next/image'
 
 type LeaderboardEntry = {
@@ -19,8 +19,9 @@ type LeaderboardEntry = {
 
 export default function Leaderboard({ currentUserId }: { currentUserId?: string }) {
   const [scores, setScores] = useState<LeaderboardEntry[]>([])
-  const [totalCount, setTotalCount] = useState(0) // <--- NEW STATE FOR COUNT
+  const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'daily' | 'weekly'>('daily') // <--- NEW TOGGLE STATE
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,64 +30,112 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
+      setLoading(true)
+      
       // --- 6-Hour Shift Logic ---
       const now = new Date()
       const gameDayDate = new Date(now.getTime() - 6 * 60 * 60 * 1000)
       const today = gameDayDate.toISOString().split('T')[0]
-      // ---------------------------
 
-      // 1. Fetch Top 50 Scores
-      const { data } = await supabase
-        .from('daily_results')
-        .select(`
-          score, 
-          user_id, 
-          profiles (username, full_name, avatar_url, email, show_avatar)
-        `)
-        .eq('game_date', today)
-        .order('score', { ascending: false })
-        .limit(50)
+      if (view === 'daily') {
+        // --- 1. DAILY FETCH (Existing Logic) ---
+        const { data } = await supabase
+          .from('daily_results')
+          .select(`
+            score, 
+            user_id, 
+            profiles (username, full_name, avatar_url, email, show_avatar)
+          `)
+          .eq('game_date', today)
+          .order('score', { ascending: false })
+          .limit(50)
 
-      if (data) {
-        setScores(data as any)
+        if (data) setScores(data as any)
+
+        // Get Daily Count
+        const { count } = await supabase
+          .from('daily_results')
+          .select('*', { count: 'exact', head: true })
+          .eq('game_date', today)
+        
+        if (count !== null) setTotalCount(count)
+
+      } else {
+        // --- 2. WEEKLY FETCH (New RPC Logic) ---
+        const { data, error } = await supabase.rpc('get_weekly_leaderboard')
+
+        if (data) {
+          // Map RPC result to match the shape of LeaderboardEntry
+          // The RPC returns flat data, but our UI expects nested 'profiles'
+          const formatted: LeaderboardEntry[] = data.map((row: any) => ({
+            score: row.score,
+            user_id: row.user_id,
+            profiles: {
+              username: row.username,
+              full_name: row.full_name,
+              avatar_url: row.avatar_url,
+              email: row.email,
+              show_avatar: row.show_avatar
+            }
+          }))
+          setScores(formatted)
+          setTotalCount(data.length) // For weekly, count is just list size
+        }
       }
-
-      // 2. Fetch Total Player Count (NEW)
-      const { count } = await supabase
-        .from('daily_results')
-        .select('*', { count: 'exact', head: true })
-        .eq('game_date', today)
-      
-      if (count !== null) setTotalCount(count)
 
       setLoading(false)
     }
 
     fetchLeaderboard()
-  }, [currentUserId]) // <--- Added dependency to ensure updates on login
-
-  if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin text-slate-500" /></div>
+  }, [currentUserId, view]) // Re-run when View or User changes
 
   return (
     <div className="w-full max-w-md mx-auto mt-6 bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-2xl">
-      <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <div className="flex flex-col">
-            <h3 className="font-bold text-slate-200 uppercase tracking-widest text-xs flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-yellow-500" /> Daily Leaderboard
-            </h3>
-            {/* NEW COUNT DISPLAY */}
-            <span className="text-[10px] text-slate-400 font-bold ml-6">{totalCount} players today</span>
-        </div>
+      
+      {/* HEADER WITH TOGGLE */}
+      <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800 flex flex-col gap-3">
         
-        <span className="text-[10px] text-slate-500 font-mono">
-            {new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()}
-        </span>
+        <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-200 uppercase tracking-widest text-xs flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-yellow-500" /> Leaderboard
+            </h3>
+            <span className="text-[10px] text-slate-500 font-mono">
+                {view === 'daily' 
+                  ? new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
+                  : 'Mon - Sun'
+                }
+            </span>
+        </div>
+
+        {/* TOGGLE SWITCH */}
+        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 relative">
+             <button 
+                onClick={() => setView('daily')}
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${view === 'daily' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+             >
+                <Flame className={`w-3 h-3 ${view === 'daily' ? 'text-orange-500' : ''}`} /> Daily
+             </button>
+             <button 
+                onClick={() => setView('weekly')}
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${view === 'weekly' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+             >
+                <CalendarDays className={`w-3 h-3 ${view === 'weekly' ? 'text-blue-500' : ''}`} /> Weekly
+             </button>
+        </div>
+
+        {/* Player Count */}
+        <div className="text-[10px] text-slate-400 font-bold text-center border-t border-slate-800/50 pt-2">
+            {totalCount} players {view === 'daily' ? 'today' : 'this week'}
+        </div>
+
       </div>
 
       <div className="max-h-64 overflow-y-auto divide-y divide-slate-800/50 scrollbar-thin scrollbar-thumb-slate-700">
-        {scores.length === 0 ? (
+        {loading ? (
+             <div className="flex justify-center py-8"><Loader2 className="animate-spin text-slate-500" /></div>
+        ) : scores.length === 0 ? (
             <div className="p-8 text-center text-slate-500 text-xs">
-                No scores yet today. Be the first!
+                No scores yet. Be the first!
             </div>
         ) : (
             scores.map((entry, index) => {
@@ -124,8 +173,8 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                     </span>
                 </div>
 
-                <div className="font-mono font-bold text-green-400">
-                    {entry.score}
+                <div className={`font-mono font-bold ${view === 'weekly' ? 'text-blue-400' : 'text-green-400'}`}>
+                    {entry.score.toLocaleString()} {/* Adds comma for big weekly scores */}
                 </div>
                 </div>
             )
