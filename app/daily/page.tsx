@@ -97,7 +97,7 @@ export default function DailyGame() {
                 setResults(new Array(data.length).fill('pending'))
             }
             setGameState('finished')
-            setIsSaved(true) // Assume saved if in localStorage for UI purposes, auth check handles real save
+            setIsSaved(true) 
         } else {
             setResults(new Array(data.length).fill('pending'))
             if (!hasSeenIntro) {
@@ -119,7 +119,6 @@ export default function DailyGame() {
   // 2. THE SAVE LOGIC (Streak Update)
   useEffect(() => {
     const saveScore = async () => {
-      // Only save if we just finished, have a user, and haven't saved yet
       if (gameState === 'finished' && user && !isSaved && score > 0) {
         const todayISO = getGameDate() 
         
@@ -172,20 +171,17 @@ export default function DailyGame() {
     saveScore()
   }, [gameState, user, score, isSaved])
 
-  // 3. RANK FETCH LOGIC (Runs on Load AND Save)
-  // This ensures rank updates even if you refresh the page hours later
+  // 3. RANK FETCH LOGIC
   useEffect(() => {
     const fetchRank = async () => {
         if (gameState === 'finished' && score > 0) {
             const todayISO = getGameDate()
 
-            // 1. Get total players today
             const { count: total } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
                 .eq('game_date', todayISO)
 
-            // 2. Get players with higher score than mine
             const { count: betterPlayers } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
@@ -197,8 +193,6 @@ export default function DailyGame() {
         }
     }
 
-    // Run this whenever game is finished and score is set
-    // This covers both the "Just Finished" case and the "Page Reload" case
     if (gameState === 'finished') {
         fetchRank()
     }
@@ -270,9 +264,13 @@ export default function DailyGame() {
 
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
+    // Formatted Date: 1/5/2026
     const dateStr = new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
+    
     const streakText = streak > 1 ? `🔥 ${streak}` : ''
-    const text = `Saturday to Sunday Daily\n${dateStr}\nScore: ${score}/1000 ${streakText}\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
+    
+    // --- UPDATED SHARE TEXT FORMAT ---
+    const text = `Saturday to Sunday Daily Challenge\n${dateStr}\nScore: ${score}/1000 ${streakText}\n\n${squares}\n\nCan you beat my score? Try it out:\nhttps://www.playsaturdaytosunday.com/daily`
   
     if (navigator.share) {
       try {
@@ -307,9 +305,9 @@ export default function DailyGame() {
         
         {/* --- MAIN SCORE CARD --- */}
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden">
-        <CardContent className="pt-8 pb-8 text-center space-y-6 relative">
+        <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
                 
-                {/* SETTINGS TOGGLE (Only if logged in) */}
+                {/* SETTINGS TOGGLE */}
                 {user && (
                   <div className="absolute top-3 right-3 z-10">
                     <Button 
@@ -325,7 +323,6 @@ export default function DailyGame() {
 
                 {/* --- SCORE + STATS ROW --- */}
                 <div className="flex flex-col items-center justify-center gap-2">
-                    
                     {/* Main Score */}
                     <div className="flex flex-col items-center">
                         <span className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
@@ -334,7 +331,7 @@ export default function DailyGame() {
                         </div>
                     </div>
 
-                    {/* STATS ROW: RANK & STREAK */}
+                    {/* STATS ROW */}
                     {isSaved && (
                          <div className="flex items-center gap-2 mt-2 animate-in zoom-in duration-500 delay-200">
                              
@@ -374,21 +371,14 @@ export default function DailyGame() {
                     ))}
                 </div>
 
-                {/* --- CONDENSED PROFILE SECTION --- */}
-                <div className="flex flex-col items-center gap-3">
+                {/* --- PROFILE / LOGIN SECTION --- */}
+                <div className="flex flex-col items-center gap-3 w-full">
                     {isSaved ? (
                         <>
-                           {/* 1. DEFAULT VIEW: NOTHING. 
-                              (We removed "Score Saved" text per request)
-                           */}
-
-                           {/* 2. SETTINGS VIEW: Only shows when toggle is TRUE */}
                            {showProfileSettings && (
-                             <div className="w-full mt-4 p-4 bg-slate-950/50 rounded-xl border border-slate-800 animate-in slide-in-from-top-2 fade-in">
+                             <div className="w-full mt-2 p-4 bg-slate-950/50 rounded-xl border border-slate-800 animate-in slide-in-from-top-2 fade-in">
                                  <div className="flex flex-col gap-3">
                                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Profile Settings</h3>
-                                    
-                                    {/* Edit Name */}
                                     {!isEditingName ? (
                                          <Button 
                                             variant="outline" 
@@ -415,8 +405,6 @@ export default function DailyGame() {
                                             </Button>
                                          </div>
                                     )}
-
-                                    {/* Avatar Toggle */}
                                     <div className="flex items-center justify-between px-3 py-2 bg-slate-900 rounded border border-slate-700">
                                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Show Photo</span>
                                         <button 
@@ -426,16 +414,13 @@ export default function DailyGame() {
                                             <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
                                         </button>
                                     </div>
-
-                                    {/* Logout */}
                                     <AuthButton />
                                  </div>
                              </div>
                            )}
                         </>
                     ) : (
-                    /* NOT LOGGED IN: Show standard Login Prompt */
-                    <div className="mt-4 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 w-full flex flex-col items-center gap-3">
+                    <div className="mt-2 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
                         <div className="flex flex-col gap-1 items-center">
                             <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">
@@ -452,16 +437,21 @@ export default function DailyGame() {
                     )}
                 </div>
 
+                {/* --- SHARE BUTTON (MOVED INSIDE CARD) --- */}
+                {!showProfileSettings && (
+                  <div className="pt-2 w-full animate-in slide-in-from-bottom-2 fade-in">
+                    <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-indigo-600 hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-900/20">
+                        <Share2 className="mr-2 w-5 h-5" /> Share Result
+                    </Button>
+                  </div>
+                )}
+
             </CardContent>
         </Card>
 
-        {/* --- ACTIONS (Visible when settings closed) --- */}
+        {/* --- BOTTOM ACTIONS --- */}
         {!showProfileSettings && (
           <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500">
-            <Button onClick={handleShare} className="w-full h-14 text-xl font-bold bg-indigo-600 hover:bg-indigo-500 transition-all hover:scale-105 shadow-lg shadow-indigo-900/20">
-                <Share2 className="mr-2" /> Share Result
-            </Button>
-
             <div className="flex justify-center">
                 <InstallPWA />
             </div>
@@ -479,54 +469,4 @@ export default function DailyGame() {
       </div>
     )
   }
-
-  // --- PLAYING SCREEN ---
-  const q = questions[currentIndex]
-  
-  return (
-    <div className="h-[100dvh] bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
-        {/* Header */}
-        <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
-         <div className="flex items-center gap-2">
-             <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
-             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-green-400 font-black text-sm">{score}</span></div>
-         </div>
-         <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
-        </header>
-        
-        <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-slate-800 shrink-0" />
-
-        <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
-            <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
-               {q.image_url ? (
-                 <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />
-               ) : ( <div className="flex items-center justify-center h-full text-slate-600"><AlertCircle /> No Image</div> )}
-               {!isImageReady && ( <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-50"><Loader2 className="w-8 h-8 text-slate-500 animate-spin" /></div> )}
-                <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
-                        <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? 'bg-green-600 text-white' : 'bg-red-600 text-white') : 'bg-yellow-400 text-black' }`}>
-                            {showResult ? (selectedOption === q.correct_answer ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
-                        </div>
-                        {showResult && ( <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${ selectedOption === q.correct_answer ? 'bg-white text-green-700' : 'bg-white text-red-600' }`}> {selectedOption === q.correct_answer ? 'CORRECT' : 'WRONG'} </div> )}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-                        <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
-                {q.options.map((opt: string) => {
-                    let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
-                    if (showResult) {
-                        if (opt === q.correct_answer) btnClass = "bg-green-600 text-white border-green-500 ring-2 ring-green-400"
-                        else if (opt === selectedOption) btnClass = "bg-red-600 text-white border-red-500"
-                        else btnClass = "bg-slate-900 text-slate-600 opacity-30"
-                    }
-                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}> {opt} </Button> )
-                })}
-            </div>
-        </main>
-    </div>
-  )
 }
