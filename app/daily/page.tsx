@@ -5,7 +5,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, CheckCircle2, Pencil, Settings, X, LogOut } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Pencil, Settings, X, Hash } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -26,8 +26,10 @@ export default function DailyGame() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   
-  // --- STATE: Streak ---
+  // --- STATE: Stats ---
   const [streak, setStreak] = useState(0)
+  const [myRank, setMyRank] = useState<number | null>(null)
+  const [totalPlayers, setTotalPlayers] = useState(0)
 
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
   const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
@@ -47,7 +49,7 @@ export default function DailyGame() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [showAvatar, setShowAvatar] = useState(true)
   
-  // --- NEW STATE: UI Toggles ---
+  // --- STATE: UI Toggles ---
   const [showProfileSettings, setShowProfileSettings] = useState(false)
 
   const supabase = createBrowserClient(
@@ -69,13 +71,14 @@ export default function DailyGame() {
         if (currentUser) {
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('show_avatar, username')
+                .select('show_avatar, username, current_streak')
                 .eq('id', currentUser.id)
                 .single()
             
             if (profile) {
                 if (profile.show_avatar !== null) setShowAvatar(profile.show_avatar)
                 if (profile.username) setNewUsername(profile.username)
+                if (profile.current_streak) setStreak(profile.current_streak)
             }
         }
 
@@ -94,6 +97,7 @@ export default function DailyGame() {
                 setResults(new Array(data.length).fill('pending'))
             }
             setGameState('finished')
+            setIsSaved(true) // Assume saved if in localStorage for UI purposes, auth check handles real save
         } else {
             setResults(new Array(data.length).fill('pending'))
             if (!hasSeenIntro) {
@@ -112,12 +116,14 @@ export default function DailyGame() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 2. THE SAVE LOGIC
+  // 2. THE SAVE LOGIC (Streak Update)
   useEffect(() => {
     const saveScore = async () => {
+      // Only save if we just finished, have a user, and haven't saved yet
       if (gameState === 'finished' && user && !isSaved && score > 0) {
         const todayISO = getGameDate() 
         
+        // A. Upsert Score
         const { error: scoreError } = await supabase.from('daily_results').upsert({
             user_id: user.id,
             score: score,
@@ -129,6 +135,7 @@ export default function DailyGame() {
             return
         }
 
+        // B. Update Profile (Streak Logic)
         const { data: profile } = await supabase
             .from('profiles')
             .select('current_streak, last_played_date')
@@ -158,12 +165,44 @@ export default function DailyGame() {
             
             setStreak(newStreak)
         }
-
+        
         setIsSaved(true)
       }
     }
     saveScore()
   }, [gameState, user, score, isSaved])
+
+  // 3. RANK FETCH LOGIC (Runs on Load AND Save)
+  // This ensures rank updates even if you refresh the page hours later
+  useEffect(() => {
+    const fetchRank = async () => {
+        if (gameState === 'finished' && score > 0) {
+            const todayISO = getGameDate()
+
+            // 1. Get total players today
+            const { count: total } = await supabase
+                .from('daily_results')
+                .select('*', { count: 'exact', head: true })
+                .eq('game_date', todayISO)
+
+            // 2. Get players with higher score than mine
+            const { count: betterPlayers } = await supabase
+                .from('daily_results')
+                .select('*', { count: 'exact', head: true })
+                .eq('game_date', todayISO)
+                .gt('score', score)
+            
+            setTotalPlayers(total || 0)
+            setMyRank((betterPlayers || 0) + 1)
+        }
+    }
+
+    // Run this whenever game is finished and score is set
+    // This covers both the "Just Finished" case and the "Page Reload" case
+    if (gameState === 'finished') {
+        fetchRank()
+    }
+  }, [gameState, score])
 
   const handleUpdateName = async () => {
     if (!user || !newUsername.trim()) return
@@ -270,7 +309,7 @@ export default function DailyGame() {
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden">
         <CardContent className="pt-8 pb-8 text-center space-y-6 relative">
                 
-                {/* --- SETTINGS TOGGLE (Only if logged in) --- */}
+                {/* SETTINGS TOGGLE (Only if logged in) */}
                 {user && (
                   <div className="absolute top-3 right-3 z-10">
                     <Button 
@@ -284,32 +323,49 @@ export default function DailyGame() {
                   </div>
                 )}
 
-                {/* Score Big Display */}
-                <div className="flex flex-col items-center justify-center">
-                    <span className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
-                    <div className="text-6xl font-black text-green-400 font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(74,222,128,0.5)]">
-                        {score}<span className="text-2xl text-slate-600">/1000</span>
+                {/* --- SCORE + STATS ROW --- */}
+                <div className="flex flex-col items-center justify-center gap-2">
+                    
+                    {/* Main Score */}
+                    <div className="flex flex-col items-center">
+                        <span className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
+                        <div className="text-6xl font-black text-green-400 font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(74,222,128,0.5)] leading-none">
+                            {score}<span className="text-2xl text-slate-600">/1000</span>
+                        </div>
                     </div>
-                </div>
 
-                {/* --- UPDATED: Fire/Yellow Streak Badge --- */}
-                {isSaved && streak > 0 && (
-                  <div className="flex items-center justify-center animate-in zoom-in duration-500 delay-300">
-                    <div className={`
-                      flex items-center gap-2 px-5 py-2 rounded-full border shadow-lg bg-gradient-to-r
-                      ${streak > 1 
-                        ? 'from-yellow-500/10 to-orange-600/10 border-yellow-500/20 text-yellow-500' 
-                        : 'from-slate-800 to-slate-800 border-slate-700 text-slate-400'
-                      }
-                    `}>
-                      <span className="text-xl drop-shadow-md">🔥</span>
-                      <div className="flex flex-col leading-none text-left">
-                        <span className="text-xl font-black">{streak}</span>
-                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">Day Streak</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                    {/* STATS ROW: RANK & STREAK */}
+                    {isSaved && (
+                         <div className="flex items-center gap-2 mt-2 animate-in zoom-in duration-500 delay-200">
+                             
+                             {/* RANK BADGE */}
+                             <div className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-md flex items-center gap-2 h-9">
+                                <Hash className="w-3.5 h-3.5 text-blue-400" />
+                                <div className="flex items-baseline gap-1 leading-none">
+                                    <span className="text-sm font-black text-slate-200">
+                                        {myRank ? myRank : '-'}
+                                    </span>
+                                    <span className="text-xs font-bold text-slate-500">
+                                        / {totalPlayers}
+                                    </span>
+                                </div>
+                             </div>
+
+                             {/* STREAK BADGE */}
+                             {streak > 0 && (
+                                <div className={`px-3 py-1.5 rounded-md flex items-center gap-2 border h-9 ${streak > 1 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-slate-800/80 border-slate-700'}`}>
+                                    <span className="text-sm">🔥</span>
+                                    <div className="flex items-baseline gap-1 leading-none">
+                                        <span className={`text-sm font-black ${streak > 1 ? 'text-orange-400' : 'text-slate-200'}`}>
+                                            {streak}
+                                        </span>
+                                        <span className="text-[10px] font-bold uppercase text-slate-500">Day Streak</span>
+                                    </div>
+                                </div>
+                             )}
+                         </div>
+                    )}
+                </div>
 
                 {/* Visual Squares */}
                 <div className="flex justify-center gap-1">
@@ -322,18 +378,11 @@ export default function DailyGame() {
                 <div className="flex flex-col items-center gap-3">
                     {isSaved ? (
                         <>
-                           {/* 1. DEFAULT VIEW: Just show "Score Saved" text.
-                              The user clicks the Settings icon (top right) to edit.
+                           {/* 1. DEFAULT VIEW: NOTHING. 
+                              (We removed "Score Saved" text per request)
                            */}
-                           {!showProfileSettings && (
-                              <div className="flex items-center gap-2 text-green-400/80 text-xs font-bold uppercase tracking-widest animate-pulse mt-2">
-                                <CheckCircle2 className="w-4 h-4" /> Score Saved
-                              </div>
-                           )}
 
-                           {/* 2. SETTINGS VIEW: Only shows when toggle is TRUE 
-                              This pushes the rest of the UI down temporarily
-                           */}
+                           {/* 2. SETTINGS VIEW: Only shows when toggle is TRUE */}
                            {showProfileSettings && (
                              <div className="w-full mt-4 p-4 bg-slate-950/50 rounded-xl border border-slate-800 animate-in slide-in-from-top-2 fade-in">
                                  <div className="flex flex-col gap-3">
@@ -406,8 +455,7 @@ export default function DailyGame() {
             </CardContent>
         </Card>
 
-        {/* --- ACTIONS (Moved Up!) --- */}
-        {/* Only show these if the profile settings are CLOSED to keep it clean */}
+        {/* --- ACTIONS (Visible when settings closed) --- */}
         {!showProfileSettings && (
           <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500">
             <Button onClick={handleShare} className="w-full h-14 text-xl font-bold bg-indigo-600 hover:bg-indigo-500 transition-all hover:scale-105 shadow-lg shadow-indigo-900/20">
@@ -418,7 +466,6 @@ export default function DailyGame() {
                 <InstallPWA />
             </div>
 
-            {/* LEADERBOARD */}
             <Leaderboard 
                 currentUserId={user?.id} 
                 key={isSaved ? `saved-${user?.id}` : 'unsaved'} 
