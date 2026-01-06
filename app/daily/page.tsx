@@ -5,7 +5,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Pencil, Settings, X, Hash } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Pencil, Settings, X, Hash, Star, Shield, Flame, Zap } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -19,6 +19,13 @@ const getGameDate = () => {
     const offset = 6 * 60 * 60 * 1000 
     const adjustedTime = new Date(Date.now() - offset)
     return adjustedTime.toISOString().split('T')[0]
+}
+
+// --- HELPER: Multiplier Logic ---
+const getMultiplier = (tier: number) => {
+    if (tier === 3) return 2.0    // Hard
+    if (tier === 2) return 1.5    // Medium
+    return 1.0                    // Easy
 }
 
 export default function DailyGame() {
@@ -220,12 +227,25 @@ export default function DailyGame() {
       setGameState('playing')
   }
 
+  // --- UPDATED TIMER LOGIC (With 1s Delay) ---
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
-    const timer = setInterval(() => {
-      setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
-    }, 500)
-    return () => clearInterval(timer)
+
+    let decayInterval: any
+    
+    // 1. Wait 1000ms (1 second) before starting the countdown
+    const startTimer = setTimeout(() => {
+        // 2. Start decrementing 5 points every 500ms
+        decayInterval = setInterval(() => {
+            setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
+        }, 500)
+    }, 1000)
+
+    // Cleanup ensures we don't have rogue timers
+    return () => {
+        clearTimeout(startTimer)
+        if (decayInterval) clearInterval(decayInterval)
+    }
   }, [gameState, showResult, isImageReady])
 
   const handleGuess = (option: string) => {
@@ -237,7 +257,10 @@ export default function DailyGame() {
     
     let newScore = score
     if (isCorrect) {
-        newScore = score + potentialPoints
+        // --- MULTIPLIER LOGIC ---
+        const multiplier = getMultiplier(currentQ.tier || 1)
+        const pointsAwarded = Math.round(potentialPoints * multiplier)
+        newScore = score + pointsAwarded
         setScore(newScore)
     }
     
@@ -264,13 +287,13 @@ export default function DailyGame() {
 
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
-    // Formatted Date: 1/5/2026
     const dateStr = new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
     
     const streakText = streak > 1 ? `🔥 ${streak}` : ''
     
     // --- UPDATED SHARE TEXT FORMAT ---
-    const text = `Saturday to Sunday Daily Challenge\n${dateStr}\nScore: ${score}/1000 ${streakText}\n\n${squares}\n\nCan you beat me? Try here:\nhttps://www.playsaturdaytosunday.com/daily`
+    // Max score is now 1350 due to multipliers
+    const text = `Saturday to Sunday Daily Challenge\n${dateStr}\nScore: ${score}/1350 ${streakText}\n\n${squares}\n\nCan you beat me? Try here:\nhttps://www.playsaturdaytosunday.com/daily`
   
     if (navigator.share) {
       try {
@@ -327,7 +350,7 @@ export default function DailyGame() {
                     <div className="flex flex-col items-center">
                         <span className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
                         <div className="text-6xl font-black text-green-400 font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(74,222,128,0.5)] leading-none">
-                            {score}<span className="text-2xl text-slate-600">/1000</span>
+                            {score}<span className="text-2xl text-slate-600">/1350</span>
                         </div>
                     </div>
 
@@ -469,4 +492,84 @@ export default function DailyGame() {
       </div>
     )
   }
+
+  // --- PLAYING SCREEN ---
+  const q = questions[currentIndex]
+  
+  // Calculate potential points based on multiplier for display
+  const tier = q.tier || 1 // Default to 1 if missing
+  const multiplier = getMultiplier(tier)
+  const currentPotential = Math.round(potentialPoints * multiplier)
+
+  return (
+    <div className="h-[100dvh] bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
+        {/* Header */}
+        <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+         <div className="flex items-center gap-2">
+             <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
+             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-green-400 font-black text-sm">{score}</span></div>
+         </div>
+         <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
+        </header>
+        
+        <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-slate-800 shrink-0" />
+
+        <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
+            <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
+               
+               {/* DIFFICULTY & MULTIPLIER BADGES */}
+               <div className="absolute top-3 left-3 z-30 flex flex-col gap-1 items-start">
+                  
+                  {/* TIER BADGE */}
+                  <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-black/20 flex items-center gap-1
+                    ${tier === 1 ? 'bg-green-500 text-white' : 
+                      tier === 2 ? 'bg-yellow-500 text-black' : 
+                      'bg-red-600 text-white animate-pulse'}`}>
+                      {tier === 1 && <Star className="w-3 h-3 fill-current" />}
+                      {tier === 2 && <Shield className="w-3 h-3 fill-current" />}
+                      {tier === 3 && <Flame className="w-3 h-3 fill-current" />}
+                      {tier === 1 ? 'EASY' : tier === 2 ? 'MED' : 'HARD'}
+                  </div>
+
+                  {/* MULTIPLIER CALLOUT (Only for Med/Hard) */}
+                  {tier > 1 && (
+                    <div className="bg-indigo-600 text-white px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-white/10 flex items-center gap-1 animate-in slide-in-from-left-2 fade-in duration-300">
+                       <Zap className="w-3 h-3 fill-current text-yellow-300" />
+                       {tier === 2 ? '1.5x' : '2.0x'} BOOST
+                    </div>
+                  )}
+               </div>
+
+               {q.image_url ? (
+                 <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />
+               ) : ( <div className="flex items-center justify-center h-full text-slate-600"><AlertCircle /> No Image</div> )}
+               {!isImageReady && ( <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-50"><Loader2 className="w-8 h-8 text-slate-500 animate-spin" /></div> )}
+                
+                <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
+                        <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? 'bg-green-600 text-white' : 'bg-red-600 text-white') : 'bg-yellow-400 text-black' }`}>
+                            {showResult ? (selectedOption === q.correct_answer ? `+${currentPotential}` : '+0') : `${currentPotential}`}
+                        </div>
+                        {showResult && ( <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${ selectedOption === q.correct_answer ? 'bg-white text-green-700' : 'bg-white text-red-600' }`}> {selectedOption === q.correct_answer ? 'CORRECT' : 'WRONG'} </div> )}
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+                        <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
+                {q.options.map((opt: string) => {
+                    let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                    if (showResult) {
+                        if (opt === q.correct_answer) btnClass = "bg-green-600 text-white border-green-500 ring-2 ring-green-400"
+                        else if (opt === selectedOption) btnClass = "bg-red-600 text-white border-red-500"
+                        else btnClass = "bg-slate-900 text-slate-600 opacity-30"
+                    }
+                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}> {opt} </Button> )
+                })}
+            </div>
+        </main>
+    </div>
+  )
 }

@@ -180,7 +180,7 @@ export async function updatePlayerImage(playerId: string, imageUrl: string) {
   revalidatePath('/admin')
 }
 
-// --- 7. DAILY GAME (NEW) ---
+// --- 7. DAILY GAME (UPDATED WITH TIERS) ---
 export async function getDailyGame() {
   const supabase = await createClient()
   
@@ -198,21 +198,18 @@ export async function getDailyGame() {
 
   if (existing) return existing.content
 
-  // 2. Generate New Game (Lazy Load)
-  const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
-  const maxOffset = Math.max(0, (count || 0) - 60)
-  const randomOffset = Math.floor(Math.random() * maxOffset)
+  // 2. Generate New Game using the 5/3/2 Tier Logic
+  const { data: dailyPlayers, error } = await supabase.rpc('get_daily_game_questions')
   
-  const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset + 59)
-  
-  if (!players || players.length < 10) return null
-
-  const dailyPlayers = players.sort(() => 0.5 - Math.random()).slice(0, 10)
+  if (error || !dailyPlayers || dailyPlayers.length < 10) {
+    console.error("Error fetching daily players via RPC:", error)
+    return null
+  }
 
   const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
 
-  const questions = dailyPlayers.map(p => {
+  const questions = dailyPlayers.map((p: any) => {
     const wrong = getSimilarDistractors(p.college, collegeList)
     const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
     return {
@@ -220,14 +217,16 @@ export async function getDailyGame() {
       name: p.name,
       image_url: p.image_url,
       correct_answer: p.college,
-      options: options
+      options: options,
+      tier: p.tier // <--- CRITICAL: Pass the tier to the frontend
     }
   })
 
-  // 3. Save to DB
-  const { error } = await supabase.from('daily_games').insert({ date: today, content: questions })
+  // 3. Save to DB so everyone else gets this same list
+  const { error: insertError } = await supabase.from('daily_games').insert({ date: today, content: questions })
 
-  if (error) {
+  // Handle race condition (if two users loaded at the exact same millisecond)
+  if (insertError) {
     const { data: retry } = await supabase.from('daily_games').select('content').eq('date', today).single()
     return retry?.content
   }
