@@ -12,7 +12,7 @@ import IntroScreen from '@/components/IntroScreen'
 import AuthButton from '@/components/AuthButton'
 import { createBrowserClient } from '@supabase/ssr'
 import Leaderboard from '@/components/Leaderboard'
-import InstallPWA from '@/components/InstallPWA' // <--- Added
+import InstallPWA from '@/components/InstallPWA'
 
 // --- HELPER: Get Date in Mountain Time logic (UTC - 6h) ---
 const getGameDate = () => {
@@ -26,6 +26,9 @@ export default function DailyGame() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   
+  // --- NEW STATE: Streak ---
+  const [streak, setStreak] = useState(0)
+
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
   const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
   
@@ -106,18 +109,60 @@ export default function DailyGame() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 2. THE SAVE LOGIC
+  // 2. THE SAVE LOGIC (UPDATED WITH STREAKS)
   useEffect(() => {
     const saveScore = async () => {
       if (gameState === 'finished' && user && !isSaved && score > 0) {
         const todayISO = getGameDate() 
-        const { error } = await supabase.from('daily_results').upsert({
+        
+        // A. Save the Score
+        const { error: scoreError } = await supabase.from('daily_results').upsert({
             user_id: user.id,
             score: score,
             game_date: todayISO,
         }, { onConflict: 'user_id, game_date' })
 
-        if (!error) setIsSaved(true)
+        if (scoreError) {
+            console.error("Error saving score", scoreError)
+            return
+        }
+
+        // B. Streak Calculation Logic
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('current_streak, last_played_date')
+            .eq('id', user.id)
+            .single()
+
+        if (profile) {
+            // Calculate "Yesterday" string using same 6h offset
+            const offset = 6 * 60 * 60 * 1000
+            const yesterdayDate = new Date(Date.now() - offset - 24 * 60 * 60 * 1000)
+            const yesterdayISO = yesterdayDate.toISOString().split('T')[0]
+            
+            let newStreak = 1 // Default reset
+
+            if (profile.last_played_date === todayISO) {
+                // Already played today, maintain streak
+                newStreak = profile.current_streak || 1
+            } else if (profile.last_played_date === yesterdayISO) {
+                // Played yesterday -> Increment!
+                newStreak = (profile.current_streak || 0) + 1
+            }
+            
+            // Update Profile
+            await supabase
+                .from('profiles')
+                .update({ 
+                    current_streak: newStreak,
+                    last_played_date: todayISO 
+                })
+                .eq('id', user.id)
+            
+            setStreak(newStreak) // Update local UI
+        }
+
+        setIsSaved(true)
       }
     }
     saveScore()
@@ -188,27 +233,22 @@ export default function DailyGame() {
   }
 
   const handleShare = async () => {
-    // 1. Emoji Grid
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
-    
-    // 2. Date Fix (Match Leaderboard's 6 AM cutoff)
     const dateStr = new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
+    
+    // --- UPDATED: Add Streak to Share Text ---
+    const streakText = streak > 1 ? `🔥 ${streak}` : ''
+    const text = `Saturday to Sunday Daily\n${dateStr}\nScore: ${score}/1000 ${streakText}\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
   
-    // 3. The Text
-    const text = `Saturday to Sunday Daily\n${dateStr}\nScore: ${score}/1000\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
-  
-    // 4. Native Mobile Share (Better for viral growth)
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Saturday to Sunday', text })
         return
       } catch (err) {
-        // User cancelled share or failed, fall back to clipboard below
         console.log('Share cancelled')
       }
     }
   
-    // 5. Desktop Fallback
     try { 
       await navigator.clipboard.writeText(text)
       alert('Result copied!') 
@@ -241,8 +281,27 @@ export default function DailyGame() {
                     </div>
                 </div>
 
+                {/* --- UPDATED: Streak Badge Display --- */}
+                {isSaved && streak > 0 && (
+                  <div className="flex items-center justify-center animate-in zoom-in duration-500 delay-300">
+                    <div className={`
+                      flex items-center gap-2 px-4 py-2 rounded-full border shadow-lg
+                      ${streak > 1 
+                        ? 'bg-orange-500/10 border-orange-500/20 text-orange-500' 
+                        : 'bg-slate-800 border-slate-700 text-slate-400'
+                      }
+                    `}>
+                      <span className="text-xl">🔥</span>
+                      <div className="flex flex-col leading-none text-left">
+                        <span className="text-xl font-black">{streak}</span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">Day Streak</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Visual Squares */}
-                <div className="flex justify-center gap-1">
+                <div className="flex justify-center gap-1 mt-4">
                     {results.map((r, i) => (
                         <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-green-500' : r === 'wrong' ? 'bg-red-500' : 'bg-slate-800'}`} />
                     ))}
@@ -250,7 +309,6 @@ export default function DailyGame() {
 
                 {/* --- CLEANER AUTH/SAVE SECTION --- */}
                 <div className="mt-6 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 flex flex-col items-center gap-3">
-                    
                     {isSaved ? (
                         <div className="flex flex-col items-center animate-in zoom-in duration-300 w-full space-y-4">
                              <div className="bg-green-500/10 text-green-400 border border-green-500/20 px-4 py-2 rounded-full flex items-center gap-2">
@@ -258,7 +316,7 @@ export default function DailyGame() {
                                 <span className="text-xs font-black uppercase tracking-widest">Score Saved</span>
                              </div>
 
-                             {/* --- USERNAME EDIT SECTION --- */}
+                             {/* USERNAME EDIT SECTION */}
                              <div className="w-full p-3 bg-slate-900 rounded-lg border border-slate-800 flex flex-col gap-2">
                                 {!isEditingName ? (
                                      <Button 
@@ -283,7 +341,7 @@ export default function DailyGame() {
                                      </div>
                                 )}
 
-                                {/* --- PHOTO TOGGLE --- */}
+                                {/* PHOTO TOGGLE */}
                                 <div className="flex items-center justify-between px-1">
                                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Show Photo on Leaderboard</span>
                                     <button 
@@ -295,13 +353,11 @@ export default function DailyGame() {
                                 </div>
                              </div>
                              
-                             {/* Logout */}
                              <div className="scale-90 opacity-60 hover:opacity-100 transition-opacity">
                                 <AuthButton />
                              </div>
                         </div>
                     ) : (
-                    /* 2. If Not Saved: Show Login Button */
                     <>
                         <AuthButton />
                         <div className="flex flex-col gap-2 items-center">
@@ -314,8 +370,6 @@ export default function DailyGame() {
                                     "Sign in to save this score"
                                 )}
                             </p>
-                            
-                            {/* --- THE TRUST NOTE --- */}
                             {!user && (
                                 <p className="text-[10px] text-slate-500 leading-tight max-w-[300px] border-t border-slate-800 pt-2 italic text-center">
                                     Note: The login screen shows a generic "supabase.co" URL. This is 100% safe — custom domains just cost $35/mo! 😅
@@ -333,13 +387,15 @@ export default function DailyGame() {
             <Share2 className="mr-2" /> Share Result
         </Button>
 
-        {/* --- INSTALL PWA BUTTON --- */}
         <div className="w-full max-w-md flex justify-center">
             <InstallPWA />
         </div>
 
         <div className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-backwards">
-            <Leaderboard currentUserId={user?.id} />
+            <Leaderboard 
+                currentUserId={user?.id} 
+                key={isSaved ? `saved-${user?.id}` : 'unsaved'} 
+            />
         </div>
         
         <Link href="/" className="text-slate-500 hover:text-white flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
@@ -351,7 +407,6 @@ export default function DailyGame() {
 
   // --- PLAYING SCREEN ---
   const q = questions[currentIndex]
-  const isCorrect = selectedOption === q.correct_answer
   
   return (
     <div className="h-[100dvh] bg-slate-950 text-white flex flex-col font-sans overflow-hidden">

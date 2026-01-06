@@ -19,6 +19,7 @@ type LeaderboardEntry = {
 
 export default function Leaderboard({ currentUserId }: { currentUserId?: string }) {
   const [scores, setScores] = useState<LeaderboardEntry[]>([])
+  const [totalCount, setTotalCount] = useState(0) // <--- NEW STATE FOR COUNT
   const [loading, setLoading] = useState(true)
   
   const supabase = createBrowserClient(
@@ -28,16 +29,14 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      // --- THE FIX: 6-Hour Shift Logic ---
+      // --- 6-Hour Shift Logic ---
       const now = new Date()
-      // Subtract 6 hours (in milliseconds)
-      // This means 5:59 AM UTC is still "Yesterday"
-      // And 6:01 AM UTC becomes "Today"
       const gameDayDate = new Date(now.getTime() - 6 * 60 * 60 * 1000)
       const today = gameDayDate.toISOString().split('T')[0]
-      // ------------------------------------
+      // ---------------------------
 
-      const { data, error } = await supabase
+      // 1. Fetch Top 50 Scores
+      const { data } = await supabase
         .from('daily_results')
         .select(`
           score, 
@@ -51,21 +50,34 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
       if (data) {
         setScores(data as any)
       }
+
+      // 2. Fetch Total Player Count (NEW)
+      const { count } = await supabase
+        .from('daily_results')
+        .select('*', { count: 'exact', head: true })
+        .eq('game_date', today)
+      
+      if (count !== null) setTotalCount(count)
+
       setLoading(false)
     }
 
     fetchLeaderboard()
-  }, [])
+  }, [currentUserId]) // <--- Added dependency to ensure updates on login
 
   if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin text-slate-500" /></div>
 
   return (
     <div className="w-full max-w-md mx-auto mt-6 bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-2xl">
       <div className="bg-slate-800/50 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
-        <h3 className="font-bold text-slate-200 uppercase tracking-widest text-xs flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-yellow-500" /> Daily Leaderboard
-        </h3>
-        {/* We also update the display date to match the logic */}
+        <div className="flex flex-col">
+            <h3 className="font-bold text-slate-200 uppercase tracking-widest text-xs flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-yellow-500" /> Daily Leaderboard
+            </h3>
+            {/* NEW COUNT DISPLAY */}
+            <span className="text-[10px] text-slate-400 font-bold ml-6">{totalCount} players today</span>
+        </div>
+        
         <span className="text-[10px] text-slate-500 font-mono">
             {new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()}
         </span>
