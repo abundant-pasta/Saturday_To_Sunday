@@ -5,7 +5,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, CheckCircle2, Pencil } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, CheckCircle2, Pencil, Settings, X, LogOut } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -26,7 +26,7 @@ export default function DailyGame() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   
-  // --- NEW STATE: Streak ---
+  // --- STATE: Streak ---
   const [streak, setStreak] = useState(0)
 
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
@@ -46,6 +46,9 @@ export default function DailyGame() {
   const [newUsername, setNewUsername] = useState('')
   const [isEditingName, setIsEditingName] = useState(false)
   const [showAvatar, setShowAvatar] = useState(true)
+  
+  // --- NEW STATE: UI Toggles ---
+  const [showProfileSettings, setShowProfileSettings] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!, 
@@ -109,13 +112,12 @@ export default function DailyGame() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 2. THE SAVE LOGIC (UPDATED WITH STREAKS)
+  // 2. THE SAVE LOGIC
   useEffect(() => {
     const saveScore = async () => {
       if (gameState === 'finished' && user && !isSaved && score > 0) {
         const todayISO = getGameDate() 
         
-        // A. Save the Score
         const { error: scoreError } = await supabase.from('daily_results').upsert({
             user_id: user.id,
             score: score,
@@ -127,7 +129,6 @@ export default function DailyGame() {
             return
         }
 
-        // B. Streak Calculation Logic
         const { data: profile } = await supabase
             .from('profiles')
             .select('current_streak, last_played_date')
@@ -135,22 +136,18 @@ export default function DailyGame() {
             .single()
 
         if (profile) {
-            // Calculate "Yesterday" string using same 6h offset
             const offset = 6 * 60 * 60 * 1000
             const yesterdayDate = new Date(Date.now() - offset - 24 * 60 * 60 * 1000)
             const yesterdayISO = yesterdayDate.toISOString().split('T')[0]
             
-            let newStreak = 1 // Default reset
+            let newStreak = 1 
 
             if (profile.last_played_date === todayISO) {
-                // Already played today, maintain streak
                 newStreak = profile.current_streak || 1
             } else if (profile.last_played_date === yesterdayISO) {
-                // Played yesterday -> Increment!
                 newStreak = (profile.current_streak || 0) + 1
             }
             
-            // Update Profile
             await supabase
                 .from('profiles')
                 .update({ 
@@ -159,7 +156,7 @@ export default function DailyGame() {
                 })
                 .eq('id', user.id)
             
-            setStreak(newStreak) // Update local UI
+            setStreak(newStreak)
         }
 
         setIsSaved(true)
@@ -235,8 +232,6 @@ export default function DailyGame() {
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
     const dateStr = new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
-    
-    // --- UPDATED: Add Streak to Share Text ---
     const streakText = streak > 1 ? `🔥 ${streak}` : ''
     const text = `Saturday to Sunday Daily\n${dateStr}\nScore: ${score}/1000 ${streakText}\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
   
@@ -263,16 +258,32 @@ export default function DailyGame() {
   // --- GAME OVER SCREEN ---
   if (gameState === 'finished') {
     return (
-      <div className="min-h-[100dvh] bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-8 animate-in fade-in duration-500">
-        <div className="text-center space-y-2">
-            <Trophy className="w-20 h-20 text-yellow-400 mx-auto animate-bounce mb-4" />
-            <h1 className="text-4xl font-black italic uppercase tracking-tighter">Daily Complete</h1>
-            <p className="text-slate-400">Come back tomorrow for new players.</p>
+      <div className="min-h-[100dvh] bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500">
+        
+        <div className="text-center space-y-2 mb-2">
+            <Trophy className="w-16 h-16 text-yellow-400 mx-auto animate-bounce mb-2" />
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter">Daily Complete</h1>
+            <p className="text-slate-400 text-sm">Come back tomorrow for new players.</p>
         </div>
         
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
-        <CardContent className="pt-8 text-center space-y-6">
+        {/* --- MAIN SCORE CARD --- */}
+        <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden">
+        <CardContent className="pt-8 pb-8 text-center space-y-6 relative">
                 
+                {/* --- SETTINGS TOGGLE (Only if logged in) --- */}
+                {user && (
+                  <div className="absolute top-3 right-3 z-10">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setShowProfileSettings(!showProfileSettings)}
+                      className="text-slate-500 hover:text-white hover:bg-slate-800 rounded-full h-8 w-8"
+                    >
+                      {showProfileSettings ? <X className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Score Big Display */}
                 <div className="flex flex-col items-center justify-center">
                     <span className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
@@ -281,17 +292,17 @@ export default function DailyGame() {
                     </div>
                 </div>
 
-                {/* --- UPDATED: Streak Badge Display --- */}
+                {/* --- UPDATED: Fire/Yellow Streak Badge --- */}
                 {isSaved && streak > 0 && (
                   <div className="flex items-center justify-center animate-in zoom-in duration-500 delay-300">
                     <div className={`
-                      flex items-center gap-2 px-4 py-2 rounded-full border shadow-lg
+                      flex items-center gap-2 px-5 py-2 rounded-full border shadow-lg bg-gradient-to-r
                       ${streak > 1 
-                        ? 'bg-orange-500/10 border-orange-500/20 text-orange-500' 
-                        : 'bg-slate-800 border-slate-700 text-slate-400'
+                        ? 'from-yellow-500/10 to-orange-600/10 border-yellow-500/20 text-yellow-500' 
+                        : 'from-slate-800 to-slate-800 border-slate-700 text-slate-400'
                       }
                     `}>
-                      <span className="text-xl">🔥</span>
+                      <span className="text-xl drop-shadow-md">🔥</span>
                       <div className="flex flex-col leading-none text-left">
                         <span className="text-xl font-black">{streak}</span>
                         <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">Day Streak</span>
@@ -301,66 +312,83 @@ export default function DailyGame() {
                 )}
 
                 {/* Visual Squares */}
-                <div className="flex justify-center gap-1 mt-4">
+                <div className="flex justify-center gap-1">
                     {results.map((r, i) => (
                         <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-green-500' : r === 'wrong' ? 'bg-red-500' : 'bg-slate-800'}`} />
                     ))}
                 </div>
 
-                {/* --- CLEANER AUTH/SAVE SECTION --- */}
-                <div className="mt-6 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 flex flex-col items-center gap-3">
+                {/* --- CONDENSED PROFILE SECTION --- */}
+                <div className="flex flex-col items-center gap-3">
                     {isSaved ? (
-                        <div className="flex flex-col items-center animate-in zoom-in duration-300 w-full space-y-4">
-                             <div className="bg-green-500/10 text-green-400 border border-green-500/20 px-4 py-2 rounded-full flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4" />
-                                <span className="text-xs font-black uppercase tracking-widest">Score Saved</span>
-                             </div>
+                        <>
+                           {/* 1. DEFAULT VIEW: Just show "Score Saved" text.
+                              The user clicks the Settings icon (top right) to edit.
+                           */}
+                           {!showProfileSettings && (
+                              <div className="flex items-center gap-2 text-green-400/80 text-xs font-bold uppercase tracking-widest animate-pulse mt-2">
+                                <CheckCircle2 className="w-4 h-4" /> Score Saved
+                              </div>
+                           )}
 
-                             {/* USERNAME EDIT SECTION */}
-                             <div className="w-full p-3 bg-slate-900 rounded-lg border border-slate-800 flex flex-col gap-2">
-                                {!isEditingName ? (
-                                     <Button 
-                                        variant="outline" 
-                                        onClick={() => setIsEditingName(true)}
-                                        className="w-full h-9 text-xs font-bold border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white uppercase tracking-wider"
-                                     >
-                                        <Pencil className="w-3 h-3 mr-2" /> Change Display Name
-                                     </Button>
-                                ) : (
-                                     <div className="flex items-center gap-2 w-full">
-                                        <input 
-                                            type="text" 
-                                            placeholder="Enter username"
-                                            className="bg-slate-800 border border-slate-700 text-sm text-white px-3 py-2 rounded w-full focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                            value={newUsername}
-                                            onChange={(e) => setNewUsername(e.target.value)}
-                                        />
-                                        <Button onClick={handleUpdateName} size="sm" className="h-9 px-4 font-bold bg-indigo-600 hover:bg-indigo-500">
-                                            Save
-                                        </Button>
-                                     </div>
-                                )}
+                           {/* 2. SETTINGS VIEW: Only shows when toggle is TRUE 
+                              This pushes the rest of the UI down temporarily
+                           */}
+                           {showProfileSettings && (
+                             <div className="w-full mt-4 p-4 bg-slate-950/50 rounded-xl border border-slate-800 animate-in slide-in-from-top-2 fade-in">
+                                 <div className="flex flex-col gap-3">
+                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Profile Settings</h3>
+                                    
+                                    {/* Edit Name */}
+                                    {!isEditingName ? (
+                                         <Button 
+                                            variant="outline" 
+                                            onClick={() => setIsEditingName(true)}
+                                            className="w-full h-9 text-xs font-bold border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white uppercase tracking-wider justify-between"
+                                         >
+                                            <span>Display Name</span>
+                                            <div className="flex items-center gap-2 text-slate-500">
+                                              <span>{newUsername || user.email?.split('@')[0]}</span>
+                                              <Pencil className="w-3 h-3" />
+                                            </div>
+                                         </Button>
+                                    ) : (
+                                         <div className="flex items-center gap-2 w-full">
+                                            <input 
+                                                type="text" 
+                                                placeholder="Enter username"
+                                                className="bg-slate-800 border border-slate-700 text-sm text-white px-3 py-2 rounded w-full focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                value={newUsername}
+                                                onChange={(e) => setNewUsername(e.target.value)}
+                                            />
+                                            <Button onClick={handleUpdateName} size="sm" className="h-9 px-4 font-bold bg-indigo-600 hover:bg-indigo-500">
+                                                Save
+                                            </Button>
+                                         </div>
+                                    )}
 
-                                {/* PHOTO TOGGLE */}
-                                <div className="flex items-center justify-between px-1">
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Show Photo on Leaderboard</span>
-                                    <button 
-                                        onClick={toggleAvatar}
-                                        className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${showAvatar ? 'bg-indigo-600' : 'bg-slate-700'}`}
-                                    >
-                                        <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
-                                    </button>
-                                </div>
+                                    {/* Avatar Toggle */}
+                                    <div className="flex items-center justify-between px-3 py-2 bg-slate-900 rounded border border-slate-700">
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Show Photo</span>
+                                        <button 
+                                            onClick={toggleAvatar}
+                                            className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${showAvatar ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                                        >
+                                            <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+
+                                    {/* Logout */}
+                                    <AuthButton />
+                                 </div>
                              </div>
-                             
-                             <div className="scale-90 opacity-60 hover:opacity-100 transition-opacity">
-                                <AuthButton />
-                             </div>
-                        </div>
+                           )}
+                        </>
                     ) : (
-                    <>
+                    /* NOT LOGGED IN: Show standard Login Prompt */
+                    <div className="mt-4 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
-                        <div className="flex flex-col gap-2 items-center">
+                        <div className="flex flex-col gap-1 items-center">
                             <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">
                                 {user ? (
                                     <span className="flex items-center gap-2 justify-center">
@@ -370,35 +398,35 @@ export default function DailyGame() {
                                     "Sign in to save this score"
                                 )}
                             </p>
-                            {!user && (
-                                <p className="text-[10px] text-slate-500 leading-tight max-w-[300px] border-t border-slate-800 pt-2 italic text-center">
-                                    Note: The login screen shows a generic "supabase.co" URL. This is 100% safe — custom domains just cost $35/mo! 😅
-                                </p>
-                            )}
                         </div>
-                    </>
+                    </div>
                     )}
                 </div>
 
             </CardContent>
         </Card>
 
-        <Button onClick={handleShare} className="w-full max-w-md h-14 text-xl font-bold bg-indigo-600 hover:bg-indigo-500 transition-all hover:scale-105 shadow-lg">
-            <Share2 className="mr-2" /> Share Result
-        </Button>
+        {/* --- ACTIONS (Moved Up!) --- */}
+        {/* Only show these if the profile settings are CLOSED to keep it clean */}
+        {!showProfileSettings && (
+          <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+            <Button onClick={handleShare} className="w-full h-14 text-xl font-bold bg-indigo-600 hover:bg-indigo-500 transition-all hover:scale-105 shadow-lg shadow-indigo-900/20">
+                <Share2 className="mr-2" /> Share Result
+            </Button>
 
-        <div className="w-full max-w-md flex justify-center">
-            <InstallPWA />
-        </div>
+            <div className="flex justify-center">
+                <InstallPWA />
+            </div>
 
-        <div className="w-full max-w-md animate-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-backwards">
+            {/* LEADERBOARD */}
             <Leaderboard 
                 currentUserId={user?.id} 
                 key={isSaved ? `saved-${user?.id}` : 'unsaved'} 
             />
-        </div>
+          </div>
+        )}
         
-        <Link href="/" className="text-slate-500 hover:text-white flex items-center gap-2 text-sm font-bold uppercase tracking-widest">
+        <Link href="/" className="text-slate-500 hover:text-white flex items-center gap-2 text-sm font-bold uppercase tracking-widest pt-4 pb-8">
             <Home className="w-4 h-4" /> Back to Home
         </Link>
       </div>
