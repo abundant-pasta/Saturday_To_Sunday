@@ -324,8 +324,17 @@ export default function DailyGame() {
   // --- GAME OVER SCREEN ---
   if (gameState === 'finished') {
     return (
-      <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500">
+      <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500 relative">
         
+        {/* --- TOP LEFT HOME BUTTON --- */}
+        <div className="absolute top-4 left-4 z-20">
+            <Link href="/">
+                <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full">
+                    <Home className="w-6 h-6" />
+                </Button>
+            </Link>
+        </div>
+
         <div className="text-center space-y-2 mb-2">
             <Trophy className="w-16 h-16 text-yellow-400 mx-auto animate-bounce mb-2" />
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">Daily Complete</h1>
@@ -480,7 +489,7 @@ export default function DailyGame() {
 
         {/* --- BOTTOM ACTIONS --- */}
         {!showProfileSettings && (
-          <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+          <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
             <div className="flex justify-center">
                 <InstallPWA />
             </div>
@@ -491,10 +500,6 @@ export default function DailyGame() {
             />
           </div>
         )}
-        
-        <Link href="/" className="text-neutral-500 hover:text-white flex items-center gap-2 text-sm font-bold uppercase tracking-widest pt-4 pb-8">
-            <Home className="w-4 h-4" /> Back to Home
-        </Link>
       </div>
     )
   }
@@ -512,8 +517,12 @@ export default function DailyGame() {
         {/* Header */}
         <header className="h-14 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
          <div className="flex items-center gap-2">
-             <Link href="/" className="font-black italic text-[#00ff80] text-lg uppercase tracking-tight">S2S</Link>
-             <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2 ml-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
+             <Link href="/">
+                <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 -ml-2">
+                    <Home className="w-5 h-5" />
+                </Button>
+             </Link>
+             <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
          </div>
          <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
         </header>
