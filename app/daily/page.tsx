@@ -28,6 +28,12 @@ const getMultiplier = (tier: number) => {
     return 1.0                    // Easy
 }
 
+// --- HELPER: Clean Text (Fixes Texas A&M issue) ---
+const cleanText = (text: string) => {
+    if (!text) return ''
+    return text.replace(/&amp;/g, '&')
+}
+
 export default function DailyGame() {
   const [questions, setQuestions] = useState<any[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -312,22 +318,22 @@ export default function DailyGame() {
     }
   }
 
-  if (gameState === 'loading') return <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
+  if (gameState === 'loading') return <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
   if (gameState === 'intro') return <IntroScreen onStart={handleStartGame} />
 
   // --- GAME OVER SCREEN ---
   if (gameState === 'finished') {
     return (
-      <div className="min-h-[100dvh] bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500">
+      <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500">
         
         <div className="text-center space-y-2 mb-2">
             <Trophy className="w-16 h-16 text-yellow-400 mx-auto animate-bounce mb-2" />
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">Daily Complete</h1>
-            <p className="text-slate-400 text-sm">Come back tomorrow for new players.</p>
+            <p className="text-neutral-400 text-sm">Come back tomorrow for new players.</p>
         </div>
         
         {/* --- MAIN SCORE CARD --- */}
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden">
+        <Card className="w-full max-w-md bg-neutral-900 border-neutral-800 shadow-2xl relative overflow-hidden">
         <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
                 
                 {/* SETTINGS TOGGLE */}
@@ -337,7 +343,7 @@ export default function DailyGame() {
                       variant="ghost" 
                       size="icon" 
                       onClick={() => setShowProfileSettings(!showProfileSettings)}
-                      className="text-slate-500 hover:text-white hover:bg-slate-800 rounded-full h-8 w-8"
+                      className="text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full h-8 w-8"
                     >
                       {showProfileSettings ? <X className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
                     </Button>
@@ -348,9 +354,9 @@ export default function DailyGame() {
                 <div className="flex flex-col items-center justify-center gap-2">
                     {/* Main Score */}
                     <div className="flex flex-col items-center">
-                        <span className="text-slate-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
-                        <div className="text-6xl font-black text-green-400 font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(74,222,128,0.5)] leading-none">
-                            {score}<span className="text-2xl text-slate-600">/1350</span>
+                        <span className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
+                        <div className="text-6xl font-black text-[#00ff80] font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(0,255,128,0.3)] leading-none">
+                            {score}<span className="text-2xl text-neutral-600">/1350</span>
                         </div>
                     </div>
 
@@ -359,13 +365,13 @@ export default function DailyGame() {
                          <div className="flex items-center gap-2 mt-2 animate-in zoom-in duration-500 delay-200">
                              
                              {/* RANK BADGE */}
-                             <div className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-md flex items-center gap-2 h-9">
+                             <div className="bg-neutral-800/80 border border-neutral-700 px-3 py-1.5 rounded-md flex items-center gap-2 h-9">
                                 <Hash className="w-3.5 h-3.5 text-blue-400" />
                                 <div className="flex items-baseline gap-1 leading-none">
-                                    <span className="text-sm font-black text-slate-200">
+                                    <span className="text-sm font-black text-neutral-200">
                                         {myRank ? myRank : '-'}
                                     </span>
-                                    <span className="text-xs font-bold text-slate-500">
+                                    <span className="text-xs font-bold text-neutral-500">
                                         / {totalPlayers}
                                     </span>
                                 </div>
@@ -373,13 +379,13 @@ export default function DailyGame() {
 
                              {/* STREAK BADGE */}
                              {streak > 0 && (
-                                <div className={`px-3 py-1.5 rounded-md flex items-center gap-2 border h-9 ${streak > 1 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-slate-800/80 border-slate-700'}`}>
+                                <div className={`px-3 py-1.5 rounded-md flex items-center gap-2 border h-9 ${streak > 1 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-neutral-800/80 border-neutral-700'}`}>
                                     <span className="text-sm">🔥</span>
                                     <div className="flex items-baseline gap-1 leading-none">
-                                        <span className={`text-sm font-black ${streak > 1 ? 'text-orange-400' : 'text-slate-200'}`}>
+                                        <span className={`text-sm font-black ${streak > 1 ? 'text-orange-400' : 'text-neutral-200'}`}>
                                             {streak}
                                         </span>
-                                        <span className="text-[10px] font-bold uppercase text-slate-500">Day Streak</span>
+                                        <span className="text-[10px] font-bold uppercase text-neutral-500">Day Streak</span>
                                     </div>
                                 </div>
                              )}
@@ -390,7 +396,7 @@ export default function DailyGame() {
                 {/* Visual Squares */}
                 <div className="flex justify-center gap-1">
                     {results.map((r, i) => (
-                        <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-green-500' : r === 'wrong' ? 'bg-red-500' : 'bg-slate-800'}`} />
+                        <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-[#00ff80]' : r === 'wrong' ? 'bg-red-500' : 'bg-neutral-800'}`} />
                     ))}
                 </div>
 
@@ -399,17 +405,17 @@ export default function DailyGame() {
                     {isSaved ? (
                         <>
                            {showProfileSettings && (
-                             <div className="w-full mt-2 p-4 bg-slate-950/50 rounded-xl border border-slate-800 animate-in slide-in-from-top-2 fade-in">
+                             <div className="w-full mt-2 p-4 bg-neutral-950/50 rounded-xl border border-neutral-800 animate-in slide-in-from-top-2 fade-in">
                                  <div className="flex flex-col gap-3">
-                                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Profile Settings</h3>
+                                    <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">Profile Settings</h3>
                                     {!isEditingName ? (
                                          <Button 
                                             variant="outline" 
                                             onClick={() => setIsEditingName(true)}
-                                            className="w-full h-9 text-xs font-bold border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white uppercase tracking-wider justify-between"
+                                            className="w-full h-9 text-xs font-bold border-neutral-700 bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white uppercase tracking-wider justify-between"
                                          >
                                             <span>Display Name</span>
-                                            <div className="flex items-center gap-2 text-slate-500">
+                                            <div className="flex items-center gap-2 text-neutral-500">
                                               <span>{newUsername || user.email?.split('@')[0]}</span>
                                               <Pencil className="w-3 h-3" />
                                             </div>
@@ -419,20 +425,20 @@ export default function DailyGame() {
                                             <input 
                                                 type="text" 
                                                 placeholder="Enter username"
-                                                className="bg-slate-800 border border-slate-700 text-sm text-white px-3 py-2 rounded w-full focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                                className="bg-neutral-800 border border-neutral-700 text-sm text-white px-3 py-2 rounded w-full focus:outline-none focus:ring-1 focus:ring-[#00ff80]"
                                                 value={newUsername}
                                                 onChange={(e) => setNewUsername(e.target.value)}
                                             />
-                                            <Button onClick={handleUpdateName} size="sm" className="h-9 px-4 font-bold bg-indigo-600 hover:bg-indigo-500">
+                                            <Button onClick={handleUpdateName} size="sm" className="h-9 px-4 font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black">
                                                 Save
                                             </Button>
                                          </div>
                                     )}
-                                    <div className="flex items-center justify-between px-3 py-2 bg-slate-900 rounded border border-slate-700">
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Show Photo</span>
+                                    <div className="flex items-center justify-between px-3 py-2 bg-neutral-900 rounded border border-neutral-700">
+                                        <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">Show Photo</span>
                                         <button 
                                             onClick={toggleAvatar}
-                                            className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${showAvatar ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                                            className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${showAvatar ? 'bg-[#00ff80]' : 'bg-neutral-700'}`}
                                         >
                                             <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
                                         </button>
@@ -443,10 +449,10 @@ export default function DailyGame() {
                            )}
                         </>
                     ) : (
-                    <div className="mt-2 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 w-full flex flex-col items-center gap-3">
+                    <div className="mt-2 bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
                         <div className="flex flex-col gap-1 items-center">
-                            <p className="text-slate-400 text-[10px] uppercase tracking-wider font-bold">
+                            <p className="text-neutral-400 text-[10px] uppercase tracking-wider font-bold">
                                 {user ? (
                                     <span className="flex items-center gap-2 justify-center">
                                         <Loader2 className="w-3 h-3 animate-spin" /> Saving...
@@ -463,7 +469,7 @@ export default function DailyGame() {
                 {/* --- SHARE BUTTON (MOVED INSIDE CARD) --- */}
                 {!showProfileSettings && (
                   <div className="pt-2 w-full animate-in slide-in-from-bottom-2 fade-in">
-                    <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-indigo-600 hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-900/20">
+                    <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all shadow-lg shadow-[#00ff80]/20">
                         <Share2 className="mr-2 w-5 h-5" /> Share Result
                     </Button>
                   </div>
@@ -486,7 +492,7 @@ export default function DailyGame() {
           </div>
         )}
         
-        <Link href="/" className="text-slate-500 hover:text-white flex items-center gap-2 text-sm font-bold uppercase tracking-widest pt-4 pb-8">
+        <Link href="/" className="text-neutral-500 hover:text-white flex items-center gap-2 text-sm font-bold uppercase tracking-widest pt-4 pb-8">
             <Home className="w-4 h-4" /> Back to Home
         </Link>
       </div>
@@ -502,29 +508,29 @@ export default function DailyGame() {
   const currentPotential = Math.round(potentialPoints * multiplier)
 
   return (
-    <div className="h-[100dvh] bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
+    <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
         {/* Header */}
-        <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+        <header className="h-14 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
          <div className="flex items-center gap-2">
-             <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
-             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-green-400 font-black text-sm">{score}</span></div>
+             <Link href="/" className="font-black italic text-[#00ff80] text-lg uppercase tracking-tight">S2S</Link>
+             <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2 ml-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
          </div>
-         <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
+         <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
         </header>
         
-        <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-slate-800 shrink-0" />
+        <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-neutral-800 shrink-0" />
 
         <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
-            <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
+            <div className="flex-1 relative bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 shadow-2xl min-h-0">
                
                {/* DIFFICULTY & MULTIPLIER BADGES */}
                <div className="absolute top-3 left-3 z-30 flex flex-col gap-1 items-start">
                   
                   {/* TIER BADGE */}
                   <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-black/20 flex items-center gap-1
-                    ${tier === 1 ? 'bg-green-500 text-white' : 
-                      tier === 2 ? 'bg-yellow-500 text-black' : 
-                      'bg-red-600 text-white animate-pulse'}`}>
+                    ${tier === 1 ? 'bg-[#00ff80] text-black' : 
+                      tier === 2 ? 'bg-yellow-400 text-black' : 
+                      'bg-red-500 text-white animate-pulse'}`}>
                       {tier === 1 && <Star className="w-3 h-3 fill-current" />}
                       {tier === 2 && <Shield className="w-3 h-3 fill-current" />}
                       {tier === 3 && <Flame className="w-3 h-3 fill-current" />}
@@ -533,8 +539,8 @@ export default function DailyGame() {
 
                   {/* MULTIPLIER CALLOUT (Only for Med/Hard) */}
                   {tier > 1 && (
-                    <div className="bg-indigo-600 text-white px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-white/10 flex items-center gap-1 animate-in slide-in-from-left-2 fade-in duration-300">
-                       <Zap className="w-3 h-3 fill-current text-yellow-300" />
+                    <div className="bg-[#00ff80] text-black px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-white/10 flex items-center gap-1 animate-in slide-in-from-left-2 fade-in duration-300">
+                       <Zap className="w-3 h-3 fill-current" />
                        {tier === 2 ? '1.5x' : '2.0x'} BOOST
                     </div>
                   )}
@@ -542,12 +548,12 @@ export default function DailyGame() {
 
                {q.image_url ? (
                  <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />
-               ) : ( <div className="flex items-center justify-center h-full text-slate-600"><AlertCircle /> No Image</div> )}
-               {!isImageReady && ( <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-50"><Loader2 className="w-8 h-8 text-slate-500 animate-spin" /></div> )}
+               ) : ( <div className="flex items-center justify-center h-full text-neutral-600"><AlertCircle /> No Image</div> )}
+               {!isImageReady && ( <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-50"><Loader2 className="w-8 h-8 text-neutral-500 animate-spin" /></div> )}
                 
                 <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
                     <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
-                        <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? 'bg-green-600 text-white' : 'bg-red-600 text-white') : 'bg-yellow-400 text-black' }`}>
+                        <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? 'bg-[#00ff80] text-black' : 'bg-red-500 text-white') : 'bg-yellow-400 text-black' }`}>
                             {showResult ? (selectedOption === q.correct_answer ? `+${currentPotential}` : '+0') : `${currentPotential}`}
                         </div>
                         {showResult && ( <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${ selectedOption === q.correct_answer ? 'bg-white text-green-700' : 'bg-white text-red-600' }`}> {selectedOption === q.correct_answer ? 'CORRECT' : 'WRONG'} </div> )}
@@ -560,13 +566,13 @@ export default function DailyGame() {
 
             <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
                 {q.options.map((opt: string) => {
-                    let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
+                    let btnClass = "bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:border-[#00ff80]/50"
                     if (showResult) {
-                        if (opt === q.correct_answer) btnClass = "bg-green-600 text-white border-green-500 ring-2 ring-green-400"
-                        else if (opt === selectedOption) btnClass = "bg-red-600 text-white border-red-500"
-                        else btnClass = "bg-slate-900 text-slate-600 opacity-30"
+                        if (opt === q.correct_answer) btnClass = "bg-[#00ff80] text-black border-[#00ff80] ring-2 ring-[#00ff80]/50"
+                        else if (opt === selectedOption) btnClass = "bg-red-500 text-white border-red-600"
+                        else btnClass = "bg-neutral-950 text-neutral-600 opacity-30"
                     }
-                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}> {opt} </Button> )
+                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}> {cleanText(opt)} </Button> )
                 })}
             </div>
         </main>

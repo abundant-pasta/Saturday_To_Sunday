@@ -8,28 +8,70 @@ export default function InstallPwa() {
   const [isOpen, setIsOpen] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
+  const [promptInstall, setPromptInstall] = useState<any>(null)
 
   useEffect(() => {
     // 1. Check if already installed (Standalone mode)
-    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
-    if (isStandaloneMode) {
-        setIsStandalone(true)
-        return 
+    const checkStandalone = () => {
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+      setIsStandalone(!!isStandaloneMode)
+    }
+    
+    // Run check immediately
+    checkStandalone()
+    
+    // Listen for changes (e.g. if they install and it switches modes instantly)
+    try {
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone)
+    } catch(e) {
+        // Fallback for older browsers
     }
 
     // 2. Detect iOS
     const userAgent = window.navigator.userAgent.toLowerCase()
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent)
     setIsIOS(isIosDevice)
+
+    // 3. Listen for Native Install Prompt (Android/Desktop)
+    const handler = (e: any) => {
+      e.preventDefault() // Prevent the mini-infobar from appearing automatically
+      setPromptInstall(e) // Save the event for later triggering
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+
+    // 4. Listen for Success Event
+    const installHandler = () => {
+        setIsStandalone(true)
+        setPromptInstall(null)
+    }
+    window.addEventListener('appinstalled', installHandler)
+
+    return () => {
+        window.removeEventListener('beforeinstallprompt', handler)
+        window.removeEventListener('appinstalled', installHandler)
+    }
   }, [])
 
+  const handleInstallClick = (e: any) => {
+    e.preventDefault()
+    
+    // If we captured a native install prompt (Android/Desktop), use it!
+    if (promptInstall) {
+        promptInstall.prompt()
+    } else {
+        // Otherwise (iOS or unsupported), show the manual instructions modal
+        setIsOpen(true)
+    }
+  }
+
+  // Hide the button if the app is already installed
   if (isStandalone) return null
 
   return (
     <>
       {/* TRIGGER BUTTON */}
       <button 
-        onClick={() => setIsOpen(true)}
+        onClick={handleInstallClick}
         className="text-[10px] uppercase font-bold tracking-widest text-slate-500 hover:text-indigo-400 transition-colors flex items-center gap-1 mx-auto mt-4"
       >
         <Download className="w-3 h-3" /> Install App for easier access
@@ -70,27 +112,20 @@ export default function InstallPwa() {
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">2</span>
                         </div>
-                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4 mx-1" /> Menu</span> (three dots)</p>
+                        <p>Tap the <span className="text-white font-bold inline-flex items-center mx-1"><Share className="w-4 h-4 mx-1" /> Share</span> Button</p>
                     </div>
 
-                    {/* Step 3: Share Button */}
+                    {/* Step 3: Add to Home Screen */}
                     <div className="flex items-center gap-4 text-base text-slate-300">
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
                             <span className="font-bold text-lg">3</span>
-                        </div>
-                        <p>Tap <span className="text-blue-400 font-bold inline-flex items-center mx-1"><Share className="w-4 h-4 mx-1" /> Share</span></p>
-                    </div>
-
-                    {/* Step 4: Add to Home Screen */}
-                    <div className="flex items-center gap-4 text-base text-slate-300">
-                        <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
-                            <span className="font-bold text-lg">4</span>
                         </div>
                         <p>Scroll down and tap <span className="text-white font-bold inline-flex items-center mx-1"><PlusSquare className="w-4 h-4 mx-1" /> Add to Home Screen</span></p>
                     </div>
                 </div>
             ) : (
-                /* --- ANDROID INSTRUCTIONS (Larger Text) --- */
+                /* --- ANDROID/OTHER FALLBACK INSTRUCTIONS --- */
+                /* (Only shows if native prompt fails) */
                 <div className="space-y-5">
                     <div className="flex items-center gap-4 text-base text-slate-300">
                         <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center shrink-0">
