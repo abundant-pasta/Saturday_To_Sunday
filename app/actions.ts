@@ -1,6 +1,8 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+// NEW: Import the raw Supabase client for Admin/Service Role usage
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { getSimilarDistractors } from '@/lib/conferences'
 
@@ -180,17 +182,16 @@ export async function updatePlayerImage(playerId: string, imageUrl: string) {
   revalidatePath('/admin')
 }
 
-// --- 7. DAILY GAME (ROBUST / CRASH PROOF VERSION) ---
+// --- 7. DAILY GAME (ADMIN PRIVILEGED VERSION) ---
 export async function getDailyGame() {
   const supabase = await createClient()
   
-  // 1. DATE LOGIC:
+  // 1. DATE LOGIC
   const offset = 6 * 60 * 60 * 1000 
   const adjustedTime = new Date(Date.now() - offset)
   const today = adjustedTime.toISOString().split('T')[0]
 
   // 2. FETCH EXISTING (Safe Mode)
-  // Replaced .single() with .limit(1) to prevent crashes if duplicates exist
   const { data: existingGames } = await supabase
     .from('daily_games')
     .select('content')
@@ -202,12 +203,13 @@ export async function getDailyGame() {
   }
 
   // 3. GENERATE NEW GAME
+  // Note: We use the regular client for the RPC call (Reading players is allowed for public)
   const { data: dailyPlayers, error } = await supabase.rpc('get_daily_game_questions')
   
-  // FALLBACK: If RPC fails or returns no data, fetch the most recent game instead of crashing
   if (error || !dailyPlayers || dailyPlayers.length < 10) {
     console.error("Error fetching daily players via RPC:", error)
     
+    // Fallback: Fetch most recent game
     const { data: fallback } = await supabase
         .from('daily_games')
         .select('content')
@@ -233,16 +235,27 @@ export async function getDailyGame() {
     }
   })
 
-  // 4. SAVE (Safe Mode)
-  const { error: insertError } = await supabase.from('daily_games').insert({ date: today, content: questions })
+  // 4. SAVE (WITH ADMIN PRIVILEGES)
+  // FIX: Use a Service Role Client to bypass RLS. 
+  // This allows a Guest (Anon) to trigger the "Insert" without needing database permissions.
+  
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! 
+  )
 
-  // Handle race condition safely
+  const { error: insertError } = await supabaseAdmin
+    .from('daily_games')
+    .insert({ date: today, content: questions })
+
+  // Handle race condition safely (if someone else created it milliseconds ago)
   if (insertError) {
+    console.log("Insert failed (likely race condition), fetching existing game...")
     const { data: retry } = await supabase
         .from('daily_games')
         .select('content')
         .eq('date', today)
-        .limit(1) // Limit 1 here too
+        .limit(1)
     
     return retry?.[0]?.content
   }
