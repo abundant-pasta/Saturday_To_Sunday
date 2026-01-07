@@ -180,30 +180,41 @@ export async function updatePlayerImage(playerId: string, imageUrl: string) {
   revalidatePath('/admin')
 }
 
-// --- 7. DAILY GAME (UPDATED WITH TIERS) ---
+// --- 7. DAILY GAME (ROBUST / CRASH PROOF VERSION) ---
 export async function getDailyGame() {
   const supabase = await createClient()
   
-  // FIX: Shift time back 6 hours so "Today" doesn't start until 6am UTC (Midnight Mountain Time)
+  // 1. DATE LOGIC:
   const offset = 6 * 60 * 60 * 1000 
   const adjustedTime = new Date(Date.now() - offset)
   const today = adjustedTime.toISOString().split('T')[0]
 
-  // 1. Check if today's game exists
-  const { data: existing } = await supabase
+  // 2. FETCH EXISTING (Safe Mode)
+  // Replaced .single() with .limit(1) to prevent crashes if duplicates exist
+  const { data: existingGames } = await supabase
     .from('daily_games')
     .select('content')
     .eq('date', today)
-    .single()
+    .limit(1)
 
-  if (existing) return existing.content
+  if (existingGames && existingGames.length > 0) {
+      return existingGames[0].content
+  }
 
-  // 2. Generate New Game using the 5/3/2 Tier Logic
+  // 3. GENERATE NEW GAME
   const { data: dailyPlayers, error } = await supabase.rpc('get_daily_game_questions')
   
+  // FALLBACK: If RPC fails or returns no data, fetch the most recent game instead of crashing
   if (error || !dailyPlayers || dailyPlayers.length < 10) {
     console.error("Error fetching daily players via RPC:", error)
-    return null
+    
+    const { data: fallback } = await supabase
+        .from('daily_games')
+        .select('content')
+        .order('date', { ascending: false })
+        .limit(1)
+        
+    return fallback?.[0]?.content || null
   }
 
   const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
@@ -218,17 +229,22 @@ export async function getDailyGame() {
       image_url: p.image_url,
       correct_answer: p.college,
       options: options,
-      tier: p.tier // <--- CRITICAL: Pass the tier to the frontend
+      tier: p.tier 
     }
   })
 
-  // 3. Save to DB so everyone else gets this same list
+  // 4. SAVE (Safe Mode)
   const { error: insertError } = await supabase.from('daily_games').insert({ date: today, content: questions })
 
-  // Handle race condition (if two users loaded at the exact same millisecond)
+  // Handle race condition safely
   if (insertError) {
-    const { data: retry } = await supabase.from('daily_games').select('content').eq('date', today).single()
-    return retry?.content
+    const { data: retry } = await supabase
+        .from('daily_games')
+        .select('content')
+        .eq('date', today)
+        .limit(1) // Limit 1 here too
+    
+    return retry?.[0]?.content
   }
 
   return questions

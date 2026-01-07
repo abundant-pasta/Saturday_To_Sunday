@@ -84,63 +84,70 @@ export default function DailyGame() {
   // 1. INITIAL LOAD: Fetch Game Data & Verify Save Status
   useEffect(() => {
     const loadGame = async () => {
-      const data = await getDailyGame()
-      // FIX: Check if data actually exists to prevent crash
-      if (data && data.length > 0) {
-        setQuestions(data)
-        
-        const savedScore = localStorage.getItem('s2s_today_score')
-        const savedDate = localStorage.getItem('s2s_last_played_date')
-        const savedResults = localStorage.getItem('s2s_daily_results') 
-        
-        const today = getGameDate()
-        const hasSeenIntro = localStorage.getItem('s2s_has_seen_intro')
+      try {
+          const data = await getDailyGame()
+          
+          if (data && data.length > 0) {
+            setQuestions(data)
+            
+            const savedScore = localStorage.getItem('s2s_today_score')
+            const savedDate = localStorage.getItem('s2s_last_played_date')
+            const savedResults = localStorage.getItem('s2s_daily_results') 
+            
+            const today = getGameDate()
+            const hasSeenIntro = localStorage.getItem('s2s_has_seen_intro')
 
-        if (savedScore && savedDate === today) {
-            setScore(parseInt(savedScore))
-            if (savedResults) {
-                setResults(JSON.parse(savedResults))
+            if (savedScore && savedDate === today) {
+                setScore(parseInt(savedScore))
+                
+                // SAFE JSON PARSE: Prevents crash if local storage is corrupted
+                try {
+                    if (savedResults) setResults(JSON.parse(savedResults))
+                    else setResults(new Array(data.length).fill('pending'))
+                } catch (e) {
+                    setResults(new Array(data.length).fill('pending'))
+                }
+                
+                setGameState('finished')
+
+                // --- VERIFY WITH DATABASE ---
+                const { data: { session } } = await supabase.auth.getSession()
+                const currentUserId = session?.user?.id
+                const guestId = localStorage.getItem('s2s_guest_id')
+
+                let query = supabase.from('daily_results').select('score').eq('game_date', today)
+                
+                if (currentUserId) {
+                    query = query.eq('user_id', currentUserId)
+                } else if (guestId) {
+                    query = query.eq('guest_id', guestId)
+                } else {
+                    setIsSaved(false)
+                    return
+                }
+
+                const { data: existingRows } = await query
+                
+                if (existingRows && existingRows.length > 0) {
+                    setIsSaved(true)
+                } else {
+                    console.log("Local score found, but DB empty. Retrying save...")
+                    setIsSaved(false)
+                }
+
             } else {
                 setResults(new Array(data.length).fill('pending'))
+                if (!hasSeenIntro) {
+                    setGameState('intro')
+                } else {
+                    setGameState('playing')
+                }
             }
-            setGameState('finished')
-
-            // --- VERIFY WITH DATABASE ---
-            const { data: { session } } = await supabase.auth.getSession()
-            const currentUserId = session?.user?.id
-            const guestId = localStorage.getItem('s2s_guest_id')
-
-            let query = supabase.from('daily_results').select('score').eq('game_date', today)
-            
-            if (currentUserId) {
-                query = query.eq('user_id', currentUserId)
-            } else if (guestId) {
-                query = query.eq('guest_id', guestId)
-            } else {
-                setIsSaved(false)
-                return
-            }
-
-            const { data: existingRows } = await query
-            
-            if (existingRows && existingRows.length > 0) {
-                setIsSaved(true)
-            } else {
-                console.log("Local score found, but DB empty. Retrying save...")
-                setIsSaved(false)
-            }
-
-        } else {
-            setResults(new Array(data.length).fill('pending'))
-            if (!hasSeenIntro) {
-                setGameState('intro')
-            } else {
-                setGameState('playing')
-            }
-        }
-      } else {
-          // If no data comes back (e.g. RLS blocked it), we log it but don't crash
-          console.error("No daily game data found.")
+          } else {
+              console.error("No daily game data found.")
+          }
+      } catch (err) {
+          console.error("Critical Error Loading Game:", err)
       }
     }
     loadGame()
@@ -409,8 +416,18 @@ export default function DailyGame() {
     }
   }
 
+  // --- RENDER LOGIC ---
+
   if (gameState === 'loading') return <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
-  if (gameState === 'intro') return <IntroScreen onStart={handleStartGame} />
+  
+  // FIX: SCROLLABLE INTRO (Fixes Desktop/Short Screen Issue)
+  if (gameState === 'intro') {
+      return (
+        <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden">
+             <IntroScreen onStart={handleStartGame} />
+        </div>
+      )
+  }
 
   // --- GAME OVER SCREEN ---
   if (gameState === 'finished') {
@@ -502,6 +519,8 @@ export default function DailyGame() {
 
                 {/* --- PROFILE / LOGIN SECTION --- */}
                 <div className="flex flex-col items-center gap-3 w-full">
+                    
+                    {/* CASE 1: LOGGED IN & SAVED -> Show Settings */}
                     {isSaved && user && (
                         <>
                            {showProfileSettings && (
@@ -550,6 +569,7 @@ export default function DailyGame() {
                         </>
                     )}
 
+                    {/* CASE 2: NOT LOGGED IN -> ALWAYS SHOW AUTH BUTTON (Even if Saved) */}
                     {!user && (
                     <div className="mt-2 bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
@@ -566,6 +586,7 @@ export default function DailyGame() {
                     )}
                 </div>
 
+                {/* --- SHARE BUTTON --- */}
                 {!showProfileSettings && (
                   <div className="pt-2 w-full animate-in slide-in-from-bottom-2 fade-in">
                     <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all shadow-lg shadow-[#00ff80]/20">
@@ -577,6 +598,7 @@ export default function DailyGame() {
             </CardContent>
         </Card>
 
+        {/* --- BOTTOM ACTIONS --- */}
         {!showProfileSettings && (
           <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
             <div className="flex justify-center">
