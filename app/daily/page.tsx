@@ -183,14 +183,39 @@ export default function DailyGame() {
     fetchProfile()
   }, [user])
 
-  // 4. THE SAVE LOGIC (Handles Both Users and Guests)
+  // 4. THE SAVE LOGIC (UPDATED: Merges Guest -> User)
   useEffect(() => {
     const saveScore = async () => {
-      // NOTE: We removed "&& user" so guests can save too
-      if (gameState === 'finished' && !isSaved && score > 0) {
-        const todayISO = getGameDate() 
-        
-        // DETERMINE IDs
+      // Basic checks: only run if game is finished, NOT saved yet, and valid score
+      if (gameState !== 'finished' || isSaved || score <= 0) return
+
+      const todayISO = getGameDate() 
+      let saveSuccessful = false
+
+      // --- A. MERGE ATTEMPT ---
+      // If User is logged in, try to "Claim" their existing Guest row first
+      if (user) {
+         const localGuestId = localStorage.getItem('s2s_guest_id')
+         if (localGuestId) {
+             // Try to find a row that matches the Guest ID + Date, and has NO User ID yet
+             const { data } = await supabase
+                .from('daily_results')
+                .update({ user_id: user.id }) // Claim it!
+                .eq('guest_id', localGuestId)
+                .eq('game_date', todayISO)
+                .is('user_id', null) // Safety check: only claim if currently ownerless
+                .select()
+             
+             if (data && data.length > 0) {
+                 console.log("Merged guest score into user account")
+                 saveSuccessful = true
+             }
+         }
+      }
+
+      // --- B. STANDARD SAVE ---
+      // If merge didn't happen (because they didn't play as guest, or it failed), create new row
+      if (!saveSuccessful) {
         let upsertPayload: any = {
             score: score,
             game_date: todayISO,
@@ -199,29 +224,26 @@ export default function DailyGame() {
         let conflictTarget = ''
         
         if (user) {
-            // Logged in User
             upsertPayload.user_id = user.id
             conflictTarget = 'user_id, game_date'
         } else {
-            // Guest User
             const guestId = getGuestId()
             upsertPayload.guest_id = guestId
             conflictTarget = 'guest_id, game_date'
         }
 
-        // A. Upsert Score
         const { error: scoreError } = await supabase.from('daily_results').upsert(
             upsertPayload, 
             { onConflict: conflictTarget }
         )
 
-        if (scoreError) {
-            console.error("Error saving score", scoreError)
-            return
-        }
+        if (!scoreError) saveSuccessful = true
+        else console.error("Error saving score", scoreError)
+      }
 
-        // B. Update Profile (ONLY if User exists)
-        if (user) {
+      // --- C. PROFILE UPDATE ---
+      // If we successfully saved/merged a USER score, update streak
+      if (saveSuccessful && user) {
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('current_streak, last_played_date')
@@ -250,30 +272,36 @@ export default function DailyGame() {
                 
                 setStreak(newStreak)
             }
-        }
-        
-        setIsSaved(true)
+      }
+      
+      // --- D. FINALIZE ---
+      if (saveSuccessful) {
+          setIsSaved(true)
       }
     }
     saveScore()
   }, [gameState, user, score, isSaved])
 
-  // 5. RANK FETCH LOGIC
+  // 5. RANK FETCH LOGIC (Filters out Guests)
   useEffect(() => {
     const fetchRank = async () => {
         if (gameState === 'finished' && score > 0) {
             const todayISO = getGameDate()
 
+            // Count TOTAL REGISTERED players (not guests)
             const { count: total } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
                 .eq('game_date', todayISO)
+                .not('user_id', 'is', null) // <--- ADDED FILTER
 
+            // Count players with BETTER score (Registered only)
             const { count: betterPlayers } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
                 .eq('game_date', todayISO)
                 .gt('score', score)
+                .not('user_id', 'is', null) // <--- ADDED FILTER
             
             setTotalPlayers(total || 0)
             setMyRank((betterPlayers || 0) + 1)
@@ -481,7 +509,7 @@ export default function DailyGame() {
                     ))}
                 </div>
 
-                {/* --- PROFILE / LOGIN SECTION (FIXED FOR GUESTS) --- */}
+                {/* --- PROFILE / LOGIN SECTION --- */}
                 <div className="flex flex-col items-center gap-3 w-full">
                     
                     {/* CASE 1: LOGGED IN & SAVED -> Show Settings */}
@@ -578,88 +606,4 @@ export default function DailyGame() {
       </div>
     )
   }
-
-  // --- PLAYING SCREEN ---
-  const q = questions[currentIndex]
-  
-  // Calculate potential points based on multiplier for display
-  const tier = q.tier || 1 // Default to 1 if missing
-  const multiplier = getMultiplier(tier)
-  const currentPotential = Math.round(potentialPoints * multiplier)
-
-  return (
-    <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
-        {/* Header */}
-        <header className="h-14 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
-         <div className="flex items-center gap-2">
-             <Link href="/">
-                <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 -ml-2">
-                    <Home className="w-5 h-5" />
-                </Button>
-             </Link>
-             <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
-         </div>
-         <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
-        </header>
-        
-        <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-neutral-800 shrink-0" />
-
-        <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
-            <div className="flex-1 relative bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 shadow-2xl min-h-0">
-               
-               {/* DIFFICULTY & MULTIPLIER BADGES */}
-               <div className="absolute top-3 left-3 z-30 flex flex-col gap-1 items-start">
-                  
-                  {/* TIER BADGE */}
-                  <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-black/20 flex items-center gap-1
-                    ${tier === 1 ? 'bg-[#00ff80] text-black' : 
-                      tier === 2 ? 'bg-yellow-400 text-black' : 
-                      'bg-red-500 text-white animate-pulse'}`}>
-                      {tier === 1 && <Star className="w-3 h-3 fill-current" />}
-                      {tier === 2 && <Shield className="w-3 h-3 fill-current" />}
-                      {tier === 3 && <Flame className="w-3 h-3 fill-current" />}
-                      {tier === 1 ? 'EASY' : tier === 2 ? 'MED' : 'HARD'}
-                  </div>
-
-                  {/* MULTIPLIER CALLOUT (Only for Med/Hard) */}
-                  {tier > 1 && (
-                    <div className="bg-[#00ff80] text-black px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-white/10 flex items-center gap-1 animate-in slide-in-from-left-2 fade-in duration-300">
-                       <Zap className="w-3 h-3 fill-current" />
-                       {tier === 2 ? '1.5x' : '2.0x'} BOOST
-                    </div>
-                  )}
-               </div>
-
-               {q.image_url ? (
-                 <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />
-               ) : ( <div className="flex items-center justify-center h-full text-neutral-600"><AlertCircle /> No Image</div> )}
-               {!isImageReady && ( <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-50"><Loader2 className="w-8 h-8 text-neutral-500 animate-spin" /></div> )}
-                
-                <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
-                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
-                        <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? 'bg-[#00ff80] text-black' : 'bg-red-500 text-white') : 'bg-yellow-400 text-black' }`}>
-                            {showResult ? (selectedOption === q.correct_answer ? `+${currentPotential}` : '+0') : `${currentPotential}`}
-                        </div>
-                        {showResult && ( <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${ selectedOption === q.correct_answer ? 'bg-white text-green-700' : 'bg-white text-red-600' }`}> {selectedOption === q.correct_answer ? 'CORRECT' : 'WRONG'} </div> )}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-                        <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
-                {q.options.map((opt: string) => {
-                    let btnClass = "bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:border-[#00ff80]/50"
-                    if (showResult) {
-                        if (opt === q.correct_answer) btnClass = "bg-[#00ff80] text-black border-[#00ff80] ring-2 ring-[#00ff80]/50"
-                        else if (opt === selectedOption) btnClass = "bg-red-500 text-white border-red-600"
-                        else btnClass = "bg-neutral-950 text-neutral-600 opacity-30"
-                    }
-                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}> {cleanText(opt)} </Button> )
-                })}
-            </div>
-        </main>
-    </div>
-  )
 }
