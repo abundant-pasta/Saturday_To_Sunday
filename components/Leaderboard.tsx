@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Trophy, User, CalendarDays, Flame } from 'lucide-react'
 import Image from 'next/image'
 
+// 1. UPDATE TYPE DEFINITION (Remove email)
 type LeaderboardEntry = {
   score: number
   user_id: string
@@ -12,7 +13,7 @@ type LeaderboardEntry = {
     username: string | null
     full_name: string | null
     avatar_url: string | null
-    email: string | null
+    // email: string | null  <-- DELETED
     show_avatar: boolean | null
   }
 }
@@ -32,43 +33,39 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     const fetchLeaderboard = async () => {
       setLoading(true)
       
-      // --- 6-Hour Shift Logic ---
       const now = new Date()
       const gameDayDate = new Date(now.getTime() - 6 * 60 * 60 * 1000)
       const today = gameDayDate.toISOString().split('T')[0]
 
       if (view === 'daily') {
-        // --- 1. DAILY FETCH ---
+        // 2. UPDATE DAILY QUERY (Remove email)
         const { data } = await supabase
           .from('daily_results')
           .select(`
             score, 
             user_id, 
-            profiles (username, full_name, avatar_url, email, show_avatar)
+            profiles (username, full_name, avatar_url, show_avatar)
           `)
           .eq('game_date', today)
-          .not('user_id', 'is', null) // FILTER LIST
+          .not('user_id', 'is', null)
           .order('score', { ascending: false })
           .limit(50)
 
         if (data) setScores(data as any)
 
-        // --- 2. DAILY COUNT (FIXED) ---
-        // Now checking for NOT NULL user_id here too
         const { count } = await supabase
           .from('daily_results')
           .select('*', { count: 'exact', head: true })
           .eq('game_date', today)
-          .not('user_id', 'is', null) // <--- ADDED THIS
+          .not('user_id', 'is', null)
         
         if (count !== null) setTotalCount(count)
 
       } else {
-        // --- 3. WEEKLY FETCH ---
+        // 3. UPDATE WEEKLY LOGIC (Remove email)
         const { data, error } = await supabase.rpc('get_weekly_leaderboard')
 
         if (data) {
-          // Filter out guests from weekly view just in case
           const realUsers = data.filter((row: any) => row.user_id !== null)
 
           const formatted: LeaderboardEntry[] = realUsers.map((row: any) => ({
@@ -78,7 +75,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
               username: row.username,
               full_name: row.full_name,
               avatar_url: row.avatar_url,
-              email: row.email,
+              // email: row.email, <-- DELETED
               show_avatar: row.show_avatar
             }
           }))
@@ -146,7 +143,8 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             const isMe = entry.user_id === currentUserId
             const rank = index + 1
             
-            let displayName = entry.profiles?.username || entry.profiles?.full_name || entry.profiles?.email?.split('@')[0] || 'Anonymous'
+            // 4. UPDATE DISPLAY NAME LOGIC (Remove email fallback)
+            let displayName = entry.profiles?.username || entry.profiles?.full_name || 'Anonymous'
 
             const showPhoto = entry.profiles?.show_avatar !== false 
             const avatarUrl = entry.profiles?.avatar_url
