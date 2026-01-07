@@ -34,6 +34,17 @@ const cleanText = (text: string) => {
     return text.replace(/&amp;/g, '&')
 }
 
+// --- HELPER: Generate/Get Guest ID ---
+const getGuestId = () => {
+    if (typeof window === 'undefined') return null
+    let id = localStorage.getItem('s2s_guest_id')
+    if (!id) {
+        id = 'guest_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+        localStorage.setItem('s2s_guest_id', id)
+    }
+    return id
+}
+
 export default function DailyGame() {
   const [questions, setQuestions] = useState<any[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -70,14 +81,13 @@ export default function DailyGame() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // 1. INITIAL LOAD: Fetch Game Data & Restore Local State
+  // 1. INITIAL LOAD: Fetch Game Data & Verify Save Status
   useEffect(() => {
     const loadGame = async () => {
       const data = await getDailyGame()
       if (data) {
         setQuestions(data)
         
-        // Restore local storage state
         const savedScore = localStorage.getItem('s2s_today_score')
         const savedDate = localStorage.getItem('s2s_last_played_date')
         const savedResults = localStorage.getItem('s2s_daily_results') 
@@ -93,8 +103,38 @@ export default function DailyGame() {
                 setResults(new Array(data.length).fill('pending'))
             }
             setGameState('finished')
-            setIsSaved(true) 
+
+            // --- VERIFY WITH DATABASE ---
+            // Don't just assume it's saved. Check the DB.
+            const { data: { session } } = await supabase.auth.getSession()
+            const currentUserId = session?.user?.id
+            const guestId = localStorage.getItem('s2s_guest_id')
+
+            let query = supabase.from('daily_results').select('score').eq('game_date', today)
+            
+            if (currentUserId) {
+                query = query.eq('user_id', currentUserId)
+            } else if (guestId) {
+                query = query.eq('guest_id', guestId)
+            } else {
+                // No ID found, definitely not saved
+                setIsSaved(false)
+                return
+            }
+
+            const { data: existingRows } = await query
+            
+            // If the database has rows, THEN we are truly saved. 
+            // If not, set isSaved=false so the saver effect runs again.
+            if (existingRows && existingRows.length > 0) {
+                setIsSaved(true)
+            } else {
+                console.log("Local score found, but DB empty. Retrying save...")
+                setIsSaved(false)
+            }
+
         } else {
+            // No local data for today
             setResults(new Array(data.length).fill('pending'))
             if (!hasSeenIntro) {
                 setGameState('intro')
@@ -107,10 +147,8 @@ export default function DailyGame() {
     loadGame()
   }, [])
 
-  // 2. AUTH LISTENER: Handles "Race Condition"
-  // This ensures we catch the user session even if it loads 500ms after the page
+  // 2. AUTH LISTENER
   useEffect(() => {
-    // Check session immediately
     const checkSession = async () => {
         const { data: { session } } = await supabase.auth.getSession()
         if (session?.user) {
@@ -119,14 +157,13 @@ export default function DailyGame() {
     }
     checkSession()
 
-    // Listen for changes (Login, Logout, Auto-Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
   }, [])
 
-  // 3. PROFILE FETCH: Runs WHENEVER 'user' is found
+  // 3. PROFILE FETCH
   useEffect(() => {
     const fetchProfile = async () => {
         if (!user) return
@@ -144,55 +181,75 @@ export default function DailyGame() {
         }
     }
     fetchProfile()
-  }, [user]) // <--- Dependency array ensures this runs when User state updates
+  }, [user])
 
-  // 4. THE SAVE LOGIC (Streak Update)
+  // 4. THE SAVE LOGIC (Handles Both Users and Guests)
   useEffect(() => {
     const saveScore = async () => {
-      if (gameState === 'finished' && user && !isSaved && score > 0) {
+      // NOTE: We removed "&& user" so guests can save too
+      if (gameState === 'finished' && !isSaved && score > 0) {
         const todayISO = getGameDate() 
         
-        // A. Upsert Score
-        const { error: scoreError } = await supabase.from('daily_results').upsert({
-            user_id: user.id,
+        // DETERMINE IDs
+        let upsertPayload: any = {
             score: score,
             game_date: todayISO,
-        }, { onConflict: 'user_id, game_date' })
+        }
+        
+        let conflictTarget = ''
+        
+        if (user) {
+            // Logged in User
+            upsertPayload.user_id = user.id
+            conflictTarget = 'user_id, game_date'
+        } else {
+            // Guest User
+            const guestId = getGuestId()
+            upsertPayload.guest_id = guestId
+            conflictTarget = 'guest_id, game_date'
+        }
+
+        // A. Upsert Score
+        const { error: scoreError } = await supabase.from('daily_results').upsert(
+            upsertPayload, 
+            { onConflict: conflictTarget }
+        )
 
         if (scoreError) {
             console.error("Error saving score", scoreError)
             return
         }
 
-        // B. Update Profile (Streak Logic)
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('current_streak, last_played_date')
-            .eq('id', user.id)
-            .single()
-
-        if (profile) {
-            const offset = 6 * 60 * 60 * 1000
-            const yesterdayDate = new Date(Date.now() - offset - 24 * 60 * 60 * 1000)
-            const yesterdayISO = yesterdayDate.toISOString().split('T')[0]
-            
-            let newStreak = 1 
-
-            if (profile.last_played_date === todayISO) {
-                newStreak = profile.current_streak || 1
-            } else if (profile.last_played_date === yesterdayISO) {
-                newStreak = (profile.current_streak || 0) + 1
-            }
-            
-            await supabase
+        // B. Update Profile (ONLY if User exists)
+        if (user) {
+            const { data: profile } = await supabase
                 .from('profiles')
-                .update({ 
-                    current_streak: newStreak,
-                    last_played_date: todayISO 
-                })
+                .select('current_streak, last_played_date')
                 .eq('id', user.id)
-            
-            setStreak(newStreak)
+                .single()
+
+            if (profile) {
+                const offset = 6 * 60 * 60 * 1000
+                const yesterdayDate = new Date(Date.now() - offset - 24 * 60 * 60 * 1000)
+                const yesterdayISO = yesterdayDate.toISOString().split('T')[0]
+                
+                let newStreak = 1 
+                if (profile.last_played_date === todayISO) {
+                    newStreak = profile.current_streak || 1
+                } else if (profile.last_played_date === yesterdayISO) {
+                    newStreak = (profile.current_streak || 0) + 1
+                }
+                
+                await supabase
+                    .from('profiles')
+                    .update({ 
+                        current_streak: newStreak,
+                        last_played_date: todayISO 
+                    })
+                    .eq('id', user.id)
+                
+                setStreak(newStreak)
+            }
         }
         
         setIsSaved(true)
