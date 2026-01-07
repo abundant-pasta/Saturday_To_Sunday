@@ -481,9 +481,11 @@ export default function DailyGame() {
                     ))}
                 </div>
 
-                {/* --- PROFILE / LOGIN SECTION --- */}
+                {/* --- PROFILE / LOGIN SECTION (FIXED FOR GUESTS) --- */}
                 <div className="flex flex-col items-center gap-3 w-full">
-                    {isSaved ? (
+                    
+                    {/* CASE 1: LOGGED IN & SAVED -> Show Settings */}
+                    {isSaved && user && (
                         <>
                            {showProfileSettings && (
                              <div className="w-full mt-2 p-4 bg-neutral-950/50 rounded-xl border border-neutral-800 animate-in slide-in-from-top-2 fade-in">
@@ -529,15 +531,16 @@ export default function DailyGame() {
                              </div>
                            )}
                         </>
-                    ) : (
+                    )}
+
+                    {/* CASE 2: NOT LOGGED IN -> ALWAYS SHOW AUTH BUTTON (Even if Saved) */}
+                    {!user && (
                     <div className="mt-2 bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
                         <div className="flex flex-col gap-1 items-center">
                             <p className="text-neutral-400 text-[10px] uppercase tracking-wider font-bold">
-                                {user ? (
-                                    <span className="flex items-center gap-2 justify-center">
-                                        <Loader2 className="w-3 h-3 animate-spin" /> Saving...
-                                    </span>
+                                {isSaved ? (
+                                    "Sign in to claim this score"
                                 ) : (
                                     "Sign in to save this score"
                                 )}

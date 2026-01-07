@@ -47,23 +47,24 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             profiles (username, full_name, avatar_url, email, show_avatar)
           `)
           .eq('game_date', today)
-          .not('user_id', 'is', null) // <--- THIS FILTERS OUT GUESTS
+          .not('user_id', 'is', null) // FILTER LIST
           .order('score', { ascending: false })
           .limit(50)
 
         if (data) setScores(data as any)
 
-        // Get Daily Count (We keep this total to show activity, or filter it if you want strict counts)
-        // Currently configured to show ALL plays (including guests) to make the app look busy.
+        // --- 2. DAILY COUNT (FIXED) ---
+        // Now checking for NOT NULL user_id here too
         const { count } = await supabase
           .from('daily_results')
           .select('*', { count: 'exact', head: true })
           .eq('game_date', today)
+          .not('user_id', 'is', null) // <--- ADDED THIS
         
         if (count !== null) setTotalCount(count)
 
       } else {
-        // --- 2. WEEKLY FETCH ---
+        // --- 3. WEEKLY FETCH ---
         const { data, error } = await supabase.rpc('get_weekly_leaderboard')
 
         if (data) {
