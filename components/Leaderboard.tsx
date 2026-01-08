@@ -2,18 +2,17 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy, User, CalendarDays, Flame } from 'lucide-react'
+import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users } from 'lucide-react' // <--- Added Icons
 import Image from 'next/image'
 
-// 1. UPDATE TYPE DEFINITION (Remove email)
 type LeaderboardEntry = {
   score: number
-  user_id: string
+  user_id: string | null
+  guest_id: string | null
   profiles: {
     username: string | null
     full_name: string | null
     avatar_url: string | null
-    // email: string | null  <-- DELETED
     show_avatar: boolean | null
   }
 }
@@ -24,12 +23,21 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'daily' | 'weekly'>('daily')
   
+  // 1. NEW TOGGLE STATE (Default to showing everyone)
+  const [showGuests, setShowGuests] = useState(true)
+  const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
+  
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const localId = localStorage.getItem('s2s_guest_id')
+        setCurrentGuestId(localId)
+    }
+
     const fetchLeaderboard = async () => {
       setLoading(true)
       
@@ -38,31 +46,45 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
       const today = gameDayDate.toISOString().split('T')[0]
 
       if (view === 'daily') {
-        // 2. UPDATE DAILY QUERY (Remove email)
-        const { data } = await supabase
+        
+        // --- 2. BUILD QUERY WITH CONDITIONAL FILTER ---
+        let query = supabase
           .from('daily_results')
           .select(`
             score, 
-            user_id, 
+            user_id,
+            guest_id, 
             profiles (username, full_name, avatar_url, show_avatar)
           `)
           .eq('game_date', today)
-          .not('user_id', 'is', null)
           .order('score', { ascending: false })
           .limit(50)
 
+        // IF TOGGLE IS OFF -> HIDE GUESTS
+        if (!showGuests) {
+            query = query.not('user_id', 'is', null)
+        }
+
+        const { data } = await query
+
         if (data) setScores(data as any)
 
-        const { count } = await supabase
+        // --- COUNT QUERY (Must match the filter) ---
+        let countQuery = supabase
           .from('daily_results')
           .select('*', { count: 'exact', head: true })
           .eq('game_date', today)
-          .not('user_id', 'is', null)
+        
+        if (!showGuests) {
+            countQuery = countQuery.not('user_id', 'is', null)
+        }
+
+        const { count } = await countQuery
         
         if (count !== null) setTotalCount(count)
 
       } else {
-        // 3. UPDATE WEEKLY LOGIC (Remove email)
+        // WEEKLY VIEW (Always Users Only)
         const { data, error } = await supabase.rpc('get_weekly_leaderboard')
 
         if (data) {
@@ -71,11 +93,11 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
           const formatted: LeaderboardEntry[] = realUsers.map((row: any) => ({
             score: row.score,
             user_id: row.user_id,
+            guest_id: null,
             profiles: {
               username: row.username,
               full_name: row.full_name,
               avatar_url: row.avatar_url,
-              // email: row.email, <-- DELETED
               show_avatar: row.show_avatar
             }
           }))
@@ -88,12 +110,23 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     }
 
     fetchLeaderboard()
-  }, [currentUserId, view])
+  // 3. ADD showGuests TO DEPENDENCY ARRAY
+  }, [currentUserId, view, showGuests])
+
+  const getDisplayName = (entry: LeaderboardEntry) => {
+    if (entry.profiles?.username) return entry.profiles.username
+    if (entry.profiles?.full_name) return entry.profiles.full_name
+    if (entry.guest_id) {
+        const shortId = entry.guest_id.slice(-4).toUpperCase()
+        return `Guest-${shortId}`
+    }
+    return 'Anonymous'
+  }
 
   return (
     <div className="w-full max-w-md mx-auto mt-6 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden shadow-2xl font-sans">
       
-      {/* HEADER WITH TOGGLE */}
+      {/* HEADER */}
       <div className="bg-neutral-900/50 px-4 py-3 border-b border-neutral-800 flex flex-col gap-3">
         
         <div className="flex items-center justify-between">
@@ -108,7 +141,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             </span>
         </div>
 
-        {/* TOGGLE SWITCH */}
+        {/* DAILY / WEEKLY SWITCH */}
         <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
              <button 
                 onClick={() => setView('daily')}
@@ -124,9 +157,29 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
              </button>
         </div>
 
+        {/* 4. FILTER ROW (Only shows on Daily View) */}
+        {view === 'daily' && (
+            <div className="flex justify-center border-t border-neutral-800/50 pt-2">
+                <button 
+                    onClick={() => setShowGuests(!showGuests)}
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-transparent hover:border-neutral-700 bg-neutral-800/50 text-neutral-400 hover:text-white"
+                >
+                    {showGuests ? (
+                        <>
+                            <Users className="w-3 h-3" /> Showing All Players
+                        </>
+                    ) : (
+                        <>
+                            <Filter className="w-3 h-3 text-[#00ff80]" /> <span className="text-[#00ff80]">Registered Only</span>
+                        </>
+                    )}
+                </button>
+            </div>
+        )}
+
         {/* Player Count */}
-        <div className="text-[10px] text-neutral-500 font-bold text-center border-t border-neutral-800/50 pt-2 uppercase tracking-wide">
-            {totalCount} players {view === 'daily' ? 'today' : 'this week'}
+        <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
+            {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' ? 'today' : 'this week'}
         </div>
 
       </div>
@@ -136,16 +189,16 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-neutral-600" /></div>
         ) : scores.length === 0 ? (
             <div className="p-8 text-center text-neutral-500 text-xs uppercase tracking-widest font-bold">
-                No scores yet. Be the first!
+                No scores found.
             </div>
         ) : (
             scores.map((entry, index) => {
-            const isMe = entry.user_id === currentUserId
-            const rank = index + 1
             
-            // 4. UPDATE DISPLAY NAME LOGIC (Remove email fallback)
-            let displayName = entry.profiles?.username || entry.profiles?.full_name || 'Anonymous'
+            const isMe = (currentUserId && entry.user_id === currentUserId) || 
+                         (currentGuestId && entry.guest_id === currentGuestId)
 
+            const rank = index + 1
+            const displayName = getDisplayName(entry)
             const showPhoto = entry.profiles?.show_avatar !== false 
             const avatarUrl = entry.profiles?.avatar_url
 
@@ -170,7 +223,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                             <User className="w-3 h-3 text-neutral-500" />
                         )}
                     </div>
-                    <span className={`truncate max-w-[140px] ${isMe ? 'text-[#00ff80] font-bold' : 'text-neutral-300'}`}>
+                    <span className={`truncate max-w-[140px] ${isMe ? 'text-[#00ff80] font-bold' : 'text-neutral-300'} ${!entry.profiles ? 'opacity-70 font-mono text-xs' : ''}`}>
                         {displayName} {isMe && '(You)'}
                     </span>
                 </div>

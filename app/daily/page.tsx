@@ -283,25 +283,24 @@ export default function DailyGame() {
     saveScore()
   }, [gameState, user, score, isSaved])
 
-  // 5. RANK FETCH LOGIC (FIXED: Waits for Save)
+  // 5. RANK FETCH LOGIC (UPDATED: INCLUDES GUESTS)
   useEffect(() => {
     const fetchRank = async () => {
-        // FIX: Ensure isSaved is true before fetching rank
         if (gameState === 'finished' && score > 0 && isSaved) {
             const todayISO = getGameDate()
 
+            // 1. Get TOTAL count (Guests + Users)
             const { count: total } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
                 .eq('game_date', todayISO)
-                .not('user_id', 'is', null) 
 
+            // 2. Get BETTER players count (Guests + Users)
             const { count: betterPlayers } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
                 .eq('game_date', todayISO)
                 .gt('score', score)
-                .not('user_id', 'is', null)
             
             setTotalPlayers(total || 0)
             setMyRank((betterPlayers || 0) + 1)
@@ -309,7 +308,6 @@ export default function DailyGame() {
     }
 
     fetchRank()
-    // FIX: Added isSaved to dependency array
   }, [gameState, score, isSaved])
 
   const handleUpdateName = async () => {
@@ -569,22 +567,20 @@ export default function DailyGame() {
                         </>
                     )}
 
-                    {/* CASE 2: NOT LOGGED IN -> ALWAYS SHOW AUTH BUTTON (Even if Saved) */}
-                    {!user && (
+                  {/* CASE 2: NOT LOGGED IN -> ALWAYS SHOW AUTH BUTTON (Even if Saved) */}
+                  {!user && (
                     <div className="mt-2 bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
                         <div className="flex flex-col gap-1 items-center">
-                            <p className="text-neutral-400 text-[10px] uppercase tracking-wider font-bold">
-                                {isSaved ? (
-                                    "Sign in to claim this score"
-                                ) : (
-                                    "Sign in to save this score"
-                                )}
-                            </p>
+                            <div className="text-[#00ff80] text-[10px] sm:text-xs uppercase tracking-widest font-black text-center flex items-center justify-center gap-2 leading-tight">
+                                <span>Make it official. Log in to save this score and start your daily streak.</span>
+                                {/* FLAME ICON: Orange/Gold color to look like the emoji */}
+                                <Flame className="w-5 h-5 text-orange-500 fill-orange-500 shrink-0" />
+                            </div>
                         </div>
                     </div>
                     )}
-                </div>
+                  </div>    
 
                 {/* --- SHARE BUTTON --- */}
                 {!showProfileSettings && (
