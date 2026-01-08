@@ -1,10 +1,9 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-// NEW: Import the raw Supabase client for Admin/Service Role usage
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient as createAdminClient } from '@supabase/supabase-js' // <--- Fixes createAdminClient error
 import { revalidatePath } from 'next/cache'
-import { getSimilarDistractors } from '@/lib/conferences'
+import { getSimilarDistractors } from '@/lib/conferences' // <--- Fixes getSimilarDistractors error
 
 // --- Helper: Generate Random Room Code ---
 function generateRoomCode() {
@@ -182,7 +181,7 @@ export async function updatePlayerImage(playerId: string, imageUrl: string) {
   revalidatePath('/admin')
 }
 
-// --- 7. DAILY GAME (ADMIN PRIVILEGED VERSION) ---
+// --- 7. DAILY GAME (READ ONLY + EMERGENCY BACKUP) ---
 export async function getDailyGame() {
   const supabase = await createClient()
   
@@ -191,7 +190,7 @@ export async function getDailyGame() {
   const adjustedTime = new Date(Date.now() - offset)
   const today = adjustedTime.toISOString().split('T')[0]
 
-  // 2. FETCH EXISTING (Safe Mode)
+  // 2. FETCH GAME
   const { data: existingGames } = await supabase
     .from('daily_games')
     .select('content')
@@ -202,27 +201,28 @@ export async function getDailyGame() {
       return existingGames[0].content
   }
 
-  // 3. GENERATE NEW GAME
-  // Note: We use the regular client for the RPC call (Reading players is allowed for public)
-  const { data: dailyPlayers, error } = await supabase.rpc('get_daily_game_questions')
-  
-  if (error || !dailyPlayers || dailyPlayers.length < 10) {
-    console.error("Error fetching daily players via RPC:", error)
-    
-    // Fallback: Fetch most recent game
-    const { data: fallback } = await supabase
-        .from('daily_games')
-        .select('content')
-        .order('date', { ascending: false })
-        .limit(1)
-        
-    return fallback?.[0]?.content || null
-  }
+  // 3. EMERGENCY FALLBACK
+  // If we reach here, the Cron Job failed. We must generate it now (Just in Time).
+  console.log("CRON MISS: Generating emergency game for today...")
 
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! 
+  )
+
+  // Fetch pool using Service Role
+  const { data: pool } = await supabaseAdmin.from('players').select('*').gt('rating', 0).limit(200)
+  
+  if (!pool || pool.length < 10) return null
+
+  // Shuffle and pick 10
+  const selectedPlayers = pool.sort(() => 0.5 - Math.random()).slice(0, 10)
+  
+  // Get colleges for distractors
   const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
 
-  const questions = dailyPlayers.map((p: any) => {
+  const questions = selectedPlayers.map((p: any) => {
     const wrong = getSimilarDistractors(p.college, collegeList)
     const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
     return {
@@ -235,30 +235,8 @@ export async function getDailyGame() {
     }
   })
 
-  // 4. SAVE (WITH ADMIN PRIVILEGES)
-  // FIX: Use a Service Role Client to bypass RLS. 
-  // This allows a Guest (Anon) to trigger the "Insert" without needing database permissions.
-  
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! 
-  )
-
-  const { error: insertError } = await supabaseAdmin
-    .from('daily_games')
-    .insert({ date: today, content: questions })
-
-  // Handle race condition safely (if someone else created it milliseconds ago)
-  if (insertError) {
-    console.log("Insert failed (likely race condition), fetching existing game...")
-    const { data: retry } = await supabase
-        .from('daily_games')
-        .select('content')
-        .eq('date', today)
-        .limit(1)
-    
-    return retry?.[0]?.content
-  }
+  // Save it immediately so the next person doesn't have to wait
+  await supabaseAdmin.from('daily_games').insert({ date: today, content: questions })
 
   return questions
 }
