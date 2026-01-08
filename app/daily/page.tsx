@@ -283,10 +283,11 @@ export default function DailyGame() {
     saveScore()
   }, [gameState, user, score, isSaved])
 
-  // 5. RANK FETCH LOGIC
+  // 5. RANK FETCH LOGIC (FIXED: Waits for Save)
   useEffect(() => {
     const fetchRank = async () => {
-        if (gameState === 'finished' && score > 0) {
+        // FIX: Ensure isSaved is true before fetching rank
+        if (gameState === 'finished' && score > 0 && isSaved) {
             const todayISO = getGameDate()
 
             const { count: total } = await supabase
@@ -307,10 +308,9 @@ export default function DailyGame() {
         }
     }
 
-    if (gameState === 'finished') {
-        fetchRank()
-    }
-  }, [gameState, score])
+    fetchRank()
+    // FIX: Added isSaved to dependency array
+  }, [gameState, score, isSaved])
 
   const handleUpdateName = async () => {
     if (!user || !newUsername.trim()) return
