@@ -6,6 +6,19 @@ import webpush from 'web-push'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
+  // ==========================================
+  // 🔒 SECURITY CHECK
+  // Only allow requests from Vercel Cron or authorized headers
+  // ==========================================
+  const authHeader = request.headers.get('authorization')
+  if (
+    process.env.NODE_ENV === 'production' && 
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return new NextResponse('Unauthorized', { status: 401 })
+  }
+  // ==========================================
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -132,7 +145,7 @@ export async function GET(request: Request) {
         
         const payload = JSON.stringify({
           title: 'Saturday to Sunday',
-          body: 'The new daily challenge is live! Can you keep the streak alive? 🏈',
+          body: 'The new roster challenge is live! Can you keep the streak alive? 🏈',
           icon: '/icon-192x192.png'
         })
 
