@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, Loader2, Share, BellOff, Download, Info } from 'lucide-react'
+import { Bell, Loader2, Share, BellOff, Download, CheckCircle2 } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
@@ -22,6 +22,9 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [loading, setLoading] = useState(true)
+  
+  // New state to track if we *just* clicked the button in this session
+  const [justSubscribed, setJustSubscribed] = useState(false)
 
   useEffect(() => {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
@@ -32,7 +35,11 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
            return registration.pushManager.getSubscription()
         })
         .then((subscription) => {
-           if (subscription) setIsSubscribed(true)
+           if (subscription) {
+             setIsSubscribed(true)
+             // Note: We do NOT set justSubscribed=true here. 
+             // This ensures returning users see nothing.
+           }
         })
         .catch((err) => console.error("SW Error:", err))
         .finally(() => setLoading(false))
@@ -61,7 +68,10 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
       })
 
       if (!res.ok) throw new Error('Failed to save to DB')
+      
       setIsSubscribed(true)
+      setJustSubscribed(true) // <--- Trigger the success message!
+
     } catch (error: any) {
       console.error(error)
       alert(`Error: ${error.message}`)
@@ -84,6 +94,7 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
         await sub.unsubscribe()
       }
       setIsSubscribed(false)
+      setJustSubscribed(false)
     } catch (error) {
       console.error(error)
       alert('Failed to unsubscribe.')
@@ -93,8 +104,6 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
   }
 
   // --- STATE 1: BROWSER (NOT INSTALLED) ---
-  // We don't show a toggle here because it won't work yet.
-  // Instead, we show the "Instruction Card" to get them to install.
   if (!isSupported) {
     return (
       <div className="p-4 w-full bg-neutral-900/50 flex flex-col gap-3">
@@ -113,14 +122,26 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
     )
   }
 
-  // --- STATE 2: INSTALLED & SUBSCRIBED (HOME PAGE MODE) ---
-  // If we are on the home page and already subscribed, hide this entirely.
-  if (isSubscribed && hideOnSubscribed) {
+  // --- STATE 2: HOME PAGE LOGIC ---
+  if (hideOnSubscribed && isSubscribed) {
+    // A. If they JUST turned it on now: Show Success Message
+    if (justSubscribed) {
+      return (
+        <div className="flex items-center gap-3 p-4 w-full bg-[#00ff80]/10">
+           <CheckCircle2 className="w-5 h-5 text-[#00ff80]" />
+           <div className="flex flex-col">
+             <span className="text-sm font-bold text-white">Daily notifications enabled.</span>
+             <span className="text-[10px] text-neutral-400">Change this setting in your Profile.</span>
+           </div>
+        </div>
+      )
+    }
+    
+    // B. If they were ALREADY subscribed when they got here: Hide completely
     return null
   }
 
-  // --- STATE 3: INSTALLED (TOGGLE MODE) ---
-  // Shows the "Turn On" or "Turn Off" button.
+  // --- STATE 3: STANDARD TOGGLE (Profile Page or Home Page before subscribing) ---
   return (
     <div className="flex items-center justify-between p-4 w-full">
       <div className="flex flex-col text-left">
