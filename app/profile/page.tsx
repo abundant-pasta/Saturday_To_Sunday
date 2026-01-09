@@ -79,7 +79,8 @@ export default function ProfilePage() {
             <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500 pl-2">Settings</h3>
             
             {/* NOTIFICATION MANAGER */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-1">
+            {/* We do NOT pass hideOnSubscribed here, so it remains visible for toggling off */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
                 <PushNotificationManager />
             </div>
         </div>

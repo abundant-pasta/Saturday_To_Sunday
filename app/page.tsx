@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, LogOut } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
+import PushNotificationManager from '@/components/PushNotificationManager'
 import { createBrowserClient } from '@supabase/ssr'
 
 export default function Home() {
@@ -14,7 +15,6 @@ export default function Home() {
   
   // Auth State
   const [user, setUser] = useState<any>(null)
-  const [showSignOut, setShowSignOut] = useState(false)
   
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,11 +43,6 @@ export default function Home() {
             redirectTo: `${window.location.origin}/auth/callback`
         }
     })
-  }
-
-  const handleSignOut = async () => {
-      await supabase.auth.signOut()
-      setShowSignOut(false)
   }
 
   return (
@@ -124,7 +119,13 @@ export default function Home() {
                 <Trophy className="mr-3 w-5 h-5 text-yellow-500" /> View Leaderboard
               </Button>
             </Link>
-            
+
+            {/* --- NOTIFICATION BUTTON --- */}
+            {/* 'empty:hidden' ensures this container disappears completely if the user is already subscribed */}
+            <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden">
+              <PushNotificationManager hideOnSubscribed={true} />
+            </div>
+
              {/* INSTALL PWA BUTTON */}
             <InstallPWA />
 

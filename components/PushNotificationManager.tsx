@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, Loader2, Share, BellOff } from 'lucide-react'
+import { Bell, Loader2, Share, BellOff, Download, Info } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
@@ -14,7 +14,11 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray
 }
 
-export default function PushNotificationManager() {
+interface PushManagerProps {
+  hideOnSubscribed?: boolean
+}
+
+export default function PushNotificationManager({ hideOnSubscribed = false }: PushManagerProps) {
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -28,9 +32,7 @@ export default function PushNotificationManager() {
            return registration.pushManager.getSubscription()
         })
         .then((subscription) => {
-           if (subscription) {
-             setIsSubscribed(true)
-           }
+           if (subscription) setIsSubscribed(true)
         })
         .catch((err) => console.error("SW Error:", err))
         .finally(() => setLoading(false))
@@ -59,7 +61,6 @@ export default function PushNotificationManager() {
       })
 
       if (!res.ok) throw new Error('Failed to save to DB')
-
       setIsSubscribed(true)
     } catch (error: any) {
       console.error(error)
@@ -74,19 +75,14 @@ export default function PushNotificationManager() {
     try {
       const registration = await navigator.serviceWorker.ready
       const sub = await registration.pushManager.getSubscription()
-      
       if (sub) {
-        // 1. Tell Server to delete
         await fetch('/api/web-push/unsubscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ endpoint: sub.endpoint })
         })
-
-        // 2. Tell Browser to unsubscribe
         await sub.unsubscribe()
       }
-
       setIsSubscribed(false)
     } catch (error) {
       console.error(error)
@@ -96,21 +92,35 @@ export default function PushNotificationManager() {
     }
   }
 
+  // --- STATE 1: BROWSER (NOT INSTALLED) ---
+  // We don't show a toggle here because it won't work yet.
+  // Instead, we show the "Instruction Card" to get them to install.
   if (!isSupported) {
     return (
-      <div className="flex items-center justify-between p-4 w-full bg-neutral-900 border border-neutral-800 rounded-xl">
-        <div className="flex flex-col gap-2">
-           <span className="text-sm font-bold text-white flex items-center gap-2">
-              <Bell className="w-4 h-4 text-neutral-500" /> Daily Reminders
-           </span>
-           <p className="text-[10px] leading-tight text-neutral-400 max-w-[200px]">
-             To enable, tap <Share className="w-3 h-3 inline mx-1" /> <span className="font-bold text-white">Share</span> then <span className="font-bold text-white">Add to Home Screen</span>.
-           </p>
+      <div className="p-4 w-full bg-neutral-900/50 flex flex-col gap-3">
+        <div className="flex items-center gap-2 text-[#00ff80]">
+           <Download className="w-4 h-4" />
+           <span className="text-xs font-bold uppercase tracking-wider">Install App</span>
+        </div>
+        <p className="text-[11px] leading-relaxed text-neutral-400">
+          Install to home screen for easy access and daily notifications.
+        </p>
+        <div className="flex items-center gap-2 text-[10px] text-white font-bold bg-neutral-800 p-2 rounded-lg border border-neutral-700">
+           <span>1. Tap</span> <Share className="w-3 h-3 text-blue-400" /> 
+           <span>2. Select "Add to Home Screen"</span>
         </div>
       </div>
     )
   }
 
+  // --- STATE 2: INSTALLED & SUBSCRIBED (HOME PAGE MODE) ---
+  // If we are on the home page and already subscribed, hide this entirely.
+  if (isSubscribed && hideOnSubscribed) {
+    return null
+  }
+
+  // --- STATE 3: INSTALLED (TOGGLE MODE) ---
+  // Shows the "Turn On" or "Turn Off" button.
   return (
     <div className="flex items-center justify-between p-4 w-full">
       <div className="flex flex-col text-left">
