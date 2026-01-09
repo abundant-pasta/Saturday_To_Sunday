@@ -37,8 +37,6 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
         .then((subscription) => {
            if (subscription) {
              setIsSubscribed(true)
-             // Note: We do NOT set justSubscribed=true here. 
-             // This ensures returning users see nothing.
            }
         })
         .catch((err) => console.error("SW Error:", err))
@@ -70,7 +68,7 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
       if (!res.ok) throw new Error('Failed to save to DB')
       
       setIsSubscribed(true)
-      setJustSubscribed(true) // <--- Trigger the success message!
+      setJustSubscribed(true)
 
     } catch (error: any) {
       console.error(error)
@@ -114,17 +112,28 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
         <p className="text-[11px] leading-relaxed text-neutral-400">
           Install to home screen for easy access and daily notifications.
         </p>
-        <div className="flex items-center gap-2 text-[10px] text-white font-bold bg-neutral-800 p-2 rounded-lg border border-neutral-700">
-           <span>1. Tap</span> <Share className="w-3 h-3 text-blue-400" /> 
-           <span>2. Select "Add to Home Screen"</span>
+        
+        {/* Updated Instructions List */}
+        <div className="flex flex-col gap-2 text-[10px] text-white font-bold bg-neutral-800 p-3 rounded-lg border border-neutral-700">
+           <div className="flex items-center gap-2">
+             <span className="bg-neutral-700 text-neutral-400 w-4 h-4 flex items-center justify-center rounded-full text-[9px]">1</span>
+             <span>Tap</span> <Share className="w-3 h-3 text-blue-400" /> <span>Share</span>
+           </div>
+           <div className="flex items-center gap-2">
+             <span className="bg-neutral-700 text-neutral-400 w-4 h-4 flex items-center justify-center rounded-full text-[9px]">2</span>
+             <span>Scroll down (or tap "More")</span>
+           </div>
+           <div className="flex items-center gap-2">
+             <span className="bg-neutral-700 text-neutral-400 w-4 h-4 flex items-center justify-center rounded-full text-[9px]">3</span>
+             <span>Select "Add to Home Screen"</span>
+           </div>
         </div>
       </div>
     )
   }
 
-  // --- STATE 2: HOME PAGE LOGIC ---
+  // --- STATE 2: HOME PAGE SUCCESS MESSAGE ---
   if (hideOnSubscribed && isSubscribed) {
-    // A. If they JUST turned it on now: Show Success Message
     if (justSubscribed) {
       return (
         <div className="flex items-center gap-3 p-4 w-full bg-[#00ff80]/10">
@@ -136,12 +145,10 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
         </div>
       )
     }
-    
-    // B. If they were ALREADY subscribed when they got here: Hide completely
     return null
   }
 
-  // --- STATE 3: STANDARD TOGGLE (Profile Page or Home Page before subscribing) ---
+  // --- STATE 3: STANDARD TOGGLE ---
   return (
     <div className="flex items-center justify-between p-4 w-full">
       <div className="flex flex-col text-left">
