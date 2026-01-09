@@ -13,6 +13,8 @@ import AuthButton from '@/components/AuthButton'
 import { createBrowserClient } from '@supabase/ssr'
 import Leaderboard from '@/components/Leaderboard'
 import InstallPWA from '@/components/InstallPWA'
+// 1. IMPORT THE NEW COMPONENT
+import PushNotificationManager from '@/components/PushNotificationManager'
 
 // --- HELPER: Get Date in Mountain Time logic (UTC - 6h) ---
 const getGameDate = () => {
@@ -597,6 +599,12 @@ export default function DailyGame() {
         {/* --- BOTTOM ACTIONS --- */}
         {!showProfileSettings && (
           <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
+            
+            {/* 2. PLACED THE NOTIFICATION BUTTON HERE */}
+            <div className="w-full">
+                <PushNotificationManager />
+            </div>
+
             <div className="flex justify-center">
                 <InstallPWA />
             </div>

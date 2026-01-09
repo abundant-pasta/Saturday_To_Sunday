@@ -1,8 +1,12 @@
 {
     "crons": [
       {
-        "path": "/api/cron",
-        "schedule": "0 19 * * *"
+        "path": "/api/cron?action=generate",
+        "schedule": "0 19 * * *" 
+      },
+      {
+        "path": "/api/cron?action=notify",
+        "schedule": "0 16 * * *"
       }
     ]
   }
