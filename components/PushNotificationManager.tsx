@@ -65,7 +65,13 @@ export default function PushNotificationManager() {
         body: JSON.stringify(sub)
       })
 
-      if (!res.ok) throw new Error('Failed to save to DB')
+      // ... fetch call above ...
+
+      if (!res.ok) {
+        // Parse the error message from the server response
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Failed to save to DB')
+      }
 
       setIsSubscribed(true)
     } catch (error: any) {
