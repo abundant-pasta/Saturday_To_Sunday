@@ -3,22 +3,31 @@ import { createClient } from '@/utils/supabase/server'
 
 export async function POST(request: Request) {
   const subscription = await request.json()
+  
+  if (!subscription || !subscription.endpoint) {
+    return NextResponse.json({ error: 'No subscription provided' }, { status: 400 })
+  }
+
+  // 1. Init Client (captures cookies for secure Auth)
   const supabase = await createClient()
 
-  // Optional: If the user is logged in, grab their ID so we know WHO this device belongs to
+  // 2. Get Current User (if any)
   const { data: { user } } = await supabase.auth.getUser()
+
+  // 3. Create a unique ID for this device
+  // We use the endpoint URL as the unique key because it is unique per browser instance.
+  // This allows us to find the existing row and UPDATE the user_id if they just logged in.
+  const subscriptionId = Buffer.from(subscription.endpoint).toString('base64')
 
   const { error } = await supabase
     .from('push_subscriptions')
-    .insert({
-      user_id: user?.id || null, // If they are a guest, user_id is null
+    .upsert({
+      id: subscriptionId,         // Forces deduplication by ID
+      user_id: user?.id || null,  // Updates the owner to the current user
       subscription: subscription
     })
 
-  // We ignore "duplicate key" errors.
-  // Why? If a user clears their cache and clicks "Subscribe" again, 
-  // the browser sends the SAME keys. We don't want to crash, we just want to say "Ok, got it."
-  if (error && !error.message.includes('unique constraint')) {
+  if (error) {
     console.error('Subscription error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

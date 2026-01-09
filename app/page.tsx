@@ -56,10 +56,10 @@ export default function Home() {
       {/* --- TOP RIGHT PROFILE ICON --- */}
       <div className="absolute top-4 right-4 z-50">
         {user ? (
-            <div className="relative">
+            // LOGGED IN: Go to Profile
+            <Link href="/profile">
                 <button 
-                    onClick={() => setShowSignOut(!showSignOut)}
-                    className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative"
+                    className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative block"
                 >
                     {user.user_metadata?.avatar_url ? (
                         <Image src={user.user_metadata.avatar_url} alt="User" fill className="object-cover" />
@@ -69,19 +69,9 @@ export default function Home() {
                         </div>
                     )}
                 </button>
-                {/* Sign Out Dropdown */}
-                {showSignOut && (
-                    <div className="absolute top-12 right-0 bg-neutral-900 border border-neutral-800 rounded-lg shadow-xl py-1 w-32 animate-in slide-in-from-top-2 fade-in">
-                        <button 
-                            onClick={handleSignOut}
-                            className="w-full text-left px-4 py-2 text-xs font-bold uppercase tracking-wider text-red-400 hover:bg-neutral-800 flex items-center gap-2"
-                        >
-                            <LogOut className="w-3 h-3" /> Sign Out
-                        </button>
-                    </div>
-                )}
-            </div>
+            </Link>
         ) : (
+            // LOGGED OUT: Google Login
             <Button 
                 variant="ghost" 
                 size="icon" 

@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, Check } from 'lucide-react'
+import { Bell, Loader2 } from 'lucide-react'
 
 // Boilerplate utility to convert your VAPID key
-// (The browser requires the key in this specific weird format)
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
   const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/')
@@ -19,22 +18,29 @@ function urlBase64ToUint8Array(base64String: string) {
 export default function PushNotificationManager() {
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start loading to prevent flash
 
   // 1. On load, check if the user is ALREADY subscribed
   useEffect(() => {
-    // Check if browser supports Service Workers and Push
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true)
       checkSubscription()
+    } else {
+      setLoading(false) // Stop loading if not supported
     }
   }, [])
 
   async function checkSubscription() {
-    const registration = await navigator.serviceWorker.ready
-    const subscription = await registration.pushManager.getSubscription()
-    if (subscription) {
-      setIsSubscribed(true)
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const subscription = await registration.pushManager.getSubscription()
+      if (subscription) {
+        setIsSubscribed(true)
+      }
+    } catch (error) {
+      console.error('Error checking subscription:', error)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -44,7 +50,7 @@ export default function PushNotificationManager() {
     try {
       const registration = await navigator.serviceWorker.ready
 
-      // A. Ask the browser for permission & get the ticket
+      // A. Ask browser for permission
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
@@ -52,7 +58,8 @@ export default function PushNotificationManager() {
         )
       })
 
-      // B. Send that ticket to our database
+      // B. Send to DB
+      // Note: Keeping your endpoint '/api/web-push/subscribe'
       const res = await fetch('/api/web-push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,41 +69,43 @@ export default function PushNotificationManager() {
       if (!res.ok) throw new Error('Failed to save to DB')
 
       setIsSubscribed(true)
-      alert("Success! You'll get a notification when the new game drops.")
+      // Removed alert for a smoother UI experience, the button state change is enough feedback
     } catch (error) {
       console.error(error)
-      alert('Could not enable notifications. You might have blocked them in your browser settings.')
+      alert('Could not enable notifications. Please check your browser settings.')
     } finally {
       setLoading(false)
     }
   }
 
-  // Don't show anything if the browser (e.g. older Safari) doesn't support it
+  // If not supported, we hide the component entirely (or you could show a "Not supported" text)
   if (!isSupported) return null
 
-  if (isSubscribed) {
-    return (
-      <button disabled className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-neutral-800 text-neutral-400 rounded-lg font-medium cursor-not-allowed border border-neutral-700">
-        <Check className="w-4 h-4" />
-        Notifications Active
-      </button>
-    )
-  }
-
   return (
-    <button
-      onClick={subscribeToPush}
-      disabled={loading}
-      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#00ff80] hover:bg-[#00cc66] text-black rounded-lg font-bold transition-colors"
-    >
+    <div className="flex items-center justify-between p-4 w-full">
+      <div className="flex flex-col text-left">
+         <span className="text-sm font-bold text-white flex items-center gap-2">
+            <Bell className="w-4 h-4 text-[#00ff80]" /> Daily Reminders
+         </span>
+         <span className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide">
+            Get alerted at 9:00 AM
+         </span>
+      </div>
+
       {loading ? (
-        <span>Activating...</span>
+        <Loader2 className="animate-spin w-5 h-5 text-neutral-500" />
+      ) : isSubscribed ? (
+        <div className="px-3 py-1 bg-[#00ff80]/10 text-[#00ff80] text-xs font-black uppercase tracking-widest rounded border border-[#00ff80]/20 cursor-default select-none">
+          On
+        </div>
       ) : (
-        <>
-          <Bell className="w-4 h-4" />
-          Get Daily Reminders
-        </>
+        <button
+          onClick={subscribeToPush}
+          className="px-4 py-2 bg-white text-black hover:bg-neutral-200 text-xs font-black uppercase tracking-widest rounded transition-colors"
+        >
+          Turn On
+        </button>
       )}
-    </button>
+    </div>
   )
 }
