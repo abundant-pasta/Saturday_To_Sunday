@@ -68,9 +68,10 @@ export default function PushNotificationManager() {
       if (!res.ok) throw new Error('Failed to save to DB')
 
       setIsSubscribed(true)
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      alert('Could not enable notifications. Check your browser settings.')
+      // CHANGE THIS LINE to see the real error on your phone:
+      alert(`Error: ${error.message}`) 
     } finally {
       setLoading(false)
     }
