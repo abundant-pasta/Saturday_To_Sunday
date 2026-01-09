@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, Loader2, Share } from 'lucide-react'
+import { Bell, Loader2, Share, BellOff } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
@@ -20,16 +20,11 @@ export default function PushNotificationManager() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // 1. Check if we are in a supported environment
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true)
       
-      // 2. FORCE REGISTRATION
-      // We explicitly register the SW to ensure it's active immediately
-      // This fixes the "infinite loading" bug on first launch
       navigator.serviceWorker.register('/sw.js')
         .then((registration) => {
-           // Once registered, we check for an existing subscription
            return registration.pushManager.getSubscription()
         })
         .then((subscription) => {
@@ -41,8 +36,6 @@ export default function PushNotificationManager() {
         .finally(() => setLoading(false))
 
     } else {
-      // If 'serviceWorker' is missing, it's likely an iOS browser tab
-      // or an incompatible browser.
       setIsSupported(false)
       setLoading(false)
     }
@@ -65,26 +58,44 @@ export default function PushNotificationManager() {
         body: JSON.stringify(sub)
       })
 
-      // ... fetch call above ...
-
-      if (!res.ok) {
-        // Parse the error message from the server response
-        const errorData = await res.json()
-        throw new Error(errorData.error || 'Failed to save to DB')
-      }
+      if (!res.ok) throw new Error('Failed to save to DB')
 
       setIsSubscribed(true)
     } catch (error: any) {
       console.error(error)
-      // CHANGE THIS LINE to see the real error on your phone:
-      alert(`Error: ${error.message}`) 
+      alert(`Error: ${error.message}`)
     } finally {
       setLoading(false)
     }
   }
 
-  // FALLBACK FOR iOS BROWSER TABS
-  // If not supported, we assume they are on iOS Safari and need to install the PWA
+  async function unsubscribeFromPush() {
+    setLoading(true)
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const sub = await registration.pushManager.getSubscription()
+      
+      if (sub) {
+        // 1. Tell Server to delete
+        await fetch('/api/web-push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint })
+        })
+
+        // 2. Tell Browser to unsubscribe
+        await sub.unsubscribe()
+      }
+
+      setIsSubscribed(false)
+    } catch (error) {
+      console.error(error)
+      alert('Failed to unsubscribe.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!isSupported) {
     return (
       <div className="flex items-center justify-between p-4 w-full bg-neutral-900 border border-neutral-800 rounded-xl">
@@ -114,9 +125,12 @@ export default function PushNotificationManager() {
       {loading ? (
         <Loader2 className="animate-spin w-5 h-5 text-neutral-500" />
       ) : isSubscribed ? (
-        <div className="px-3 py-1 bg-[#00ff80]/10 text-[#00ff80] text-xs font-black uppercase tracking-widest rounded border border-[#00ff80]/20 cursor-default select-none">
-          On
-        </div>
+        <button
+          onClick={unsubscribeFromPush}
+          className="px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[10px] font-black uppercase tracking-widest rounded border border-red-500/20 transition-colors flex items-center gap-2"
+        >
+          <BellOff className="w-3 h-3" /> Turn Off
+        </button>
       ) : (
         <button
           onClick={subscribeToPush}
