@@ -39,9 +39,6 @@ export async function GET(request: Request) {
     }
 
     // 3. FETCH POOLS (ROTATION LOGIC)
-    // - 5-3-2 Split by Tier
-    // - Ignore players without images
-    // - Pick OLDEST 'last_selected' first (Rotation System)
     const [easyRes, mediumRes, hardRes] = await Promise.all([
       supabase.from('players').select('*')
         .eq('tier', 1)
@@ -67,7 +64,6 @@ export async function GET(request: Request) {
     }
 
     // 4. COMPILE ORDERED ROSTER (5 Easy -> 3 Medium -> 2 Hard)
-    // We shuffle the "oldest" batch so the game isn't predictable
     const orderedRoster = [
       ...easyRes.data.sort(() => 0.5 - Math.random()).slice(0, 5),
       ...mediumRes.data.sort(() => 0.5 - Math.random()).slice(0, 3),
@@ -116,10 +112,15 @@ export async function GET(request: Request) {
   // ==========================================
   if (action === 'notify') {
     try {
+      // 1. SAFETY CHECK: Ensure keys exist so we don't crash silently
+      if (!process.env.VAPID_PRIVATE_KEY || !process.env.VAPID_SUBJECT) {
+        throw new Error('Missing VAPID_PRIVATE_KEY or VAPID_SUBJECT env vars')
+      }
+
       webpush.setVapidDetails(
-        process.env.VAPID_SUBJECT!,
+        process.env.VAPID_SUBJECT,
         process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-        process.env.VAPID_PRIVATE_KEY!
+        process.env.VAPID_PRIVATE_KEY
       )
 
       const { data: subs } = await supabase
@@ -131,19 +132,28 @@ export async function GET(request: Request) {
         
         const payload = JSON.stringify({
           title: 'Saturday to Sunday',
-          body: 'The new roster challenge is live! Can you keep the streak alive? 🏈'
+          body: 'The new roster challenge is live! Can you keep the streak alive? 🏈',
+          icon: '/icon-192x192.png'
         })
 
-        await Promise.allSettled(
+        // Use allSettled so one bad token doesn't crash the loop
+        const results = await Promise.allSettled(
           subs.map(sub => 
-            webpush.sendNotification(sub.subscription as any, payload).catch(err => console.error(err))
+            webpush.sendNotification(sub.subscription as any, payload)
           )
         )
+
+        // Log count for debugging
+        const successCount = results.filter(r => r.status === 'fulfilled').length
+        console.log(`Push Results: ${successCount}/${subs.length} sent successfully.`)
       }
+      
       return NextResponse.json({ success: true, action: 'Notified' })
-    } catch (e) {
-      console.error(e)
-      return NextResponse.json({ error: 'Notification failed' }, { status: 500 })
+
+    } catch (e: any) {
+      console.error("Cron Notify Error:", e)
+      // Return specific error message to the browser
+      return NextResponse.json({ error: e.message || 'Notification failed' }, { status: 500 })
     }
   }
 
