@@ -99,9 +99,9 @@ export default function DailyGame() {
             const hasSeenIntro = localStorage.getItem('s2s_has_seen_intro')
 
             if (savedScore && savedDate === today) {
+                // Optimistically load from cache first
                 setScore(parseInt(savedScore))
                 
-                // SAFE JSON PARSE: Prevents crash if local storage is corrupted
                 try {
                     if (savedResults) setResults(JSON.parse(savedResults))
                     else setResults(new Array(data.length).fill('pending'))
@@ -131,6 +131,15 @@ export default function DailyGame() {
                 
                 if (existingRows && existingRows.length > 0) {
                     setIsSaved(true)
+
+                    // 🔒 SCORE SYNC FIX: 
+                    // If DB has a different score (e.g. you edited it manually), force the app to update.
+                    const dbScore = existingRows[0].score
+                    if (dbScore !== parseInt(savedScore)) {
+                        console.log(`Syncing Score: Local (${savedScore}) -> DB (${dbScore})`)
+                        setScore(dbScore) 
+                        localStorage.setItem('s2s_today_score', dbScore.toString())
+                    }
                 } else {
                     console.log("Local score found, but DB empty. Retrying save...")
                     setIsSaved(false)
@@ -419,7 +428,6 @@ export default function DailyGame() {
 
   if (gameState === 'loading') return <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
   
-  // FIX: SCROLLABLE INTRO (Fixes Desktop/Short Screen Issue)
   if (gameState === 'intro') {
       return (
         <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden">
@@ -600,7 +608,6 @@ export default function DailyGame() {
           <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
             
             {/* 2. PLACED THE NOTIFICATION BUTTON HERE */}
-            {/* Updated with empty:hidden to collapse container when component hides itself */}
             <div className="w-full empty:hidden">
                 <PushNotificationManager hideOnSubscribed={true} />
             </div>
