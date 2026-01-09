@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, Loader2 } from 'lucide-react'
+import { Bell, Loader2, Share } from 'lucide-react'
 
-// Boilerplate utility to convert your VAPID key
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
   const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/')
@@ -18,39 +17,41 @@ function urlBase64ToUint8Array(base64String: string) {
 export default function PushNotificationManager() {
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
-  const [loading, setLoading] = useState(true) // Start loading to prevent flash
+  const [loading, setLoading] = useState(true)
 
-  // 1. On load, check if the user is ALREADY subscribed
   useEffect(() => {
+    // 1. Check if we are in a supported environment
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true)
-      checkSubscription()
+      
+      // 2. FORCE REGISTRATION
+      // We explicitly register the SW to ensure it's active immediately
+      // This fixes the "infinite loading" bug on first launch
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+           // Once registered, we check for an existing subscription
+           return registration.pushManager.getSubscription()
+        })
+        .then((subscription) => {
+           if (subscription) {
+             setIsSubscribed(true)
+           }
+        })
+        .catch((err) => console.error("SW Error:", err))
+        .finally(() => setLoading(false))
+
     } else {
-      setLoading(false) // Stop loading if not supported
+      // If 'serviceWorker' is missing, it's likely an iOS browser tab
+      // or an incompatible browser.
+      setIsSupported(false)
+      setLoading(false)
     }
   }, [])
 
-  async function checkSubscription() {
-    try {
-      const registration = await navigator.serviceWorker.ready
-      const subscription = await registration.pushManager.getSubscription()
-      if (subscription) {
-        setIsSubscribed(true)
-      }
-    } catch (error) {
-      console.error('Error checking subscription:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 2. The Logic to Subscribe
   async function subscribeToPush() {
     setLoading(true)
     try {
       const registration = await navigator.serviceWorker.ready
-
-      // A. Ask browser for permission
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(
@@ -58,8 +59,6 @@ export default function PushNotificationManager() {
         )
       })
 
-      // B. Send to DB
-      // Note: Keeping your endpoint '/api/web-push/subscribe'
       const res = await fetch('/api/web-push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,17 +68,30 @@ export default function PushNotificationManager() {
       if (!res.ok) throw new Error('Failed to save to DB')
 
       setIsSubscribed(true)
-      // Removed alert for a smoother UI experience, the button state change is enough feedback
     } catch (error) {
       console.error(error)
-      alert('Could not enable notifications. Please check your browser settings.')
+      alert('Could not enable notifications. Check your browser settings.')
     } finally {
       setLoading(false)
     }
   }
 
-  // If not supported, we hide the component entirely (or you could show a "Not supported" text)
-  if (!isSupported) return null
+  // FALLBACK FOR iOS BROWSER TABS
+  // If not supported, we assume they are on iOS Safari and need to install the PWA
+  if (!isSupported) {
+    return (
+      <div className="flex items-center justify-between p-4 w-full bg-neutral-900 border border-neutral-800 rounded-xl">
+        <div className="flex flex-col gap-2">
+           <span className="text-sm font-bold text-white flex items-center gap-2">
+              <Bell className="w-4 h-4 text-neutral-500" /> Daily Reminders
+           </span>
+           <p className="text-[10px] leading-tight text-neutral-400 max-w-[200px]">
+             To enable, tap <Share className="w-3 h-3 inline mx-1" /> <span className="font-bold text-white">Share</span> then <span className="font-bold text-white">Add to Home Screen</span>.
+           </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex items-center justify-between p-4 w-full">
