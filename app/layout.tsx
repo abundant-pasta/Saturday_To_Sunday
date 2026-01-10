@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import Script from 'next/script'
@@ -14,14 +14,24 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+// 1. New Viewport Export (Critical for PWA "App Feel")
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // Prevents zooming on text inputs
+}
+
 export const metadata: Metadata = {
   title: 'Saturday to Sunday',
   description: 'Test your College Football knowledge.',
+  manifest: '/manifest.json', // <--- Links to your PWA config
   
   appleWebApp: {
     title: 'S2S',
     statusBarStyle: 'black-translucent',
-    capable: true,
+    capable: true, // <--- Removes Safari browser bars
   },
 
   icons: {
