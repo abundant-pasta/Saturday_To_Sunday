@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users } from 'lucide-react' // <--- Added Icons
+import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users } from 'lucide-react'
 import Image from 'next/image'
 
 type LeaderboardEntry = {
@@ -14,6 +14,7 @@ type LeaderboardEntry = {
     full_name: string | null
     avatar_url: string | null
     show_avatar: boolean | null
+    current_streak: number | null // <--- 1. NEW FIELD
   }
 }
 
@@ -22,8 +23,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'daily' | 'weekly'>('daily')
-  
-  // 1. NEW TOGGLE STATE (Default to showing everyone)
   const [showGuests, setShowGuests] = useState(true)
   const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
   
@@ -47,20 +46,19 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
 
       if (view === 'daily') {
         
-        // --- 2. BUILD QUERY WITH CONDITIONAL FILTER ---
+        // --- 2. FETCH STREAK IN QUERY ---
         let query = supabase
           .from('daily_results')
           .select(`
             score, 
             user_id,
             guest_id, 
-            profiles (username, full_name, avatar_url, show_avatar)
+            profiles (username, full_name, avatar_url, show_avatar, current_streak)
           `)
           .eq('game_date', today)
           .order('score', { ascending: false })
           .limit(50)
 
-        // IF TOGGLE IS OFF -> HIDE GUESTS
         if (!showGuests) {
             query = query.not('user_id', 'is', null)
         }
@@ -69,7 +67,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
 
         if (data) setScores(data as any)
 
-        // --- COUNT QUERY (Must match the filter) ---
         let countQuery = supabase
           .from('daily_results')
           .select('*', { count: 'exact', head: true })
@@ -80,16 +77,17 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         }
 
         const { count } = await countQuery
-        
         if (count !== null) setTotalCount(count)
 
       } else {
-        // WEEKLY VIEW (Always Users Only)
-        const { data, error } = await supabase.rpc('get_weekly_leaderboard')
+        // WEEKLY VIEW
+        const { data } = await supabase.rpc('get_weekly_leaderboard')
 
         if (data) {
           const realUsers = data.filter((row: any) => row.user_id !== null)
 
+          // Note: get_weekly_leaderboard RPC might need updating to return streak too 
+          // if you want it there, but for now we focus on daily.
           const formatted: LeaderboardEntry[] = realUsers.map((row: any) => ({
             score: row.score,
             user_id: row.user_id,
@@ -98,7 +96,8 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
               username: row.username,
               full_name: row.full_name,
               avatar_url: row.avatar_url,
-              show_avatar: row.show_avatar
+              show_avatar: row.show_avatar,
+              current_streak: row.current_streak || 0
             }
           }))
           setScores(formatted)
@@ -110,7 +109,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     }
 
     fetchLeaderboard()
-  // 3. ADD showGuests TO DEPENDENCY ARRAY
   }, [currentUserId, view, showGuests])
 
   const getDisplayName = (entry: LeaderboardEntry) => {
@@ -128,7 +126,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
       
       {/* HEADER */}
       <div className="bg-neutral-900/50 px-4 py-3 border-b border-neutral-800 flex flex-col gap-3">
-        
         <div className="flex items-center justify-between">
             <h3 className="font-bold text-neutral-200 uppercase tracking-widest text-xs flex items-center gap-2">
               <Trophy className="w-4 h-4 text-yellow-500" /> Leaderboard
@@ -141,7 +138,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             </span>
         </div>
 
-        {/* DAILY / WEEKLY SWITCH */}
+        {/* VIEW TOGGLE */}
         <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
              <button 
                 onClick={() => setView('daily')}
@@ -157,7 +154,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
              </button>
         </div>
 
-        {/* 4. FILTER ROW (Only shows on Daily View) */}
+        {/* GUEST TOGGLE */}
         {view === 'daily' && (
             <div className="flex justify-center border-t border-neutral-800/50 pt-2">
                 <button 
@@ -177,13 +174,12 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             </div>
         )}
 
-        {/* Player Count */}
         <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
             {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' ? 'today' : 'this week'}
         </div>
-
       </div>
 
+      {/* LIST */}
       <div className="max-h-64 overflow-y-auto divide-y divide-neutral-800/50 scrollbar-thin scrollbar-thumb-neutral-700">
         {loading ? (
              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-neutral-600" /></div>
@@ -201,6 +197,11 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             const displayName = getDisplayName(entry)
             const showPhoto = entry.profiles?.show_avatar !== false 
             const avatarUrl = entry.profiles?.avatar_url
+            
+            // --- 3. GET STREAK ---
+            // Only show if > 2 to keep it special
+            const streak = entry.profiles?.current_streak || 0
+            const showStreak = streak > 2
 
             return (
                 <div 
@@ -223,9 +224,19 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                             <User className="w-3 h-3 text-neutral-500" />
                         )}
                     </div>
-                    <span className={`truncate max-w-[140px] ${isMe ? 'text-[#00ff80] font-bold' : 'text-neutral-300'} ${!entry.profiles ? 'opacity-70 font-mono text-xs' : ''}`}>
-                        {displayName} {isMe && '(You)'}
-                    </span>
+                    
+                    <div className="flex flex-col justify-center">
+                        <span className={`truncate max-w-[140px] leading-none ${isMe ? 'text-[#00ff80] font-bold' : 'text-neutral-300'} ${!entry.profiles ? 'opacity-70 font-mono text-xs' : ''}`}>
+                            {displayName} {isMe && '(You)'}
+                        </span>
+                        
+                        {/* --- 4. RENDER STREAK BADGE --- */}
+                        {showStreak && (
+                            <div className="flex items-center gap-1 mt-1 text-[9px] font-bold text-orange-500 uppercase tracking-wider">
+                                <Flame className="w-3 h-3 fill-orange-500" /> {streak} Day Streak
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className={`font-mono font-bold ${view === 'weekly' ? 'text-purple-400' : 'text-[#00ff80]'}`}>
