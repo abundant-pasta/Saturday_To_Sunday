@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {
   try {
@@ -9,12 +9,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No endpoint provided' }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    // 🔒 ADMIN CLIENT: Bypasses RLS so Guests can unsubscribe
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
     // Re-calculate the ID so we can find the correct row to delete
     const id = Buffer.from(endpoint).toString('base64')
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('push_subscriptions')
       .delete()
       .eq('id', id)
