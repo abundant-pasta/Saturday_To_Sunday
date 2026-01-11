@@ -565,8 +565,8 @@ https://www.playsaturdaytosunday.com`
          <div className="flex items-center gap-3">
              <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
              
-             {/* PROFILE LINK (Only if Logged In) */}
-             {user && (
+             {/* PROFILE ICON - LOGIC FIXED TO SHOW ALWAYS */}
+             {user ? (
                  <Link href="/profile">
                     <div className="w-8 h-8 rounded-full overflow-hidden border border-neutral-700 hover:border-[#00ff80] relative transition-colors">
                         {user.user_metadata?.avatar_url ? (
@@ -583,6 +583,12 @@ https://www.playsaturdaytosunday.com`
                         )}
                     </div>
                  </Link>
+             ) : (
+                <button onClick={() => alert("Log in to track your career stats!")}>
+                    <div className="w-8 h-8 rounded-full overflow-hidden border border-neutral-800 bg-neutral-900 flex items-center justify-center text-neutral-500 hover:text-white hover:border-neutral-600 transition-colors">
+                        <User className="w-4 h-4" />
+                    </div>
+                </button>
              )}
          </div>
         </header>
