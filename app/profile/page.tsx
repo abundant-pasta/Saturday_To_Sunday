@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createBrowserClient } from '@supabase/ssr'
-import { ChevronLeft, LogOut, Mail, User as UserIcon } from 'lucide-react'
+import { ChevronLeft, LogOut, Mail, User as UserIcon, Pencil, Check, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PushNotificationManager from '@/components/PushNotificationManager'
 
@@ -14,30 +14,85 @@ export default function ProfilePage() {
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
+  // --- EDITING STATE ---
+  const [username, setUsername] = useState('')
+  const [newUsername, setNewUsername] = useState('')
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [showAvatar, setShowAvatar] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
   useEffect(() => {
-    const getUser = async () => {
+    const getUserAndProfile = async () => {
+      // 1. Get Auth User
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        router.push('/') // Redirect if not logged in
+        router.push('/')
         return
       }
       setUser(session.user)
+
+      // 2. Get Public Profile Data
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, show_avatar')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profile) {
+        setUsername(profile.username || session.user.email?.split('@')[0] || 'Player')
+        setNewUsername(profile.username || session.user.email?.split('@')[0] || 'Player')
+        if (profile.show_avatar !== null) setShowAvatar(profile.show_avatar)
+      }
+      
       setLoading(false)
     }
-    getUser()
+    getUserAndProfile()
   }, [router, supabase])
+
+  // --- HANDLER: Save Name ---
+  const handleUpdateName = async () => {
+    if (!user || !newUsername.trim()) return
+    setSaving(true)
+    
+    const { error } = await supabase
+        .from('profiles')
+        .update({ username: newUsername.trim() })
+        .eq('id', user.id)
+
+    if (!error) {
+        setUsername(newUsername.trim())
+        setIsEditingName(false)
+    }
+    setSaving(false)
+  }
+
+  // --- HANDLER: Toggle Avatar ---
+  const toggleAvatar = async () => {
+      if (!user) return
+      const newValue = !showAvatar
+      setShowAvatar(newValue) // Optimistic UI update
+      
+      await supabase
+        .from('profiles')
+        .update({ show_avatar: newValue })
+        .eq('id', user.id)
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/')
   }
 
-  if (loading) return null
+  if (loading) return (
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white">
+        <Loader2 className="animate-spin text-neutral-600" />
+    </div>
+  )
 
   return (
     <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans p-4">
@@ -54,9 +109,11 @@ export default function ProfilePage() {
 
       <div className="max-w-md mx-auto flex flex-col gap-6">
         
-        {/* USER CARD */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 flex flex-col items-center text-center gap-4">
-          <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-neutral-800 relative">
+        {/* USER CARD (Read Only Now) */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 flex flex-col items-center text-center gap-4 shadow-xl">
+          
+          {/* AVATAR CIRCLE */}
+          <div className={`w-24 h-24 rounded-full overflow-hidden border-4 relative transition-all duration-300 ${showAvatar ? 'border-neutral-800' : 'border-neutral-800 opacity-50 grayscale'}`}>
             {user?.user_metadata?.avatar_url ? (
               <Image src={user.user_metadata.avatar_url} alt="Profile" fill className="object-cover" />
             ) : (
@@ -65,21 +122,89 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-white">{user?.user_metadata?.full_name || 'Player'}</h2>
-            <div className="flex items-center justify-center gap-2 text-neutral-500 text-sm font-medium mt-1">
-              <Mail className="w-3 h-3" />
-              {user?.email}
+
+          <div className="flex flex-col items-center gap-1">
+             <h2 className="text-2xl font-bold text-white">{username}</h2>
+             <div className="flex items-center justify-center gap-2 text-neutral-500 text-sm font-medium">
+                <Mail className="w-3 h-3" />
+                {user?.email}
             </div>
           </div>
         </div>
 
         {/* SETTINGS SECTION */}
-        <div className="space-y-2">
+        <div className="space-y-3">
             <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500 pl-2">Settings</h3>
             
-            {/* NOTIFICATION MANAGER */}
-            {/* We do NOT pass hideOnSubscribed here, so it remains visible for toggling off */}
+            {/* 1. DISPLAY NAME SETTING */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden px-4 py-3 flex items-center justify-between min-h-[72px]">
+                
+                {!isEditingName ? (
+                    <>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-neutral-200">Display Name</span>
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-wide">How you appear on leaderboard</span>
+                        </div>
+                        <Button 
+                            onClick={() => setIsEditingName(true)}
+                            variant="ghost" 
+                            size="sm"
+                            className="text-neutral-400 hover:text-[#00ff80] hover:bg-neutral-800 gap-2 h-8"
+                        >
+                            <span className="text-xs font-bold">{username}</span>
+                            <Pencil className="w-3 h-3" />
+                        </Button>
+                    </>
+                ) : (
+                    <div className="flex items-center gap-2 w-full animate-in fade-in duration-200">
+                        <input 
+                            type="text" 
+                            className="bg-neutral-950 border border-neutral-700 text-white px-3 py-1.5 rounded-lg w-full text-sm focus:outline-none focus:ring-1 focus:ring-[#00ff80] font-bold"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            autoFocus
+                            placeholder="Enter username"
+                        />
+                        <div className="flex items-center gap-1">
+                            <Button 
+                                onClick={() => {
+                                    setIsEditingName(false)
+                                    setNewUsername(username) // Reset logic
+                                }}
+                                size="icon"
+                                className="h-8 w-8 bg-neutral-800 hover:bg-neutral-700 text-neutral-400"
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                                onClick={handleUpdateName} 
+                                disabled={saving}
+                                size="icon" 
+                                className="h-8 w-8 bg-[#00ff80] hover:bg-[#05ff84] text-black"
+                            >
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* 2. TOGGLE AVATAR VISIBILITY */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden px-4 py-3 flex items-center justify-between min-h-[72px]">
+                <div className="flex flex-col">
+                    <span className="text-sm font-bold text-neutral-200">Public Avatar</span>
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wide">Show photo on leaderboard</span>
+                </div>
+                
+                <button 
+                    onClick={toggleAvatar}
+                    className={`w-11 h-6 rounded-full relative transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-neutral-700 focus:ring-offset-2 focus:ring-offset-neutral-900 ${showAvatar ? 'bg-[#00ff80]' : 'bg-neutral-700'}`}
+                >
+                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+            </div>
+
+            {/* 3. NOTIFICATION MANAGER */}
             <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
                 <PushNotificationManager />
             </div>
@@ -90,7 +215,7 @@ export default function ProfilePage() {
             <Button 
                 onClick={handleSignOut}
                 variant="outline" 
-                className="w-full border-red-900/30 text-red-500 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50"
+                className="w-full border-red-900/30 text-red-500 bg-red-950/10 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 h-12 font-bold"
             >
                 <LogOut className="w-4 h-4 mr-2" /> Sign Out
             </Button>

@@ -133,7 +133,6 @@ export default function DailyGame() {
                     setIsSaved(true)
 
                     // 🔒 SCORE SYNC FIX: 
-                    // If DB has a different score (e.g. you edited it manually), force the app to update.
                     const dbScore = existingRows[0].score
                     if (dbScore !== parseInt(savedScore)) {
                         console.log(`Syncing Score: Local (${savedScore}) -> DB (${dbScore})`)
@@ -293,19 +292,19 @@ export default function DailyGame() {
     saveScore()
   }, [gameState, user, score, isSaved])
 
-  // 5. RANK FETCH LOGIC (UPDATED: INCLUDES GUESTS)
+  // 5. RANK FETCH LOGIC
   useEffect(() => {
     const fetchRank = async () => {
         if (gameState === 'finished' && score > 0 && isSaved) {
             const todayISO = getGameDate()
 
-            // 1. Get TOTAL count (Guests + Users)
+            // 1. Get TOTAL count
             const { count: total } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
                 .eq('game_date', todayISO)
 
-            // 2. Get BETTER players count (Guests + Users)
+            // 2. Get BETTER players count
             const { count: betterPlayers } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
@@ -342,7 +341,7 @@ export default function DailyGame() {
       setGameState('playing')
   }
 
-  // --- TIMER LOGIC (With 1s Delay) ---
+  // --- TIMER LOGIC ---
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
 
@@ -356,7 +355,7 @@ export default function DailyGame() {
         }, 500)
     }, 1000)
 
-    // Cleanup ensures we don't have rogue timers
+    // Cleanup
     return () => {
         clearTimeout(startTimer)
         if (decayInterval) clearInterval(decayInterval)
@@ -399,28 +398,38 @@ export default function DailyGame() {
     }, 1500)
   }
 
+  // --- NEW SHARE LOGIC ---
   const handleShare = async () => {
+    // 1. Squares: Kept as a single solid bar (Visual Progress Bar)
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
-    const dateStr = new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
+
+    // 2. Date: "Jan 12"
+    const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
+    const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     
-    const streakText = streak > 1 ? `🔥 ${streak}` : ''
+    // 3. Streak
+    const streakText = streak > 1 ? ` | 🔥 ${streak}` : ''
     
-    const text = `Saturday to Sunday Daily Challenge\n${dateStr}\nScore: ${score}/1350 ${streakText}\n\n${squares}\n\nCan you beat me? Try here:\nhttps://www.playsaturdaytosunday.com`
+    // 4. Build Text with Strong CTA
+    const text = `Saturday to Sunday (${shortDate})
+Score: ${score.toLocaleString()}/1,350${streakText}
+
+${squares}
+
+Can you beat my score? Play here: 👇
+https://www.playsaturdaytosunday.com`
   
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Saturday to Sunday', text })
-        return
-      } catch (err) {
-        console.log('Share cancelled')
+    // 5. Share Logic (Native vs Clipboard)
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        alert('Copied to clipboard!') 
       }
-    }
-  
-    try { 
+    } catch (err) {
+      // If user closes the share menu, just copy to clipboard as backup
       await navigator.clipboard.writeText(text)
-      alert('Result copied!') 
-    } catch (err) { 
-      console.error(err) 
     }
   }
 
@@ -583,7 +592,6 @@ export default function DailyGame() {
                         <div className="flex flex-col gap-1 items-center">
                             <div className="text-[#00ff80] text-[10px] sm:text-xs uppercase tracking-widest font-black text-center flex items-center justify-center gap-2 leading-tight">
                                 <span>Make it official. Log in to save this score and start your daily streak.</span>
-                                {/* FLAME ICON: Orange/Gold color to look like the emoji */}
                                 <Flame className="w-5 h-5 text-orange-500 fill-orange-500 shrink-0" />
                             </div>
                         </div>
@@ -607,7 +615,7 @@ export default function DailyGame() {
         {!showProfileSettings && (
           <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
             
-            {/* 2. PLACED THE NOTIFICATION BUTTON HERE */}
+            {/* NOTIFICATION BUTTON */}
             <div className="w-full empty:hidden">
                 <PushNotificationManager hideOnSubscribed={true} />
             </div>
@@ -626,7 +634,7 @@ export default function DailyGame() {
     )
   }
 
-  // FIX: This Safety Guard protects against the "White Screen" if data fetch fails.
+  // GAME LOADING SAFETY GUARD
   const q = questions[currentIndex]
 
   if (!q && gameState === 'playing') {
