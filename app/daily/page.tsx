@@ -5,7 +5,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Pencil, Settings, X, Hash, Star, Shield, Flame, Zap } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Hash, Star, Shield, Flame, Zap, User } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -69,14 +69,6 @@ export default function DailyGame() {
   const [user, setUser] = useState<any>(null)
   const [isSaved, setIsSaved] = useState(false)
   
-  // Profile Editing State
-  const [newUsername, setNewUsername] = useState('')
-  const [isEditingName, setIsEditingName] = useState(false)
-  const [showAvatar, setShowAvatar] = useState(true)
-  
-  // --- STATE: UI Toggles ---
-  const [showProfileSettings, setShowProfileSettings] = useState(false)
-
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!, 
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -178,20 +170,18 @@ export default function DailyGame() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 3. PROFILE FETCH
+  // 3. PROFILE FETCH (Only need streak for the badge now)
   useEffect(() => {
     const fetchProfile = async () => {
         if (!user) return
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('show_avatar, username, current_streak')
+            .select('current_streak')
             .eq('id', user.id)
             .single()
         
         if (profile) {
-            if (profile.show_avatar !== null) setShowAvatar(profile.show_avatar)
-            if (profile.username) setNewUsername(profile.username)
             if (profile.current_streak) setStreak(profile.current_streak)
         }
     }
@@ -319,23 +309,6 @@ export default function DailyGame() {
     fetchRank()
   }, [gameState, score, isSaved])
 
-  const handleUpdateName = async () => {
-    if (!user || !newUsername.trim()) return
-    const { error } = await supabase.from('profiles').update({ username: newUsername.trim() }).eq('id', user.id)
-    if (!error) {
-        setIsEditingName(false)
-        window.location.reload()
-    }
-  }
-
-  const toggleAvatar = async () => {
-      if (!user) return
-      const newValue = !showAvatar
-      setShowAvatar(newValue)
-      
-      await supabase.from('profiles').update({ show_avatar: newValue }).eq('id', user.id)
-  }
-
   const handleStartGame = () => {
       localStorage.setItem('s2s_has_seen_intro', 'true')
       setGameState('playing')
@@ -400,17 +373,11 @@ export default function DailyGame() {
 
   // --- NEW SHARE LOGIC ---
   const handleShare = async () => {
-    // 1. Squares: Kept as a single solid bar (Visual Progress Bar)
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
-
-    // 2. Date: "Jan 12"
     const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    
-    // 3. Streak
     const streakText = streak > 1 ? ` | 🔥 ${streak}` : ''
     
-    // 4. Build Text with Strong CTA
     const text = `Saturday to Sunday (${shortDate})
 Score: ${score.toLocaleString()}/1,350${streakText}
 
@@ -419,7 +386,6 @@ ${squares}
 Can you beat my score? Play here: 👇
 https://www.playsaturdaytosunday.com`
   
-    // 5. Share Logic (Native vs Clipboard)
     try {
       if (navigator.share) {
         await navigator.share({ text })
@@ -428,7 +394,6 @@ https://www.playsaturdaytosunday.com`
         alert('Copied to clipboard!') 
       }
     } catch (err) {
-      // If user closes the share menu, just copy to clipboard as backup
       await navigator.clipboard.writeText(text)
     }
   }
@@ -469,18 +434,24 @@ https://www.playsaturdaytosunday.com`
         <Card className="w-full max-w-md bg-neutral-900 border-neutral-800 shadow-2xl relative overflow-hidden">
         <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
                 
-                {/* SETTINGS TOGGLE */}
+                {/* --- TOP RIGHT PROFILE PHOTO (FOR SIGNED IN USERS) --- */}
                 {user && (
-                  <div className="absolute top-3 right-3 z-10">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={() => setShowProfileSettings(!showProfileSettings)}
-                      className="text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full h-8 w-8"
-                    >
-                      {showProfileSettings ? <X className="w-5 h-5" /> : <Settings className="w-5 h-5" />}
-                    </Button>
-                  </div>
+                  <Link href="/profile" className="absolute top-4 right-4 z-20 group">
+                     <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-700 group-hover:border-[#00ff80] transition-colors relative shadow-lg">
+                        {user.user_metadata?.avatar_url ? (
+                           <Image 
+                             src={user.user_metadata.avatar_url} 
+                             fill 
+                             alt="Profile" 
+                             className="object-cover"
+                           />
+                        ) : (
+                           <div className="w-full h-full bg-neutral-800 flex items-center justify-center text-neutral-400">
+                             <User className="w-5 h-5" />
+                           </div>
+                        )}
+                     </div>
+                  </Link>
                 )}
 
                 {/* --- SCORE + STATS ROW --- */}
@@ -533,60 +504,15 @@ https://www.playsaturdaytosunday.com`
                     ))}
                 </div>
 
-                {/* --- PROFILE / LOGIN SECTION --- */}
-                <div className="flex flex-col items-center gap-3 w-full">
-                    
-                    {/* CASE 1: LOGGED IN & SAVED -> Show Settings */}
-                    {isSaved && user && (
-                        <>
-                           {showProfileSettings && (
-                             <div className="w-full mt-2 p-4 bg-neutral-950/50 rounded-xl border border-neutral-800 animate-in slide-in-from-top-2 fade-in">
-                                 <div className="flex flex-col gap-3">
-                                    <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-1">Profile Settings</h3>
-                                    {!isEditingName ? (
-                                         <Button 
-                                            variant="outline" 
-                                            onClick={() => setIsEditingName(true)}
-                                            className="w-full h-9 text-xs font-bold border-neutral-700 bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white uppercase tracking-wider justify-between"
-                                         >
-                                            <span>Display Name</span>
-                                            <div className="flex items-center gap-2 text-neutral-500">
-                                              <span>{newUsername || user.email?.split('@')[0]}</span>
-                                              <Pencil className="w-3 h-3" />
-                                            </div>
-                                         </Button>
-                                    ) : (
-                                         <div className="flex items-center gap-2 w-full">
-                                            <input 
-                                                type="text" 
-                                                placeholder="Enter username"
-                                                className="bg-neutral-800 border border-neutral-700 text-sm text-white px-3 py-2 rounded w-full focus:outline-none focus:ring-1 focus:ring-[#00ff80]"
-                                                value={newUsername}
-                                                onChange={(e) => setNewUsername(e.target.value)}
-                                            />
-                                            <Button onClick={handleUpdateName} size="sm" className="h-9 px-4 font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black">
-                                                Save
-                                            </Button>
-                                         </div>
-                                    )}
-                                    <div className="flex items-center justify-between px-3 py-2 bg-neutral-900 rounded border border-neutral-700">
-                                        <span className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">Show Photo</span>
-                                        <button 
-                                            onClick={toggleAvatar}
-                                            className={`w-10 h-5 rounded-full relative transition-colors duration-200 ${showAvatar ? 'bg-[#00ff80]' : 'bg-neutral-700'}`}
-                                        >
-                                            <div className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
-                                        </button>
-                                    </div>
-                                    <AuthButton />
-                                 </div>
-                             </div>
-                           )}
-                        </>
-                    )}
+                {/* --- SHARE BUTTON --- */}
+                <div className="pt-2 w-full animate-in slide-in-from-bottom-2 fade-in">
+                    <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all shadow-lg shadow-[#00ff80]/20">
+                        <Share2 className="mr-2 w-5 h-5" /> Share Result
+                    </Button>
+                </div>
 
-                  {/* CASE 2: NOT LOGGED IN -> ALWAYS SHOW AUTH BUTTON (Even if Saved) */}
-                  {!user && (
+                {/* --- GUEST LOGIN CALL TO ACTION --- */}
+                {!user && (
                     <div className="mt-2 bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
                         <div className="flex flex-col gap-1 items-center">
@@ -596,24 +522,13 @@ https://www.playsaturdaytosunday.com`
                             </div>
                         </div>
                     </div>
-                    )}
-                  </div>    
-
-                {/* --- SHARE BUTTON --- */}
-                {!showProfileSettings && (
-                  <div className="pt-2 w-full animate-in slide-in-from-bottom-2 fade-in">
-                    <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all shadow-lg shadow-[#00ff80]/20">
-                        <Share2 className="mr-2 w-5 h-5" /> Share Result
-                    </Button>
-                  </div>
                 )}
 
             </CardContent>
         </Card>
 
         {/* --- BOTTOM ACTIONS --- */}
-        {!showProfileSettings && (
-          <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
+        <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
             
             {/* NOTIFICATION BUTTON */}
             <div className="w-full empty:hidden">
@@ -628,8 +543,7 @@ https://www.playsaturdaytosunday.com`
                 currentUserId={user?.id} 
                 key={isSaved ? `saved-${user?.id}` : 'unsaved'} 
             />
-          </div>
-        )}
+        </div>
       </div>
     )
   }

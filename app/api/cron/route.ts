@@ -140,7 +140,7 @@ export async function GET(request: Request) {
       if (subs && subs.length > 0) {
         const payload = JSON.stringify({
           title: 'Saturday to Sunday',
-          body: 'The new roster challenge is live! Can you keep the streak alive? 🏈',
+          body: 'The new daily challenge is live! Can you keep your streak alive? 🏈',
           icon: '/icon-192x192.png'
         })
 
