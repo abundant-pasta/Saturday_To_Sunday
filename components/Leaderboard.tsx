@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users } from 'lucide-react'
+import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 
 type LeaderboardEntry = {
@@ -14,7 +14,7 @@ type LeaderboardEntry = {
     full_name: string | null
     avatar_url: string | null
     show_avatar: boolean | null
-    current_streak: number | null // <--- 1. NEW FIELD
+    current_streak: number | null
   }
 }
 
@@ -23,9 +23,12 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'daily' | 'weekly'>('daily')
-  const [showGuests, setShowGuests] = useState(true)
+  const [showGuests, setShowGuests] = useState(false) // Default to false (VIP Mode)
   const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
   
+  // 1. NEW STATE: Track how many days back we are looking
+  const [dateOffset, setDateOffset] = useState(0) 
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -41,12 +44,14 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
       setLoading(true)
       
       const now = new Date()
-      const gameDayDate = new Date(now.getTime() - 6 * 60 * 60 * 1000)
-      const today = gameDayDate.toISOString().split('T')[0]
+      // Adjust for game time (6 AM cutoff) AND the date offset
+      const msPerDay = 24 * 60 * 60 * 1000
+      const gameTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
+      const targetDateObj = new Date(gameTimestamp)
+      const targetDateStr = targetDateObj.toISOString().split('T')[0]
 
       if (view === 'daily') {
         
-        // --- 2. FETCH STREAK IN QUERY ---
         let query = supabase
           .from('daily_results')
           .select(`
@@ -55,7 +60,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             guest_id, 
             profiles (username, full_name, avatar_url, show_avatar, current_streak)
           `)
-          .eq('game_date', today)
+          .eq('game_date', targetDateStr) // Use the calculated date
           .order('score', { ascending: false })
           .limit(50)
 
@@ -64,30 +69,25 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         }
 
         const { data } = await query
-
         if (data) setScores(data as any)
 
         let countQuery = supabase
           .from('daily_results')
           .select('*', { count: 'exact', head: true })
-          .eq('game_date', today)
+          .eq('game_date', targetDateStr)
         
         if (!showGuests) {
             countQuery = countQuery.not('user_id', 'is', null)
         }
-
         const { count } = await countQuery
         if (count !== null) setTotalCount(count)
 
       } else {
-        // WEEKLY VIEW
+        // Weekly logic remains the same (Last 7 days relative to today)
         const { data } = await supabase.rpc('get_weekly_leaderboard')
-
+        
         if (data) {
           const realUsers = data.filter((row: any) => row.user_id !== null)
-
-          // Note: get_weekly_leaderboard RPC might need updating to return streak too 
-          // if you want it there, but for now we focus on daily.
           const formatted: LeaderboardEntry[] = realUsers.map((row: any) => ({
             score: row.score,
             user_id: row.user_id,
@@ -109,7 +109,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     }
 
     fetchLeaderboard()
-  }, [currentUserId, view, showGuests])
+  }, [currentUserId, view, showGuests, dateOffset]) // <--- Add dateOffset to dependency
 
   const getDisplayName = (entry: LeaderboardEntry) => {
     if (entry.profiles?.username) return entry.profiles.username
@@ -121,27 +121,61 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     return 'Anonymous'
   }
 
+  // Helper to format the display date
+  const getDisplayDate = () => {
+    if (view === 'weekly') return 'Last 7 Days'
+    
+    if (dateOffset === 0) return 'Today'
+    if (dateOffset === 1) return 'Yesterday'
+    
+    const now = new Date()
+    const msPerDay = 24 * 60 * 60 * 1000
+    const targetTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
+    return new Date(targetTimestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
   return (
     <div className="w-full max-w-md mx-auto mt-6 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden shadow-2xl font-sans">
       
       {/* HEADER */}
       <div className="bg-neutral-900/50 px-4 py-3 border-b border-neutral-800 flex flex-col gap-3">
+        
         <div className="flex items-center justify-between">
             <h3 className="font-bold text-neutral-200 uppercase tracking-widest text-xs flex items-center gap-2">
               <Trophy className="w-4 h-4 text-yellow-500" /> Leaderboard
             </h3>
-            <span className="text-[10px] text-neutral-500 font-mono font-bold">
-                {view === 'daily' 
-                  ? new Date(Date.now() - 6 * 60 * 60 * 1000).toLocaleDateString()
-                  : 'Mon - Sun'
-                }
-            </span>
+            
+            {/* 2. DATE NAVIGATION CONTROLS */}
+            <div className="flex items-center gap-2">
+                {view === 'daily' && (
+                    <button 
+                        onClick={() => setDateOffset(prev => prev + 1)}
+                        className="p-1 hover:bg-neutral-800 rounded text-neutral-500 hover:text-white transition-colors"
+                    >
+                        <ChevronLeft className="w-3 h-3" />
+                    </button>
+                )}
+                
+                <span className="text-[10px] text-neutral-500 font-mono font-bold min-w-[60px] text-center">
+                    {getDisplayDate()}
+                </span>
+
+                {view === 'daily' && (
+                    <button 
+                        onClick={() => setDateOffset(prev => prev - 1)}
+                        disabled={dateOffset === 0}
+                        className={`p-1 rounded transition-colors ${dateOffset === 0 ? 'opacity-30 cursor-not-allowed text-neutral-600' : 'hover:bg-neutral-800 text-neutral-500 hover:text-white'}`}
+                    >
+                        <ChevronRight className="w-3 h-3" />
+                    </button>
+                )}
+            </div>
         </div>
 
         {/* VIEW TOGGLE */}
         <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
              <button 
-                onClick={() => setView('daily')}
+                onClick={() => { setView('daily'); setDateOffset(0); }} // Reset date when clicking daily
                 className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${view === 'daily' ? 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}
              >
                 <Flame className={`w-3 h-3 ${view === 'daily' ? 'text-orange-500' : 'text-neutral-600'}`} /> Daily
@@ -175,7 +209,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         )}
 
         <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
-            {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' ? 'today' : 'this week'}
+            {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' && dateOffset === 0 ? 'today' : view === 'daily' ? 'on this day' : 'this week'}
         </div>
       </div>
 
@@ -197,9 +231,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             const displayName = getDisplayName(entry)
             const showPhoto = entry.profiles?.show_avatar !== false 
             const avatarUrl = entry.profiles?.avatar_url
-            
-            // --- 3. GET STREAK ---
-            // Only show if > 2 to keep it special
             const streak = entry.profiles?.current_streak || 0
             const showStreak = streak > 2
 
@@ -230,7 +261,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                             {displayName} {isMe && '(You)'}
                         </span>
                         
-                        {/* --- 4. RENDER STREAK BADGE --- */}
                         {showStreak && (
                             <div className="flex items-center gap-1 mt-1 text-[9px] font-bold text-orange-500 uppercase tracking-wider">
                                 <Flame className="w-3 h-3 fill-orange-500" /> {streak} Day Streak
