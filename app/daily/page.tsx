@@ -74,7 +74,7 @@ export default function DailyGame() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // 1. INITIAL LOAD: Fetch Game Data & Verify Save Status
+  // 1. INITIAL LOAD
   useEffect(() => {
     const loadGame = async () => {
       try {
@@ -88,7 +88,9 @@ export default function DailyGame() {
             const savedResults = localStorage.getItem('s2s_daily_results') 
             
             const today = getGameDate()
-            const hasSeenIntro = localStorage.getItem('s2s_has_seen_intro')
+
+            // NOTE: We do NOT check 's2s_has_seen_intro' here anymore.
+            // If the user hasn't finished today's game, they always get the Intro.
 
             if (savedScore && savedDate === today) {
                 // Optimistically load from cache first
@@ -124,25 +126,20 @@ export default function DailyGame() {
                 if (existingRows && existingRows.length > 0) {
                     setIsSaved(true)
 
-                    // 🔒 SCORE SYNC FIX: 
+                    // 🔒 SCORE SYNC FIX
                     const dbScore = existingRows[0].score
                     if (dbScore !== parseInt(savedScore)) {
-                        console.log(`Syncing Score: Local (${savedScore}) -> DB (${dbScore})`)
                         setScore(dbScore) 
                         localStorage.setItem('s2s_today_score', dbScore.toString())
                     }
                 } else {
-                    console.log("Local score found, but DB empty. Retrying save...")
                     setIsSaved(false)
                 }
 
             } else {
                 setResults(new Array(data.length).fill('pending'))
-                if (!hasSeenIntro) {
-                    setGameState('intro')
-                } else {
-                    setGameState('playing')
-                }
+                // FORCE INTRO EVERY TIME FOR NEW GAMES
+                setGameState('intro')
             }
           } else {
               console.error("No daily game data found.")
@@ -170,7 +167,7 @@ export default function DailyGame() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 3. PROFILE FETCH (Only need streak for the badge now)
+  // 3. PROFILE FETCH
   useEffect(() => {
     const fetchProfile = async () => {
         if (!user) return
@@ -188,7 +185,7 @@ export default function DailyGame() {
     fetchProfile()
   }, [user])
 
-  // 4. THE SAVE LOGIC (Merged + Create)
+  // 4. THE SAVE LOGIC
   useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved || score <= 0) return
@@ -196,7 +193,6 @@ export default function DailyGame() {
       const todayISO = getGameDate() 
       let saveSuccessful = false
 
-      // --- A. MERGE ATTEMPT ---
       if (user) {
          const localGuestId = localStorage.getItem('s2s_guest_id')
          if (localGuestId) {
@@ -208,14 +204,10 @@ export default function DailyGame() {
                 .is('user_id', null) 
                 .select()
              
-             if (data && data.length > 0) {
-                 console.log("Merged guest score into user account")
-                 saveSuccessful = true
-             }
+             if (data && data.length > 0) saveSuccessful = true
          }
       }
 
-      // --- B. STANDARD SAVE ---
       if (!saveSuccessful) {
         let upsertPayload: any = {
             score: score,
@@ -239,10 +231,8 @@ export default function DailyGame() {
         )
 
         if (!scoreError) saveSuccessful = true
-        else console.error("Error saving score", scoreError)
       }
 
-      // --- C. PROFILE UPDATE ---
       if (saveSuccessful && user) {
             const { data: profile } = await supabase
                 .from('profiles')
@@ -274,10 +264,7 @@ export default function DailyGame() {
             }
       }
       
-      // --- D. FINALIZE ---
-      if (saveSuccessful) {
-          setIsSaved(true)
-      }
+      if (saveSuccessful) setIsSaved(true)
     }
     saveScore()
   }, [gameState, user, score, isSaved])
@@ -288,13 +275,11 @@ export default function DailyGame() {
         if (gameState === 'finished' && score > 0 && isSaved) {
             const todayISO = getGameDate()
 
-            // 1. Get TOTAL count
             const { count: total } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
                 .eq('game_date', todayISO)
 
-            // 2. Get BETTER players count
             const { count: betterPlayers } = await supabase
                 .from('daily_results')
                 .select('*', { count: 'exact', head: true })
@@ -310,7 +295,7 @@ export default function DailyGame() {
   }, [gameState, score, isSaved])
 
   const handleStartGame = () => {
-      localStorage.setItem('s2s_has_seen_intro', 'true')
+      // Intro always shows for new game sessions, clicking start just moves to playing
       setGameState('playing')
   }
 
@@ -319,16 +304,12 @@ export default function DailyGame() {
     if (gameState !== 'playing' || showResult || !isImageReady) return
 
     let decayInterval: any
-    
-    // 1. Wait 1000ms (1 second) before starting the countdown
     const startTimer = setTimeout(() => {
-        // 2. Start decrementing 5 points every 500ms
         decayInterval = setInterval(() => {
             setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
         }, 500)
     }, 1000)
 
-    // Cleanup
     return () => {
         clearTimeout(startTimer)
         if (decayInterval) clearInterval(decayInterval)
@@ -371,7 +352,6 @@ export default function DailyGame() {
     }, 1500)
   }
 
-  // --- NEW SHARE LOGIC ---
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
     const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
@@ -398,6 +378,36 @@ https://www.playsaturdaytosunday.com`
     }
   }
 
+  // --- SHARED PROFILE BUTTON COMPONENT ---
+  const ProfileHeaderButton = () => (
+    <div className="flex items-center">
+        {user ? (
+            <Link href="/profile">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-neutral-700 hover:border-[#00ff80] relative transition-colors shadow-lg">
+                {user.user_metadata?.avatar_url ? (
+                    <Image 
+                        src={user.user_metadata.avatar_url} 
+                        alt="Profile" 
+                        fill 
+                        className="object-cover"
+                    />
+                ) : (
+                    <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                        <User className="w-4 h-4 text-neutral-400" />
+                    </div>
+                )}
+            </div>
+            </Link>
+        ) : (
+            <button onClick={() => alert("Log in to track your career stats!")}>
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-neutral-800 bg-neutral-900 flex items-center justify-center text-neutral-500 hover:text-white hover:border-neutral-600 transition-colors">
+                    <User className="w-4 h-4" />
+                </div>
+            </button>
+        )}
+    </div>
+  )
+
   // --- RENDER LOGIC ---
 
   if (gameState === 'loading') return <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
@@ -410,7 +420,7 @@ https://www.playsaturdaytosunday.com`
       )
   }
 
-  // --- GAME OVER SCREEN ---
+  // --- GAME OVER SCREEN (Icon IS visible here) ---
   if (gameState === 'finished') {
     return (
       <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500 relative">
@@ -422,6 +432,11 @@ https://www.playsaturdaytosunday.com`
                     <Home className="w-6 h-6" />
                 </Button>
             </Link>
+        </div>
+
+        {/* --- TOP RIGHT PROFILE BUTTON --- */}
+        <div className="absolute top-4 right-4 z-20">
+            <ProfileHeaderButton />
         </div>
 
         <div className="text-center space-y-2 mb-2">
@@ -546,6 +561,7 @@ https://www.playsaturdaytosunday.com`
   const multiplier = getMultiplier(tier)
   const currentPotential = Math.round(potentialPoints * multiplier)
 
+  // --- PLAYING SCREEN (NO Icon here) ---
   return (
     <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
         {/* Header */}
@@ -561,35 +577,9 @@ https://www.playsaturdaytosunday.com`
              <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
          </div>
 
-         {/* RIGHT: COUNTER + PROFILE */}
+         {/* RIGHT: COUNTER ONLY (No Profile Icon while playing) */}
          <div className="flex items-center gap-3">
              <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
-             
-             {/* PROFILE ICON - LOGIC FIXED TO SHOW ALWAYS */}
-             {user ? (
-                 <Link href="/profile">
-                    <div className="w-8 h-8 rounded-full overflow-hidden border border-neutral-700 hover:border-[#00ff80] relative transition-colors">
-                        {user.user_metadata?.avatar_url ? (
-                            <Image 
-                                src={user.user_metadata.avatar_url} 
-                                alt="Profile" 
-                                fill 
-                                className="object-cover"
-                            />
-                        ) : (
-                            <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                                <User className="w-4 h-4 text-neutral-400" />
-                            </div>
-                        )}
-                    </div>
-                 </Link>
-             ) : (
-                <button onClick={() => alert("Log in to track your career stats!")}>
-                    <div className="w-8 h-8 rounded-full overflow-hidden border border-neutral-800 bg-neutral-900 flex items-center justify-center text-neutral-500 hover:text-white hover:border-neutral-600 transition-colors">
-                        <User className="w-4 h-4" />
-                    </div>
-                </button>
-             )}
          </div>
         </header>
         
