@@ -434,26 +434,6 @@ https://www.playsaturdaytosunday.com`
         <Card className="w-full max-w-md bg-neutral-900 border-neutral-800 shadow-2xl relative overflow-hidden">
         <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
                 
-                {/* --- TOP RIGHT PROFILE PHOTO (FOR SIGNED IN USERS) --- */}
-                {user && (
-                  <Link href="/profile" className="absolute top-4 right-4 z-20 group">
-                     <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-700 group-hover:border-[#00ff80] transition-colors relative shadow-lg">
-                        {user.user_metadata?.avatar_url ? (
-                           <Image 
-                             src={user.user_metadata.avatar_url} 
-                             fill 
-                             alt="Profile" 
-                             className="object-cover"
-                           />
-                        ) : (
-                           <div className="w-full h-full bg-neutral-800 flex items-center justify-center text-neutral-400">
-                             <User className="w-5 h-5" />
-                           </div>
-                        )}
-                     </div>
-                  </Link>
-                )}
-
                 {/* --- SCORE + STATS ROW --- */}
                 <div className="flex flex-col items-center justify-center gap-2">
                     {/* Main Score */}
@@ -570,6 +550,8 @@ https://www.playsaturdaytosunday.com`
     <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
         {/* Header */}
         <header className="h-14 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
+         
+         {/* LEFT: HOME + SCORE */}
          <div className="flex items-center gap-2">
              <Link href="/">
                 <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 -ml-2">
@@ -578,7 +560,31 @@ https://www.playsaturdaytosunday.com`
              </Link>
              <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
          </div>
-         <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
+
+         {/* RIGHT: COUNTER + PROFILE */}
+         <div className="flex items-center gap-3">
+             <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
+             
+             {/* PROFILE LINK (Only if Logged In) */}
+             {user && (
+                 <Link href="/profile">
+                    <div className="w-8 h-8 rounded-full overflow-hidden border border-neutral-700 hover:border-[#00ff80] relative transition-colors">
+                        {user.user_metadata?.avatar_url ? (
+                            <Image 
+                                src={user.user_metadata.avatar_url} 
+                                alt="Profile" 
+                                fill 
+                                className="object-cover"
+                            />
+                        ) : (
+                            <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                                <User className="w-4 h-4 text-neutral-400" />
+                            </div>
+                        )}
+                    </div>
+                 </Link>
+             )}
+         </div>
         </header>
         
         <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-neutral-800 shrink-0" />
