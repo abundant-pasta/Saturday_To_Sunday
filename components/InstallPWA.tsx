@@ -23,7 +23,7 @@ export default function InstallPwa() {
     try {
         window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone)
     } catch(e) {
-        // Fallback
+        // Fallback for older browsers
     }
 
     // 2. Detect iOS & Chrome on iOS
@@ -34,7 +34,7 @@ export default function InstallPwa() {
     setIsIOS(isIosDevice)
     setIsChromeIOS(isChrome)
 
-    // 3. Listen for Native Install Prompt (Android/Desktop)
+    // 3. Listen for Native Install Prompt (Android/Desktop Chrome)
     const handler = (e: any) => {
       e.preventDefault()
       setPromptInstall(e)
