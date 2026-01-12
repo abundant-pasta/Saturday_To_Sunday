@@ -1,16 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import InstallPWA from '@/components/InstallPWA'
+import InstallPWA from '@/components/InstallPWA' // Reusing the component we just built
 import PushNotificationManager from '@/components/PushNotificationManager'
 import { createBrowserClient } from '@supabase/ssr'
 
-export default function Home() {
+// Wrapper for Suspense (Best Practice)
+export default function HomePage() {
+    return (
+        <Suspense fallback={<div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center"><Loader2 className="animate-spin text-neutral-600" /></div>}>
+            <HomeContent />
+        </Suspense>
+    )
+}
+
+function HomeContent() {
   const router = useRouter()
   
   // Auth State
@@ -54,7 +63,7 @@ export default function Home() {
             // LOGGED IN: Go to Profile
             <Link href="/profile">
                 <button 
-                    className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative block"
+                    className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative block shadow-lg"
                 >
                     {user.user_metadata?.avatar_url ? (
                         <Image src={user.user_metadata.avatar_url} alt="User" fill className="object-cover" />
@@ -71,7 +80,7 @@ export default function Home() {
                 variant="ghost" 
                 size="icon" 
                 onClick={handleGoogleLogin}
-                className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 rounded-full w-10 h-10"
+                className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 rounded-full w-10 h-10 transition-all"
             >
                 <UserIcon className="w-6 h-6" />
             </Button>
@@ -83,13 +92,13 @@ export default function Home() {
         {/* LOGO AREA */}
         <div className="text-center space-y-4 py-4">
           <div className="flex justify-center">
-            <Trophy className="w-16 h-16 text-yellow-400" />
+            <Trophy className="w-16 h-16 text-yellow-400 animate-in zoom-in duration-700" />
           </div>
           <div>
-            <h1 className="text-5xl font-black italic uppercase tracking-tighter text-white leading-tight">
+            <h1 className="text-5xl font-black italic uppercase tracking-tighter text-white leading-tight drop-shadow-2xl">
               Saturday To Sunday
             </h1>
-            <p className="text-neutral-400 font-bold text-sm tracking-wide mt-2">Guess the college. Beat your friends.</p>
+            <p className="text-neutral-400 font-bold text-sm tracking-wide mt-2 uppercase">Guess the college. Beat your friends.</p>
           </div>
         </div>
 
@@ -98,12 +107,12 @@ export default function Home() {
             {/* 1. DAILY CHALLENGE CARD */}
             <Link href="/daily" className="block group">
                 <div className="bg-gradient-to-r from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-2xl">
-                    <div className="bg-neutral-900/80 rounded-lg p-6 flex flex-col items-center justify-center gap-4 text-center h-48">
-                        <div className="p-4 bg-emerald-500/10 rounded-full">
+                    <div className="bg-neutral-900/80 rounded-lg p-6 flex flex-col items-center justify-center gap-4 text-center h-48 backdrop-blur-sm">
+                        <div className="p-4 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
                            <Calendar className="w-10 h-10 text-[#00ff80]" />
                         </div>
                         <div>
-                            <div className="text-[#00ff80] font-black uppercase text-sm tracking-widest mb-1">Play Now</div>
+                            <div className="text-[#00ff80] font-black uppercase text-xs tracking-[0.2em] mb-1">Play Now</div>
                             <div className="text-white font-black text-3xl uppercase italic tracking-tighter">Daily Challenge</div>
                         </div>
                     </div>
@@ -127,6 +136,7 @@ export default function Home() {
             </div>
 
              {/* INSTALL PWA BUTTON */}
+             {/* This now uses your new smart component with iOS instructions */}
             <InstallPWA />
 
             {/* --- FOOTER: ABOUT / LEGAL --- */}

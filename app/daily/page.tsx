@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Hash, Star, Shield, Flame, Zap, User } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Hash, Star, Shield, Flame, Zap, User, TrendingUp, TrendingDown, Swords } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -46,7 +47,19 @@ const getGuestId = () => {
     return id
 }
 
-export default function DailyGame() {
+// WRAPPER COMPONENT
+export default function DailyGamePage() {
+    return (
+        <Suspense fallback={<div className="bg-neutral-950 min-h-screen flex items-center justify-center text-white"><Loader2 className="animate-spin" /></div>}>
+            <DailyGame />
+        </Suspense>
+    )
+}
+
+function DailyGame() {
+  const searchParams = useSearchParams()
+  const challengerScore = searchParams.get('s')
+
   const [questions, setQuestions] = useState<any[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
@@ -55,6 +68,9 @@ export default function DailyGame() {
   const [streak, setStreak] = useState(0)
   const [myRank, setMyRank] = useState<number | null>(null)
   const [totalPlayers, setTotalPlayers] = useState(0)
+  
+  // NEW: Global Average State
+  const [averageScore, setAverageScore] = useState(0)
 
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
   const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
@@ -89,13 +105,8 @@ export default function DailyGame() {
             
             const today = getGameDate()
 
-            // NOTE: We do NOT check 's2s_has_seen_intro' here anymore.
-            // If the user hasn't finished today's game, they always get the Intro.
-
             if (savedScore && savedDate === today) {
-                // Optimistically load from cache first
                 setScore(parseInt(savedScore))
-                
                 try {
                     if (savedResults) setResults(JSON.parse(savedResults))
                     else setResults(new Array(data.length).fill('pending'))
@@ -105,7 +116,6 @@ export default function DailyGame() {
                 
                 setGameState('finished')
 
-                // --- VERIFY WITH DATABASE ---
                 const { data: { session } } = await supabase.auth.getSession()
                 const currentUserId = session?.user?.id
                 const guestId = localStorage.getItem('s2s_guest_id')
@@ -125,8 +135,6 @@ export default function DailyGame() {
                 
                 if (existingRows && existingRows.length > 0) {
                     setIsSaved(true)
-
-                    // 🔒 SCORE SYNC FIX
                     const dbScore = existingRows[0].score
                     if (dbScore !== parseInt(savedScore)) {
                         setScore(dbScore) 
@@ -138,7 +146,6 @@ export default function DailyGame() {
 
             } else {
                 setResults(new Array(data.length).fill('pending'))
-                // FORCE INTRO EVERY TIME FOR NEW GAMES
                 setGameState('intro')
             }
           } else {
@@ -269,9 +276,9 @@ export default function DailyGame() {
     saveScore()
   }, [gameState, user, score, isSaved])
 
-  // 5. RANK FETCH LOGIC
+  // 5. RANK & AVERAGE FETCH LOGIC
   useEffect(() => {
-    const fetchRank = async () => {
+    const fetchRankAndStats = async () => {
         if (gameState === 'finished' && score > 0 && isSaved) {
             const todayISO = getGameDate()
 
@@ -286,16 +293,18 @@ export default function DailyGame() {
                 .eq('game_date', todayISO)
                 .gt('score', score)
             
+            const { data: avg } = await supabase.rpc('get_average_score', { check_date: todayISO })
+
             setTotalPlayers(total || 0)
             setMyRank((betterPlayers || 0) + 1)
+            if (avg) setAverageScore(avg)
         }
     }
 
-    fetchRank()
+    fetchRankAndStats()
   }, [gameState, score, isSaved])
 
   const handleStartGame = () => {
-      // Intro always shows for new game sessions, clicking start just moves to playing
       setGameState('playing')
   }
 
@@ -358,13 +367,16 @@ export default function DailyGame() {
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const streakText = streak > 1 ? ` | 🔥 ${streak}` : ''
     
+    const domain = 'https://www.playsaturdaytosunday.com'
+    const challengeUrl = `${domain}?s=${score}` 
+
     const text = `Saturday to Sunday (${shortDate})
 Score: ${score.toLocaleString()}/1,350${streakText}
 
 ${squares}
 
-Can you beat my score? Play here: 👇
-https://www.playsaturdaytosunday.com`
+Can you beat my score? Challenge me here: 👇
+${challengeUrl}`
   
     try {
       if (navigator.share) {
@@ -415,17 +427,16 @@ https://www.playsaturdaytosunday.com`
   if (gameState === 'intro') {
       return (
         <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden">
-             <IntroScreen onStart={handleStartGame} />
+             <IntroScreen onStart={handleStartGame} challengerScore={challengerScore} />
         </div>
       )
   }
 
-  // --- GAME OVER SCREEN (Icon IS visible here) ---
+  // --- GAME OVER SCREEN ---
   if (gameState === 'finished') {
     return (
       <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500 relative">
         
-        {/* --- TOP LEFT HOME BUTTON --- */}
         <div className="absolute top-4 left-4 z-20">
             <Link href="/">
                 <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full">
@@ -434,7 +445,6 @@ https://www.playsaturdaytosunday.com`
             </Link>
         </div>
 
-        {/* --- TOP RIGHT PROFILE BUTTON --- */}
         <div className="absolute top-4 right-4 z-20">
             <ProfileHeaderButton />
         </div>
@@ -445,13 +455,10 @@ https://www.playsaturdaytosunday.com`
             <p className="text-neutral-400 text-sm">Come back tomorrow for new players.</p>
         </div>
         
-        {/* --- MAIN SCORE CARD --- */}
         <Card className="w-full max-w-md bg-neutral-900 border-neutral-800 shadow-2xl relative overflow-hidden">
         <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
                 
-                {/* --- SCORE + STATS ROW --- */}
                 <div className="flex flex-col items-center justify-center gap-2">
-                    {/* Main Score */}
                     <div className="flex flex-col items-center">
                         <span className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
                         <div className="text-6xl font-black text-[#00ff80] font-mono tracking-tighter drop-shadow-[0_0_15px_rgba(0,255,128,0.3)] leading-none">
@@ -459,11 +466,28 @@ https://www.playsaturdaytosunday.com`
                         </div>
                     </div>
 
-                    {/* STATS ROW */}
+                    {/* NEW: Challenger Victory Badge */}
+                    {challengerScore && score > parseInt(challengerScore) && (
+                        <div className="animate-in zoom-in duration-500 delay-300">
+                             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-lg shadow-[0_0_15px_rgba(234,179,8,0.2)]">
+                                <Trophy className="w-4 h-4 text-yellow-400 fill-yellow-400 animate-bounce" />
+                                <span className="text-xs font-black text-yellow-400 uppercase tracking-widest">
+                                    You Beat The Challenger!
+                                </span>
+                             </div>
+                        </div>
+                    )}
+
+                    {/* Global Average Comparison */}
+                    {averageScore > 0 && (
+                        <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${score >= averageScore ? 'bg-[#00ff80]/10 border-[#00ff80]/30 text-[#00ff80]' : 'bg-red-500/10 border-red-500/30 text-red-500' } flex items-center gap-1`}>
+                            {score >= averageScore ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                            {score >= averageScore ? 'Above Average' : 'Below Average'} ({averageScore})
+                        </div>
+                    )}
+
                     {isSaved && (
                          <div className="flex items-center gap-2 mt-2 animate-in zoom-in duration-500 delay-200">
-                             
-                             {/* RANK BADGE */}
                              <div className="bg-neutral-800/80 border border-neutral-700 px-3 py-1.5 rounded-md flex items-center gap-2 h-9">
                                 <Hash className="w-3.5 h-3.5 text-blue-400" />
                                 <div className="flex items-baseline gap-1 leading-none">
@@ -475,8 +499,6 @@ https://www.playsaturdaytosunday.com`
                                     </span>
                                 </div>
                              </div>
-
-                             {/* STREAK BADGE */}
                              {streak > 0 && (
                                 <div className={`px-3 py-1.5 rounded-md flex items-center gap-2 border h-9 ${streak > 1 ? 'bg-orange-500/10 border-orange-500/30' : 'bg-neutral-800/80 border-neutral-700'}`}>
                                     <span className="text-sm">🔥</span>
@@ -492,21 +514,18 @@ https://www.playsaturdaytosunday.com`
                     )}
                 </div>
 
-                {/* Visual Squares */}
                 <div className="flex justify-center gap-1">
                     {results.map((r, i) => (
                         <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-[#00ff80]' : r === 'wrong' ? 'bg-red-500' : 'bg-neutral-800'}`} />
                     ))}
                 </div>
 
-                {/* --- SHARE BUTTON --- */}
                 <div className="pt-2 w-full animate-in slide-in-from-bottom-2 fade-in">
                     <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all shadow-lg shadow-[#00ff80]/20">
                         <Share2 className="mr-2 w-5 h-5" /> Share Result
                     </Button>
                 </div>
 
-                {/* --- GUEST LOGIN CALL TO ACTION --- */}
                 {!user && (
                     <div className="mt-2 bg-neutral-800/50 rounded-xl p-4 border border-neutral-700/50 w-full flex flex-col items-center gap-3">
                         <AuthButton />
@@ -522,18 +541,13 @@ https://www.playsaturdaytosunday.com`
             </CardContent>
         </Card>
 
-        {/* --- BOTTOM ACTIONS --- */}
         <div className="w-full max-w-md space-y-4 animate-in slide-in-from-bottom-4 duration-500 pb-8">
-            
-            {/* NOTIFICATION BUTTON */}
             <div className="w-full empty:hidden">
                 <PushNotificationManager hideOnSubscribed={true} />
             </div>
-
             <div className="flex justify-center">
                 <InstallPWA />
             </div>
-
             <Leaderboard 
                 currentUserId={user?.id} 
                 key={isSaved ? `saved-${user?.id}` : 'unsaved'} 
@@ -543,7 +557,7 @@ https://www.playsaturdaytosunday.com`
     )
   }
 
-  // GAME LOADING SAFETY GUARD
+  // ... [Keep playing/render logic] ...
   const q = questions[currentIndex]
 
   if (!q && gameState === 'playing') {
@@ -556,18 +570,13 @@ https://www.playsaturdaytosunday.com`
       )
   }
   
-  // Calculate potential points based on multiplier for display
   const tier = q ? (q.tier || 1) : 1
   const multiplier = getMultiplier(tier)
   const currentPotential = Math.round(potentialPoints * multiplier)
 
-  // --- PLAYING SCREEN (NO Icon here) ---
   return (
     <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
-        {/* Header */}
         <header className="h-14 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
-         
-         {/* LEFT: HOME + SCORE */}
          <div className="flex items-center gap-2">
              <Link href="/">
                 <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 -ml-2">
@@ -576,8 +585,6 @@ https://www.playsaturdaytosunday.com`
              </Link>
              <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
          </div>
-
-         {/* RIGHT: COUNTER ONLY (No Profile Icon while playing) */}
          <div className="flex items-center gap-3">
              <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
          </div>
@@ -588,10 +595,7 @@ https://www.playsaturdaytosunday.com`
         <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
             <div className="flex-1 relative bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 shadow-2xl min-h-0">
                
-               {/* DIFFICULTY & MULTIPLIER BADGES */}
                <div className="absolute top-3 left-3 z-30 flex flex-col gap-1 items-start">
-                  
-                  {/* TIER BADGE */}
                   <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-black/20 flex items-center gap-1
                     ${tier === 1 ? 'bg-[#00ff80] text-black' : 
                       tier === 2 ? 'bg-yellow-400 text-black' : 
@@ -601,8 +605,6 @@ https://www.playsaturdaytosunday.com`
                       {tier === 3 && <Flame className="w-3 h-3 fill-current" />}
                       {tier === 1 ? 'EASY' : tier === 2 ? 'MED' : 'HARD'}
                   </div>
-
-                  {/* MULTIPLIER CALLOUT (Only for Med/Hard) */}
                   {tier > 1 && (
                     <div className="bg-[#00ff80] text-black px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-white/10 flex items-center gap-1 animate-in slide-in-from-left-2 fade-in duration-300">
                        <Zap className="w-3 h-3 fill-current" />
