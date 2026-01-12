@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Share, PlusSquare, Download, Smartphone } from 'lucide-react'
+import { X, Share, PlusSquare, MoreHorizontal, Download, Compass, Smartphone } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function InstallPwa() {
@@ -34,7 +34,7 @@ export default function InstallPwa() {
     setIsIOS(isIosDevice)
     setIsChromeIOS(isChrome)
 
-    // 3. Listen for Native Install Prompt (Android/Desktop Chrome)
+    // 3. Listen for Native Install Prompt (Android/Desktop)
     const handler = (e: any) => {
       e.preventDefault()
       setPromptInstall(e)
@@ -58,15 +58,16 @@ export default function InstallPwa() {
     if (promptInstall) {
         promptInstall.prompt() // Native Prompt (Android/Desktop)
     } else {
-        setIsOpen(true) // Manual Instructions (iOS)
+        setIsOpen(true) // Open the Manual Instructions Modal (iOS)
     }
   }
 
+  // If installed, show nothing
   if (isStandalone) return null
 
   return (
     <>
-      {/* TRIGGER BUTTON */}
+      {/* 1. THE TRIGGER BUTTON (Visible by default) */}
       <Button 
         onClick={handleInstallClick}
         variant="outline"
@@ -76,7 +77,7 @@ export default function InstallPwa() {
         {isIOS ? "Install App" : "Install App"}
       </Button>
 
-      {/* MODAL OVERLAY */}
+      {/* 2. THE MODAL OVERLAY (Hidden until clicked) */}
       {isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-in zoom-in-95 duration-200 ring-1 ring-white/10">
@@ -101,7 +102,7 @@ export default function InstallPwa() {
             </div>
 
             {isIOS ? (
-                /* --- iOS INSTRUCTIONS (Dynamic for Chrome/Safari) --- */
+                /* --- iOS INSTRUCTIONS --- */
                 <div className="space-y-4">
                     {/* Step 1: Share */}
                     <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
@@ -114,7 +115,7 @@ export default function InstallPwa() {
                         </p>
                     </div>
 
-                    {/* Step 2: Scroll Down (Helper text) */}
+                    {/* Step 2: Scroll Down */}
                     <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
                         <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 border border-neutral-700 font-bold text-neutral-400 text-sm">
                             2
@@ -133,11 +134,11 @@ export default function InstallPwa() {
                     </div>
                 </div>
             ) : (
-                /* --- GENERIC FALLBACK (Android/Desktop if native prompt fails) --- */
+                /* --- GENERIC FALLBACK --- */
                 <div className="space-y-4">
                     <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
                         <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 font-bold text-neutral-400">1</div>
-                        <p className="text-sm text-neutral-300">Tap the browser <span className="text-white font-bold">Menu</span> button</p>
+                        <p className="text-sm text-neutral-300">Tap the browser <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4" /> Menu</span> button</p>
                     </div>
                     <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
                         <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 font-bold text-neutral-400">2</div>
