@@ -192,7 +192,7 @@ function DailyGame() {
     fetchProfile()
   }, [user])
 
-  // 4. THE SAVE LOGIC
+  // 4. THE SAVE LOGIC (UPDATED WITH INTEGRITY CHECK)
   useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved || score <= 0) return
@@ -200,6 +200,28 @@ function DailyGame() {
       const todayISO = getGameDate() 
       let saveSuccessful = false
 
+      // --- CHECK IF SCORE ALREADY EXISTS ---
+      if (user) {
+        const { data: existingScore } = await supabase
+            .from('daily_results')
+            .select('id, score')
+            .eq('user_id', user.id)
+            .eq('game_date', todayISO)
+            .single()
+
+        // IF SCORE EXISTS, STOP HERE. DO NOT OVERWRITE.
+        if (existingScore) {
+            console.log("User already has a score for today. Keeping original.")
+            // Sync UI to match database
+            if (existingScore.score !== score) {
+                setScore(existingScore.score)
+            }
+            setIsSaved(true)
+            return
+        }
+      }
+
+      // --- A. MERGE ATTEMPT (Only if no existing user score found above) ---
       if (user) {
          const localGuestId = localStorage.getItem('s2s_guest_id')
          if (localGuestId) {
@@ -211,10 +233,14 @@ function DailyGame() {
                 .is('user_id', null) 
                 .select()
              
-             if (data && data.length > 0) saveSuccessful = true
+             if (data && data.length > 0) {
+                 console.log("Merged guest score into user account")
+                 saveSuccessful = true
+             }
          }
       }
 
+      // --- B. STANDARD SAVE ---
       if (!saveSuccessful) {
         let upsertPayload: any = {
             score: score,
@@ -238,8 +264,10 @@ function DailyGame() {
         )
 
         if (!scoreError) saveSuccessful = true
+        else console.error("Error saving score", scoreError)
       }
 
+      // --- C. PROFILE UPDATE ---
       if (saveSuccessful && user) {
             const { data: profile } = await supabase
                 .from('profiles')
@@ -271,7 +299,9 @@ function DailyGame() {
             }
       }
       
-      if (saveSuccessful) setIsSaved(true)
+      if (saveSuccessful) {
+          setIsSaved(true)
+      }
     }
     saveScore()
   }, [gameState, user, score, isSaved])
