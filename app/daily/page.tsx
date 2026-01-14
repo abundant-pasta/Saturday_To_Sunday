@@ -6,7 +6,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Hash, Star, Shield, Flame, Zap, User, TrendingUp, TrendingDown, Swords } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Hash, Star, Shield, Flame, Zap, User, TrendingUp, TrendingDown, Swords, Medal, Skull } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -47,6 +47,15 @@ const getGuestId = () => {
     return id
 }
 
+// --- HELPER: Get Rank Title based on Score (UPDATED RANGES) ---
+const getRankTitle = (score: number) => {
+    if (score >= 1100) return { title: "Heisman Hopeful", color: "text-yellow-400", icon: Trophy }
+    if (score >= 700) return { title: "All-American", color: "text-[#00ff80]", icon: Medal }  // 700 - 1099
+    if (score >= 300) return { title: "Varsity Starter", color: "text-blue-400", icon: Star }  // 300 - 699
+    if (score > 0) return { title: "Practice Squad", color: "text-neutral-400", icon: Shield } // 1 - 299
+    return { title: "Redshirt", color: "text-red-500", icon: Skull } // 0
+}
+
 // WRAPPER COMPONENT
 export default function DailyGamePage() {
     return (
@@ -69,7 +78,7 @@ function DailyGame() {
   const [myRank, setMyRank] = useState<number | null>(null)
   const [totalPlayers, setTotalPlayers] = useState(0)
   
-  // NEW: Global Average State
+  // Global Average State
   const [averageScore, setAverageScore] = useState(0)
 
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
@@ -192,7 +201,7 @@ function DailyGame() {
     fetchProfile()
   }, [user])
 
-  // 4. THE SAVE LOGIC (UPDATED WITH INTEGRITY CHECK)
+  // 4. THE SAVE LOGIC (WITH INTEGRITY CHECK)
   useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved || score <= 0) return
@@ -212,7 +221,7 @@ function DailyGame() {
         // IF SCORE EXISTS, STOP HERE. DO NOT OVERWRITE.
         if (existingScore) {
             console.log("User already has a score for today. Keeping original.")
-            // Sync UI to match database
+            // Sync UI to match database score
             if (existingScore.score !== score) {
                 setScore(existingScore.score)
             }
@@ -338,22 +347,32 @@ function DailyGame() {
       setGameState('playing')
   }
 
-  // --- TIMER LOGIC ---
+  // --- TIMER LOGIC (UPDATED: 800ms + Constant Loss) ---
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
+
+    // Get current Tier to calculate decay step
+    const currentQ = questions[currentIndex]
+    const tier = currentQ ? (currentQ.tier || 1) : 1
+    const multiplier = getMultiplier(tier)
+
+    // Calculate Decay:
+    // If Multiplier = 1.0 (Easy), decay 5 base pts = 5 final pts.
+    // If Multiplier = 2.0 (Hard), decay 2.5 base pts * 2.0 = 5 final pts.
+    const decayAmount = 5 / multiplier
 
     let decayInterval: any
     const startTimer = setTimeout(() => {
         decayInterval = setInterval(() => {
-            setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
-        }, 500)
+            setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - decayAmount))
+        }, 800) // Slower tick: 800ms
     }, 1000)
 
     return () => {
         clearTimeout(startTimer)
         if (decayInterval) clearInterval(decayInterval)
     }
-  }, [gameState, showResult, isImageReady])
+  }, [gameState, showResult, isImageReady, currentIndex, questions])
 
   const handleGuess = (option: string) => {
     if (showResult) return
@@ -391,17 +410,19 @@ function DailyGame() {
     }, 1500)
   }
 
+  // --- SHARE LOGIC (With Rank Title) ---
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
     const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const streakText = streak > 1 ? ` | 🔥 ${streak}` : ''
     
+    const rankInfo = getRankTitle(score)
     const domain = 'https://www.playsaturdaytosunday.com'
     const challengeUrl = `${domain}?s=${score}` 
 
     const text = `Saturday to Sunday (${shortDate})
-Score: ${score.toLocaleString()}/1,350${streakText}
+Score: ${score.toLocaleString()} (${rankInfo.title})${streakText}
 
 ${squares}
 
@@ -420,7 +441,7 @@ ${challengeUrl}`
     }
   }
 
-  // --- SHARED PROFILE BUTTON COMPONENT ---
+  // --- PROFILE HEADER BUTTON ---
   const ProfileHeaderButton = () => (
     <div className="flex items-center">
         {user ? (
@@ -463,6 +484,8 @@ ${challengeUrl}`
   }
 
   // --- GAME OVER SCREEN ---
+  const rankInfo = getRankTitle(score)
+
   if (gameState === 'finished') {
     return (
       <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500 relative">
@@ -496,9 +519,15 @@ ${challengeUrl}`
                         </div>
                     </div>
 
-                    {/* NEW: Challenger Victory Badge */}
+                    {/* NEW: RANK BADGE (Scouting Report) */}
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full border bg-neutral-950 ${rankInfo.color} border-current/20 shadow-lg mt-2 animate-in zoom-in duration-300`}>
+                        <rankInfo.icon className="w-5 h-5 fill-current" />
+                        <span className="text-sm font-black uppercase tracking-widest">{rankInfo.title}</span>
+                    </div>
+
+                    {/* Challenger Victory Badge */}
                     {challengerScore && score > parseInt(challengerScore) && (
-                        <div className="animate-in zoom-in duration-500 delay-300">
+                        <div className="animate-in zoom-in duration-500 delay-300 mt-2">
                              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-lg shadow-[0_0_15px_rgba(234,179,8,0.2)]">
                                 <Trophy className="w-4 h-4 text-yellow-400 fill-yellow-400 animate-bounce" />
                                 <span className="text-xs font-black text-yellow-400 uppercase tracking-widest">
@@ -510,14 +539,14 @@ ${challengeUrl}`
 
                     {/* Global Average Comparison */}
                     {averageScore > 0 && (
-                        <div className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${score >= averageScore ? 'bg-[#00ff80]/10 border-[#00ff80]/30 text-[#00ff80]' : 'bg-red-500/10 border-red-500/30 text-red-500' } flex items-center gap-1`}>
+                        <div className={`mt-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${score >= averageScore ? 'bg-[#00ff80]/10 border-[#00ff80]/30 text-[#00ff80]' : 'bg-red-500/10 border-red-500/30 text-red-500' } flex items-center gap-1`}>
                             {score >= averageScore ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                             {score >= averageScore ? 'Above Average' : 'Below Average'} ({averageScore})
                         </div>
                     )}
 
                     {isSaved && (
-                         <div className="flex items-center gap-2 mt-2 animate-in zoom-in duration-500 delay-200">
+                         <div className="flex items-center gap-2 mt-4 animate-in zoom-in duration-500 delay-200">
                              <div className="bg-neutral-800/80 border border-neutral-700 px-3 py-1.5 rounded-md flex items-center gap-2 h-9">
                                 <Hash className="w-3.5 h-3.5 text-blue-400" />
                                 <div className="flex items-baseline gap-1 leading-none">
@@ -544,13 +573,13 @@ ${challengeUrl}`
                     )}
                 </div>
 
-                <div className="flex justify-center gap-1">
+                <div className="flex justify-center gap-1 mt-4">
                     {results.map((r, i) => (
                         <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-[#00ff80]' : r === 'wrong' ? 'bg-red-500' : 'bg-neutral-800'}`} />
                     ))}
                 </div>
 
-                <div className="pt-2 w-full animate-in slide-in-from-bottom-2 fade-in">
+                <div className="pt-6 w-full animate-in slide-in-from-bottom-2 fade-in">
                     <Button onClick={handleShare} className="w-full h-12 text-lg font-bold bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all shadow-lg shadow-[#00ff80]/20">
                         <Share2 className="mr-2 w-5 h-5" /> Share Result
                     </Button>
