@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, Loader2, Share, BellOff, Download, CheckCircle2 } from 'lucide-react'
+import { Bell, Loader2, BellOff, CheckCircle2 } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
@@ -22,11 +22,20 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [loading, setLoading] = useState(true)
-  
-  // New state to track if we *just* clicked the button in this session
   const [justSubscribed, setJustSubscribed] = useState(false)
+  
+  // NEW: Track if we are in the app
+  const [isStandalone, setIsStandalone] = useState(false)
 
   useEffect(() => {
+    // 1. CHECK IF INSTALLED (Standalone Mode)
+    const checkStandalone = () => {
+        const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+        setIsStandalone(!!isStandaloneMode)
+    }
+    checkStandalone()
+
+    // 2. CHECK SERVICE WORKER SUPPORT
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true)
       
@@ -101,42 +110,18 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
     }
   }
 
-  // --- STATE 1: BROWSER (NOT INSTALLED) ---
-  if (!isSupported) {
-    return (
-      <div className="p-4 w-full bg-neutral-900/50 flex flex-col gap-3">
-        <div className="flex items-center gap-2 text-[#00ff80]">
-           <Download className="w-4 h-4" />
-           <span className="text-xs font-bold uppercase tracking-wider">Install App</span>
-        </div>
-        <p className="text-[11px] leading-relaxed text-neutral-400">
-          Install to home screen for easy access and daily notifications.
-        </p>
-        
-        {/* Updated Instructions List */}
-        <div className="flex flex-col gap-2 text-[10px] text-white font-bold bg-neutral-800 p-3 rounded-lg border border-neutral-700">
-           <div className="flex items-center gap-2">
-             <span className="bg-neutral-700 text-neutral-400 w-4 h-4 flex items-center justify-center rounded-full text-[9px]">1</span>
-             <span>Tap</span> <Share className="w-3 h-3 text-blue-400" /> <span>Share</span>
-           </div>
-           <div className="flex items-center gap-2">
-             <span className="bg-neutral-700 text-neutral-400 w-4 h-4 flex items-center justify-center rounded-full text-[9px]">2</span>
-             <span>Scroll down (or tap "More")</span>
-           </div>
-           <div className="flex items-center gap-2">
-             <span className="bg-neutral-700 text-neutral-400 w-4 h-4 flex items-center justify-center rounded-full text-[9px]">3</span>
-             <span>Select "Add to Home Screen"</span>
-           </div>
-        </div>
-      </div>
-    )
-  }
+  // --- CRITICAL CHANGE: HIDE IF NOT INSTALLED ---
+  // If we are in the browser, return NULL so the Install Button is the only thing visible.
+  if (!isStandalone) return null
+
+  // --- SAFETY CHECK ---
+  if (!isSupported) return null
 
   // --- STATE 2: HOME PAGE SUCCESS MESSAGE ---
   if (hideOnSubscribed && isSubscribed) {
     if (justSubscribed) {
       return (
-        <div className="flex items-center gap-3 p-4 w-full bg-[#00ff80]/10">
+        <div className="flex items-center gap-3 p-4 w-full bg-[#00ff80]/10 rounded-xl mb-4 border border-[#00ff80]/20 animate-in fade-in slide-in-from-bottom-2">
            <CheckCircle2 className="w-5 h-5 text-[#00ff80]" />
            <div className="flex flex-col">
              <span className="text-sm font-bold text-white">Daily notifications enabled.</span>
@@ -148,9 +133,9 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
     return null
   }
 
-  // --- STATE 3: STANDARD TOGGLE ---
+  // --- STATE 3: STANDARD TOGGLE (Only visible inside the App) ---
   return (
-    <div className="flex items-center justify-between p-4 w-full">
+    <div className="flex items-center justify-between p-4 w-full bg-neutral-900/50 border border-neutral-800 rounded-xl mb-4">
       <div className="flex flex-col text-left">
          <span className="text-sm font-bold text-white flex items-center gap-2">
             <Bell className="w-4 h-4 text-[#00ff80]" /> Daily Reminders
