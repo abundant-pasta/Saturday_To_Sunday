@@ -238,6 +238,11 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                 </button>
             </div>
         )}
+
+        {/* ADDED: Total Count Display */}
+        <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
+            {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' && dateOffset === 0 ? 'today' : view === 'daily' ? 'on this day' : 'this week'}
+        </div>
       </div>
 
       {/* LIST */}
@@ -290,7 +295,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                             {displayName} {isMe && '(You)'}
                         </span>
                         
-                        {/* Streak + Correct Count Row */}
                         <div className="flex items-center gap-3 mt-1.5">
                             {showStreak && (
                                 <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-500 uppercase tracking-wider">
