@@ -2,11 +2,13 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight, Target } from 'lucide-react'
 import Image from 'next/image'
 
 type LeaderboardEntry = {
   score: number
+  results_json?: any 
+  correctCount?: number | null
   user_id: string | null
   guest_id: string | null
   profiles: {
@@ -23,10 +25,8 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'daily' | 'weekly'>('daily')
-  const [showGuests, setShowGuests] = useState(false) // Default to false (VIP Mode)
+  const [showGuests, setShowGuests] = useState(false) 
   const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
-  
-  // 1. NEW STATE: Track how many days back we are looking
   const [dateOffset, setDateOffset] = useState(0) 
 
   const supabase = createBrowserClient(
@@ -44,23 +44,23 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
       setLoading(true)
       
       const now = new Date()
-      // Adjust for game time (6 AM cutoff) AND the date offset
       const msPerDay = 24 * 60 * 60 * 1000
-      const gameTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
-      const targetDateObj = new Date(gameTimestamp)
-      const targetDateStr = targetDateObj.toISOString().split('T')[0]
-
+      
       if (view === 'daily') {
+        const gameTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
+        const targetDateObj = new Date(gameTimestamp)
+        const targetDateStr = targetDateObj.toISOString().split('T')[0]
         
         let query = supabase
           .from('daily_results')
           .select(`
             score, 
             user_id,
-            guest_id, 
+            guest_id,
+            results:results_json, 
             profiles (username, full_name, avatar_url, show_avatar, current_streak)
           `)
-          .eq('game_date', targetDateStr) // Use the calculated date
+          .eq('game_date', targetDateStr)
           .order('score', { ascending: false })
           .limit(50)
 
@@ -69,7 +69,15 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         }
 
         const { data } = await query
-        if (data) setScores(data as any)
+        
+        const parsedData = data?.map((row: any) => ({
+            ...row,
+            correctCount: Array.isArray(row.results) 
+                ? row.results.filter((r: string) => r === 'correct').length 
+                : null 
+        }))
+
+        if (parsedData) setScores(parsedData as any)
 
         let countQuery = supabase
           .from('daily_results')
@@ -83,25 +91,51 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         if (count !== null) setTotalCount(count)
 
       } else {
-        // Weekly logic remains the same (Last 7 days relative to today)
-        const { data } = await supabase.rpc('get_weekly_leaderboard')
+        const currentDay = now.getDay() 
+        const diffToMon = currentDay === 0 ? -6 : 1 - currentDay 
         
+        const monday = new Date(now)
+        monday.setDate(now.getDate() + diffToMon)
+        const mondayStr = monday.toISOString().split('T')[0]
+
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        const sundayStr = sunday.toISOString().split('T')[0]
+
+        let query = supabase
+          .from('daily_results')
+          .select(`
+             score, 
+             user_id, 
+             profiles!inner (username, full_name, avatar_url, show_avatar, current_streak)
+          `)
+          .gte('game_date', mondayStr)
+          .lte('game_date', sundayStr)
+          .not('user_id', 'is', null) 
+        
+        const { data } = await query
+
         if (data) {
-          const realUsers = data.filter((row: any) => row.user_id !== null)
-          const formatted: LeaderboardEntry[] = realUsers.map((row: any) => ({
-            score: row.score,
-            user_id: row.user_id,
-            guest_id: null,
-            profiles: {
-              username: row.username,
-              full_name: row.full_name,
-              avatar_url: row.avatar_url,
-              show_avatar: row.show_avatar,
-              current_streak: row.current_streak || 0
-            }
-          }))
-          setScores(formatted)
-          setTotalCount(realUsers.length)
+           const userTotals: Record<string, LeaderboardEntry> = {}
+           
+           data.forEach((row: any) => {
+               if (!row.user_id) return
+               
+               if (!userTotals[row.user_id]) {
+                   userTotals[row.user_id] = {
+                       score: 0,
+                       user_id: row.user_id,
+                       guest_id: null,
+                       profiles: row.profiles,
+                       correctCount: null
+                   }
+               }
+               userTotals[row.user_id].score += row.score
+           })
+
+           const sortedWeekly = Object.values(userTotals).sort((a, b) => b.score - a.score)
+           setScores(sortedWeekly)
+           setTotalCount(sortedWeekly.length)
         }
       }
 
@@ -109,7 +143,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     }
 
     fetchLeaderboard()
-  }, [currentUserId, view, showGuests, dateOffset]) // <--- Add dateOffset to dependency
+  }, [currentUserId, view, showGuests, dateOffset])
 
   const getDisplayName = (entry: LeaderboardEntry) => {
     if (entry.profiles?.username) return entry.profiles.username
@@ -121,9 +155,8 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     return 'Anonymous'
   }
 
-  // Helper to format the display date
   const getDisplayDate = () => {
-    if (view === 'weekly') return 'Last 7 Days'
+    if (view === 'weekly') return 'This Week'
     
     if (dateOffset === 0) return 'Today'
     if (dateOffset === 1) return 'Yesterday'
@@ -145,7 +178,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
               <Trophy className="w-4 h-4 text-yellow-500" /> Leaderboard
             </h3>
             
-            {/* 2. DATE NAVIGATION CONTROLS */}
             <div className="flex items-center gap-2">
                 {view === 'daily' && (
                     <button 
@@ -175,7 +207,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         {/* VIEW TOGGLE */}
         <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
              <button 
-                onClick={() => { setView('daily'); setDateOffset(0); }} // Reset date when clicking daily
+                onClick={() => { setView('daily'); setDateOffset(0); }} 
                 className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${view === 'daily' ? 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}
              >
                 <Flame className={`w-3 h-3 ${view === 'daily' ? 'text-orange-500' : 'text-neutral-600'}`} /> Daily
@@ -188,7 +220,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
              </button>
         </div>
 
-        {/* GUEST TOGGLE */}
         {view === 'daily' && (
             <div className="flex justify-center border-t border-neutral-800/50 pt-2">
                 <button 
@@ -207,10 +238,6 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                 </button>
             </div>
         )}
-
-        <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
-            {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' && dateOffset === 0 ? 'today' : view === 'daily' ? 'on this day' : 'this week'}
-        </div>
       </div>
 
       {/* LIST */}
@@ -233,6 +260,8 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             const avatarUrl = entry.profiles?.avatar_url
             const streak = entry.profiles?.current_streak || 0
             const showStreak = streak > 2
+            
+            const showAccuracy = view === 'daily' && entry.correctCount != null
 
             return (
                 <div 
@@ -261,11 +290,19 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                             {displayName} {isMe && '(You)'}
                         </span>
                         
-                        {showStreak && (
-                            <div className="flex items-center gap-1 mt-1 text-[9px] font-bold text-orange-500 uppercase tracking-wider">
-                                <Flame className="w-3 h-3 fill-orange-500" /> {streak} Day Streak
-                            </div>
-                        )}
+                        {/* Streak + Correct Count Row */}
+                        <div className="flex items-center gap-3 mt-1.5">
+                            {showStreak && (
+                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-500 uppercase tracking-wider">
+                                    <Flame className="w-3.5 h-3.5 fill-orange-500" /> {streak}
+                                </div>
+                            )}
+                            {showAccuracy && (
+                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                                    <Target className="w-3.5 h-3.5 text-neutral-600" /> {entry.correctCount}/10
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 

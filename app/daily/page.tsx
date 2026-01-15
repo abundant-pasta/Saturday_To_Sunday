@@ -6,7 +6,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Hash, Star, Shield, Flame, Zap, User, TrendingUp, TrendingDown, Swords, Medal, Skull } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Hash, Star, Shield, Flame, Zap, User, TrendingUp, TrendingDown, Swords, Medal, Skull, Target } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -50,10 +50,10 @@ const getGuestId = () => {
 // --- HELPER: Get Rank Title based on Score (UPDATED RANGES) ---
 const getRankTitle = (score: number) => {
     if (score >= 1100) return { title: "Heisman Hopeful", color: "text-yellow-400", icon: Trophy }
-    if (score >= 700) return { title: "All-American", color: "text-[#00ff80]", icon: Medal }  // 700 - 1099
-    if (score >= 300) return { title: "Varsity Starter", color: "text-blue-400", icon: Star }  // 300 - 699
-    if (score > 0) return { title: "Practice Squad", color: "text-neutral-400", icon: Shield } // 1 - 299
-    return { title: "Redshirt", color: "text-red-500", icon: Skull } // 0
+    if (score >= 700) return { title: "All-American", color: "text-[#00ff80]", icon: Medal }
+    if (score >= 300) return { title: "Varsity Starter", color: "text-blue-400", icon: Star }
+    if (score > 0) return { title: "Practice Squad", color: "text-neutral-400", icon: Shield }
+    return { title: "Redshirt", color: "text-red-500", icon: Skull }
 }
 
 // WRAPPER COMPONENT
@@ -201,7 +201,7 @@ function DailyGame() {
     fetchProfile()
   }, [user])
 
-  // 4. THE SAVE LOGIC (WITH INTEGRITY CHECK)
+  // 4. THE SAVE LOGIC
   useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved || score <= 0) return
@@ -209,7 +209,6 @@ function DailyGame() {
       const todayISO = getGameDate() 
       let saveSuccessful = false
 
-      // --- CHECK IF SCORE ALREADY EXISTS ---
       if (user) {
         const { data: existingScore } = await supabase
             .from('daily_results')
@@ -218,10 +217,7 @@ function DailyGame() {
             .eq('game_date', todayISO)
             .single()
 
-        // IF SCORE EXISTS, STOP HERE. DO NOT OVERWRITE.
         if (existingScore) {
-            console.log("User already has a score for today. Keeping original.")
-            // Sync UI to match database score
             if (existingScore.score !== score) {
                 setScore(existingScore.score)
             }
@@ -230,7 +226,6 @@ function DailyGame() {
         }
       }
 
-      // --- A. MERGE ATTEMPT (Only if no existing user score found above) ---
       if (user) {
          const localGuestId = localStorage.getItem('s2s_guest_id')
          if (localGuestId) {
@@ -242,18 +237,15 @@ function DailyGame() {
                 .is('user_id', null) 
                 .select()
              
-             if (data && data.length > 0) {
-                 console.log("Merged guest score into user account")
-                 saveSuccessful = true
-             }
+             if (data && data.length > 0) saveSuccessful = true
          }
       }
 
-      // --- B. STANDARD SAVE ---
       if (!saveSuccessful) {
         let upsertPayload: any = {
             score: score,
             game_date: todayISO,
+            results_json: results, 
         }
         
         let conflictTarget = ''
@@ -276,7 +268,6 @@ function DailyGame() {
         else console.error("Error saving score", scoreError)
       }
 
-      // --- C. PROFILE UPDATE ---
       if (saveSuccessful && user) {
             const { data: profile } = await supabase
                 .from('profiles')
@@ -313,9 +304,9 @@ function DailyGame() {
       }
     }
     saveScore()
-  }, [gameState, user, score, isSaved])
+  }, [gameState, user, score, isSaved, results])
 
-  // 5. RANK & AVERAGE FETCH LOGIC
+  // 5. RANK & AVERAGE FETCH
   useEffect(() => {
     const fetchRankAndStats = async () => {
         if (gameState === 'finished' && score > 0 && isSaved) {
@@ -347,25 +338,21 @@ function DailyGame() {
       setGameState('playing')
   }
 
-  // --- TIMER LOGIC (UPDATED: 800ms + Constant Loss) ---
+  // --- TIMER LOGIC ---
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
 
-    // Get current Tier to calculate decay step
     const currentQ = questions[currentIndex]
     const tier = currentQ ? (currentQ.tier || 1) : 1
     const multiplier = getMultiplier(tier)
 
-    // Calculate Decay:
-    // If Multiplier = 1.0 (Easy), decay 5 base pts = 5 final pts.
-    // If Multiplier = 2.0 (Hard), decay 2.5 base pts * 2.0 = 5 final pts.
     const decayAmount = 5 / multiplier
 
     let decayInterval: any
     const startTimer = setTimeout(() => {
         decayInterval = setInterval(() => {
             setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - decayAmount))
-        }, 800) // Slower tick: 800ms
+        }, 800)
     }, 1000)
 
     return () => {
@@ -410,7 +397,7 @@ function DailyGame() {
     }, 1500)
   }
 
-  // --- SHARE LOGIC (With Rank Title) ---
+  // --- SHARE LOGIC ---
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
     const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
@@ -519,13 +506,27 @@ ${challengeUrl}`
                         </div>
                     </div>
 
-                    {/* NEW: RANK BADGE (Scouting Report) */}
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-full border bg-neutral-950 ${rankInfo.color} border-current/20 shadow-lg mt-2 animate-in zoom-in duration-300`}>
-                        <rankInfo.icon className="w-5 h-5 fill-current" />
-                        <span className="text-sm font-black uppercase tracking-widest">{rankInfo.title}</span>
+                    {/* NEW COMPACT ROW: Rank + Average Score */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 mt-2 w-full">
+                        {/* 1. Rank Badge */}
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-neutral-950 ${rankInfo.color} border-current/20 shadow-lg animate-in zoom-in duration-300`}>
+                            <rankInfo.icon className="w-4 h-4 fill-current" />
+                            <span className="text-xs font-black uppercase tracking-widest">{rankInfo.title}</span>
+                        </div>
+
+                        {/* 2. Average Score Comparison */}
+                        {averageScore > 0 && (
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-[10px] font-bold uppercase tracking-widest shadow-lg animate-in zoom-in duration-300 delay-100 ${
+                                score >= averageScore 
+                                    ? 'bg-[#00ff80]/10 border-[#00ff80]/30 text-[#00ff80]' 
+                                    : 'bg-red-500/10 border-red-500/30 text-red-500' 
+                            }`}>
+                                {score >= averageScore ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                <span>{score >= averageScore ? 'Above Avg' : 'Below Avg'} ({averageScore})</span>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Challenger Victory Badge */}
                     {challengerScore && score > parseInt(challengerScore) && (
                         <div className="animate-in zoom-in duration-500 delay-300 mt-2">
                              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-yellow-500/20 border border-yellow-500/50 rounded-lg shadow-[0_0_15px_rgba(234,179,8,0.2)]">
@@ -534,14 +535,6 @@ ${challengeUrl}`
                                     You Beat The Challenger!
                                 </span>
                              </div>
-                        </div>
-                    )}
-
-                    {/* Global Average Comparison */}
-                    {averageScore > 0 && (
-                        <div className={`mt-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${score >= averageScore ? 'bg-[#00ff80]/10 border-[#00ff80]/30 text-[#00ff80]' : 'bg-red-500/10 border-red-500/30 text-red-500' } flex items-center gap-1`}>
-                            {score >= averageScore ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {score >= averageScore ? 'Above Average' : 'Below Average'} ({averageScore})
                         </div>
                     )}
 
@@ -616,7 +609,6 @@ ${challengeUrl}`
     )
   }
 
-  // ... [Keep playing/render logic] ...
   const q = questions[currentIndex]
 
   if (!q && gameState === 'playing') {
@@ -635,25 +627,39 @@ ${challengeUrl}`
 
   return (
     <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
-        <header className="h-14 border-b border-neutral-800 flex items-center justify-between px-4 bg-neutral-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
-         <div className="flex items-center gap-2">
-             <Link href="/">
-                <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 -ml-2">
-                    <Home className="w-5 h-5" />
-                </Button>
-             </Link>
-             <div className="text-xs font-mono text-neutral-500 border-l border-neutral-700 pl-2">SCORE: <span className="text-[#00ff80] font-black text-sm">{score}</span></div>
-         </div>
-         <div className="flex items-center gap-3">
-             <div className="text-xs font-mono text-neutral-400">{currentIndex + 1}/10</div>
-         </div>
-        </header>
         
-        <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-neutral-800 shrink-0" />
+        {/* COMPACT HEADER */}
+        <div className="w-full max-w-md mx-auto pt-2 px-2 pb-0 shrink-0 z-50">
+           <div className="flex items-center justify-between bg-neutral-900/80 backdrop-blur-md rounded-full px-4 py-2 border border-white/5 shadow-2xl">
+               {/* Home / Back */}
+               <Link href="/">
+                    <button className="text-neutral-400 hover:text-white transition-colors">
+                        <Home className="w-4 h-4" />
+                    </button>
+               </Link>
 
-        <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
+               {/* Score (Center) */}
+               <div className="flex items-center gap-2">
+                   <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Score</div>
+                   <div className="text-lg font-black text-[#00ff80] tabular-nums leading-none tracking-tight">{score}</div>
+               </div>
+
+               {/* Progress Count */}
+               <div className="text-[10px] font-bold text-neutral-500 font-mono tracking-widest">
+                  <span className="text-white">{currentIndex + 1}</span>/10
+               </div>
+           </div>
+
+           {/* Slim Progress Bar */}
+           <div className="mt-2 px-1">
+              <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-neutral-800 rounded-full" />
+           </div>
+        </div>
+
+        <main className="flex-1 w-full max-w-md mx-auto p-2 pb-4 flex flex-col gap-2 overflow-hidden h-full">
             <div className="flex-1 relative bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 shadow-2xl min-h-0">
                
+               {/* Floating Badges */}
                <div className="absolute top-3 left-3 z-30 flex flex-col gap-1 items-start">
                   <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-black/20 flex items-center gap-1
                     ${tier === 1 ? 'bg-[#00ff80] text-black' : 
@@ -678,19 +684,22 @@ ${challengeUrl}`
                {!isImageReady && ( <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 z-50"><Loader2 className="w-8 h-8 text-neutral-500 animate-spin" /></div> )}
                 
                 <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
+                    {/* Points Indicator */}
                     <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
                         <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? 'bg-[#00ff80] text-black' : 'bg-red-500 text-white') : 'bg-yellow-400 text-black' }`}>
                             {showResult ? (selectedOption === q.correct_answer ? `+${currentPotential}` : '+0') : `${currentPotential}`}
                         </div>
                         {showResult && ( <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${ selectedOption === q.correct_answer ? 'bg-white text-green-700' : 'bg-white text-red-600' }`}> {selectedOption === q.correct_answer ? 'CORRECT' : 'WRONG'} </div> )}
                     </div>
+                    {/* Name Overlay */}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
                         <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
+            {/* Answer Grid */}
+            <div className="grid grid-cols-2 gap-2 shrink-0 h-32 md:h-40">
                 {q.options.map((opt: string) => {
                     let btnClass = "bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:border-[#00ff80]/50"
                     if (showResult) {
