@@ -3,10 +3,10 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2 } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import InstallPWA from '@/components/InstallPWA' // Reusing the component we just built
+import InstallPWA from '@/components/InstallPWA' 
 import PushNotificationManager from '@/components/PushNotificationManager'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -52,6 +52,22 @@ function HomeContent() {
             redirectTo: `${window.location.origin}/auth/callback`
         }
     })
+  }
+
+  // 3. Share Handler 
+  const handleShareApp = async () => {
+    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        alert('Link copied to clipboard!')
+      }
+    } catch (err) {
+      console.error("Error sharing:", err)
+    }
   }
 
   return (
@@ -130,17 +146,24 @@ function HomeContent() {
             </Link>
 
             {/* --- NOTIFICATION BUTTON --- */}
-            {/* 'empty:hidden' ensures this container disappears completely if the user is already subscribed */}
             <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden">
               <PushNotificationManager hideOnSubscribed={true} />
             </div>
 
-             {/* INSTALL PWA BUTTON */}
-             {/* This now uses your new smart component with iOS instructions */}
+            {/* INSTALL PWA BUTTON */}
             <InstallPWA />
 
+            {/* --- NEW SHARE BUTTON --- */}
+            <Button 
+                onClick={handleShareApp}
+                variant="outline" 
+                className="w-full h-14 text-sm font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700"
+            >
+                <Share2 className="mr-2 w-4 h-4" /> Share with Friends
+            </Button>
+
             {/* --- FOOTER: ABOUT / LEGAL --- */}
-            <div className="pt-12 pb-4 flex flex-col items-center gap-3 border-t border-neutral-900 mt-8">
+            <div className="pt-8 pb-4 flex flex-col items-center gap-3 border-t border-neutral-900 mt-4">
                 <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
                     <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
                     <span className="text-neutral-800">•</span>
