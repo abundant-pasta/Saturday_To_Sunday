@@ -201,14 +201,15 @@ function DailyGame() {
     fetchProfile()
   }, [user])
 
-  // 4. THE SAVE LOGIC
-  useEffect(() => {
+ // 4. THE SAVE LOGIC (FIXED)
+ useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved || score <= 0) return
 
       const todayISO = getGameDate() 
       let saveSuccessful = false
 
+      // Check if already saved today
       if (user) {
         const { data: existingScore } = await supabase
             .from('daily_results')
@@ -226,6 +227,7 @@ function DailyGame() {
         }
       }
 
+      // Guest -> User conversion logic
       if (user) {
          const localGuestId = localStorage.getItem('s2s_guest_id')
          if (localGuestId) {
@@ -241,6 +243,7 @@ function DailyGame() {
          }
       }
 
+      // Upsert Score
       if (!saveSuccessful) {
         let upsertPayload: any = {
             score: score,
@@ -268,10 +271,12 @@ function DailyGame() {
         else console.error("Error saving score", scoreError)
       }
 
+      // --- STREAK UPDATE LOGIC ---
       if (saveSuccessful && user) {
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('current_streak, last_played_date')
+                // FIX 1: Fetch max_streak
+                .select('current_streak, max_streak, last_played_date')
                 .eq('id', user.id)
                 .single()
 
@@ -280,6 +285,7 @@ function DailyGame() {
                 const yesterdayDate = new Date(Date.now() - offset - 24 * 60 * 60 * 1000)
                 const yesterdayISO = yesterdayDate.toISOString().split('T')[0]
                 
+                // Calculate Current Streak
                 let newStreak = 1 
                 if (profile.last_played_date === todayISO) {
                     newStreak = profile.current_streak || 1
@@ -287,10 +293,17 @@ function DailyGame() {
                     newStreak = (profile.current_streak || 0) + 1
                 }
                 
+                // FIX 2: Calculate Max Streak
+                // If the new current streak is higher than the old max, update max. 
+                // Otherwise, keep the old max.
+                const currentMax = profile.max_streak || 0
+                const newMaxStreak = Math.max(currentMax, newStreak)
+                
                 await supabase
                     .from('profiles')
                     .update({ 
                         current_streak: newStreak,
+                        max_streak: newMaxStreak, // FIX 3: Save it!
                         last_played_date: todayISO 
                     })
                     .eq('id', user.id)
@@ -305,7 +318,7 @@ function DailyGame() {
     }
     saveScore()
   }, [gameState, user, score, isSaved, results])
-
+  
   // 5. RANK & AVERAGE FETCH
   useEffect(() => {
     const fetchRankAndStats = async () => {
