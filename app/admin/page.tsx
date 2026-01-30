@@ -1,10 +1,11 @@
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js' // <--- IMPORT THIS
 import AdminDashboard from '@/components/AdminDashboard'
 
 export default async function AdminPage() {
+  // 1. REGULAR CLIENT (For Security Check)
   const supabase = await createClient()
 
-  // --- SECURITY GATE ---
   const { data: { user } } = await supabase.auth.getUser()
   const adminEmail = process.env.ADMIN_EMAIL
   const userEmail = user?.email
@@ -19,13 +20,18 @@ export default async function AdminPage() {
     )
   }
 
-  // --- FETCH DATA ---
-  // Added .limit(5000) to ensure we get past the letter "J"
-  const { data: players } = await supabase
+  // 2. ADMIN CLIENT (For Data Fetching - Bypasses RLS)
+  // This uses the Service Role Key to see EVERYTHING in the DB
+  const adminDb = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: players } = await adminDb
     .from('players')
     .select('*')
     .order('name', { ascending: true })
-    .limit(5000) 
+    .limit(5000)
 
   return <AdminDashboard initialPlayers={players || []} />
 }
