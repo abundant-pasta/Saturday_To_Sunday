@@ -330,17 +330,19 @@ ${challengeUrl}`
 
   if (gameState === 'finished') {
     return (
-      <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-center p-4 space-y-4 animate-in fade-in duration-500 relative">
+      // UPDATED: Changed from 'justify-center' to 'justify-start' + overflow-y-auto to allow scrolling for leaderboard
+      <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-start p-4 space-y-4 animate-in fade-in duration-500 relative overflow-y-auto">
         <Link href="/" className="absolute top-4 left-4 z-20">
             <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white rounded-full"><Home className="w-6 h-6" /></Button>
         </Link>
 
-        <div className="text-center space-y-2 mb-2">
+        {/* Added top padding so it doesn't touch the very top on scroll */}
+        <div className="text-center space-y-2 mb-2 mt-8">
             <Trophy className={`w-16 h-16 ${theme.primary} mx-auto animate-bounce mb-2`} />
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">Daily Complete</h1>
         </div>
         
-        <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden`}>
+        <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden shrink-0`}>
         <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
             <div className="flex flex-col items-center justify-center gap-2">
                 <div className="flex flex-col items-center">
@@ -375,7 +377,12 @@ ${challengeUrl}`
 
         </CardContent>
         </Card>
-      </div>
+
+        {/* --- LEADERBOARD ADDED HERE --- */}
+        <div className="w-full max-w-md pb-8 animate-in slide-in-from-bottom-4 duration-700 delay-200">
+             <Leaderboard currentUserId={user?.id} defaultSport={sport} />
+        </div>
+        </div>
     )
   }
 

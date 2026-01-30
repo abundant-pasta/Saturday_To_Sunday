@@ -40,14 +40,23 @@ const THEMES = {
     }
 }
 
-export default function Leaderboard({ currentUserId }: { currentUserId?: string }) {
+// 1. Updated Props Interface
+interface LeaderboardProps {
+    currentUserId?: string
+    defaultSport?: 'football' | 'basketball'
+}
+
+export default function Leaderboard({ currentUserId, defaultSport = 'football' }: LeaderboardProps) {
   const [scores, setScores] = useState<LeaderboardEntry[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   
   // FILTERS
   const [view, setView] = useState<'daily' | 'weekly'>('daily')
-  const [sport, setSport] = useState<'football' | 'basketball'>('football') 
+  
+  // 2. Initialize State with Default Sport
+  const [sport, setSport] = useState<'football' | 'basketball'>(defaultSport) 
+  
   const [showGuests, setShowGuests] = useState(false) 
   const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
   const [dateOffset, setDateOffset] = useState(0) 
