@@ -1,14 +1,41 @@
 'use client'
 
 import { ClockIcon, PlayIcon, StarIcon, TrophyIcon } from '@heroicons/react/24/outline';
-import { Zap, GraduationCap, Swords } from 'lucide-react';
+import { Zap, GraduationCap, Swords, Star, Dribbble } from 'lucide-react';
 
 interface IntroScreenProps {
   onStart: () => void;
-  challengerScore?: string | null; // NEW: Optional score to beat
+  challengerScore?: string | null;
+  sport: 'football' | 'basketball'; // NEW: Required prop
 }
 
-export default function IntroScreen({ onStart, challengerScore }: IntroScreenProps) {
+// THEME CONFIG
+const THEMES = {
+    football: {
+        label: 'Football',
+        accent: 'text-[#00ff80]',
+        bgAccent: 'bg-[#00ff80]',
+        button: 'bg-[#00ff80] hover:bg-[#05ff84] text-black shadow-[0_0_20px_rgba(0,255,128,0.3)]',
+        glow: 'bg-[#00ff80]/10',
+        dropShadow: 'drop-shadow-[0_0_15px_rgba(0,255,128,0.4)]',
+        playerCount: 10,
+        icon: Star
+    },
+    basketball: {
+        label: 'Basketball',
+        accent: 'text-amber-500',
+        bgAccent: 'bg-amber-500',
+        button: 'bg-amber-500 hover:bg-amber-400 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)]',
+        glow: 'bg-amber-500/10',
+        dropShadow: 'drop-shadow-[0_0_15px_rgba(245,158,11,0.4)]',
+        playerCount: 5,
+        icon: Dribbble
+    }
+}
+
+export default function IntroScreen({ onStart, challengerScore, sport }: IntroScreenProps) {
+  const theme = THEMES[sport]
+
   return (
     <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 animate-in fade-in duration-500 font-sans">
       <div className="w-full max-w-lg bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden border border-neutral-800 ring-1 ring-white/5">
@@ -17,7 +44,6 @@ export default function IntroScreen({ onStart, challengerScore }: IntroScreenPro
         {challengerScore ? (
             // --- CHALLENGE MODE HEADER ---
             <div className="relative bg-neutral-900 p-8 text-center border-b border-neutral-800">
-                {/* Red Glow for Danger/Challenge */}
                 <div className="absolute inset-0 bg-red-500/10 blur-3xl opacity-40 pointer-events-none" />
                 
                 <div className="relative z-10 flex justify-center mb-2">
@@ -35,13 +61,19 @@ export default function IntroScreen({ onStart, challengerScore }: IntroScreenPro
         ) : (
             // --- STANDARD HEADER ---
             <div className="relative bg-neutral-900 p-8 text-center border-b border-neutral-800">
-                <div className="absolute inset-0 bg-[#00ff80]/10 blur-3xl opacity-40 pointer-events-none" />
+                <div className={`absolute inset-0 ${theme.glow} blur-3xl opacity-40 pointer-events-none`} />
                 
-                <h1 className="relative text-4xl font-black text-white italic tracking-tighter uppercase drop-shadow-[0_0_15px_rgba(0,255,128,0.4)]">
-                    Daily <span className="text-[#00ff80]">Challenge</span>
+                <div className="flex justify-center mb-4">
+                    <div className={`p-3 rounded-full bg-neutral-800 border border-neutral-700 ${theme.accent}`}>
+                        <theme.icon className="w-8 h-8 fill-current" />
+                    </div>
+                </div>
+
+                <h1 className={`relative text-4xl font-black text-white italic tracking-tighter uppercase ${theme.dropShadow}`}>
+                    Daily <span className={theme.accent}>{theme.label}</span>
                 </h1>
                 <p className="relative text-neutral-400 font-mono text-xs md:text-sm mt-2 uppercase tracking-widest font-bold">
-                    10 Players. <span className="text-white">1350 Points</span> on the line.
+                    {theme.playerCount} Players. <span className="text-white">1350 Points</span> on the line.
                 </p>
             </div>
         )}
@@ -51,13 +83,13 @@ export default function IntroScreen({ onStart, challengerScore }: IntroScreenPro
             
             {/* Rule 1: The Concept */}
             <div className="flex items-start gap-4 group">
-                <div className="h-12 w-12 shrink-0 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-[#00ff80] shadow-lg group-hover:scale-105 transition-transform group-hover:border-[#00ff80]/50">
+                <div className={`h-12 w-12 shrink-0 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center ${theme.accent} shadow-lg group-hover:scale-105 transition-transform`}>
                     <GraduationCap className="w-6 h-6" />
                 </div>
                 <div>
                     <h3 className="font-bold text-white text-lg uppercase tracking-tight">The Assignment</h3>
                     <p className="text-sm text-neutral-400 leading-relaxed mt-1">
-                        We show you an NFL player. You tell us where they played on Saturdays. Simple as that.
+                        We show you {sport === 'football' ? 'an NFL' : 'an NBA'} player. You tell us where they played in college.
                     </p>
                 </div>
             </div>
@@ -88,20 +120,7 @@ export default function IntroScreen({ onStart, challengerScore }: IntroScreenPro
                 <div>
                     <h3 className="font-bold text-white text-lg uppercase tracking-tight">Beat the Blitz</h3>
                     <p className="text-sm text-neutral-400 leading-relaxed mt-1">
-                        You get a <span className="text-white font-bold">1-second "huddle"</span> to think, then points start draining fast. Don't let the clock run out!
-                    </p>
-                </div>
-            </div>
-
-            {/* Rule 4: Leaderboard */}
-            <div className="flex items-start gap-4 group">
-                <div className="h-12 w-12 shrink-0 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-purple-400 shadow-lg group-hover:scale-105 transition-transform group-hover:border-purple-400/50">
-                    <TrophyIcon className="w-6 h-6" />
-                </div>
-                <div>
-                    <h3 className="font-bold text-white text-lg uppercase tracking-tight">The Standings</h3>
-                    <p className="text-sm text-neutral-400 leading-relaxed mt-1">
-                        See where you rank against the world. Top players earn their spot on the Daily Leaderboard.
+                        You get a <span className="text-white font-bold">1-second "huddle"</span> to think, then points start draining fast.
                     </p>
                 </div>
             </div>
@@ -115,7 +134,7 @@ export default function IntroScreen({ onStart, challengerScore }: IntroScreenPro
             className={`w-full group relative flex items-center justify-center gap-3 rounded-xl py-4 text-lg font-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200
                 ${challengerScore 
                     ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' 
-                    : 'bg-[#00ff80] hover:bg-[#05ff84] text-black shadow-[0_0_20px_rgba(0,255,128,0.3)] hover:shadow-[0_0_30px_rgba(0,255,128,0.5)]'}
+                    : theme.button}
             `}
           >
             <span>{challengerScore ? "ACCEPT CHALLENGE" : "START GAME"}</span>

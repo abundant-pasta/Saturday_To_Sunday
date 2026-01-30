@@ -2,7 +2,7 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight, Target } from 'lucide-react'
+import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight, Target, Star, Dribbble } from 'lucide-react'
 import Image from 'next/image'
 
 type LeaderboardEntry = {
@@ -20,14 +20,39 @@ type LeaderboardEntry = {
   }
 }
 
+// THEME CONFIG
+const THEMES = {
+    football: {
+        label: 'Football',
+        icon: Star,
+        color: 'text-[#00ff80]',
+        bgColor: 'bg-[#00ff80]',
+        ring: 'ring-[#00ff80]',
+        maxQuestions: 10
+    },
+    basketball: {
+        label: 'Basketball',
+        icon: Dribbble,
+        color: 'text-amber-500',
+        bgColor: 'bg-amber-500',
+        ring: 'ring-amber-500',
+        maxQuestions: 5
+    }
+}
+
 export default function Leaderboard({ currentUserId }: { currentUserId?: string }) {
   const [scores, setScores] = useState<LeaderboardEntry[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  
+  // FILTERS
   const [view, setView] = useState<'daily' | 'weekly'>('daily')
+  const [sport, setSport] = useState<'football' | 'basketball'>('football') 
   const [showGuests, setShowGuests] = useState(false) 
   const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
   const [dateOffset, setDateOffset] = useState(0) 
+
+  const theme = THEMES[sport]
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,6 +67,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
 
     const fetchLeaderboard = async () => {
       setLoading(true)
+      setScores([]) 
       
       const now = new Date()
       const msPerDay = 24 * 60 * 60 * 1000
@@ -61,6 +87,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             profiles (username, full_name, avatar_url, show_avatar, current_streak)
           `)
           .eq('game_date', targetDateStr)
+          .eq('sport', sport) 
           .order('score', { ascending: false })
           .limit(50)
 
@@ -83,6 +110,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
           .from('daily_results')
           .select('*', { count: 'exact', head: true })
           .eq('game_date', targetDateStr)
+          .eq('sport', sport) 
         
         if (!showGuests) {
             countQuery = countQuery.not('user_id', 'is', null)
@@ -91,6 +119,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
         if (count !== null) setTotalCount(count)
 
       } else {
+        // WEEKLY VIEW
         const currentDay = now.getDay() 
         const diffToMon = currentDay === 0 ? -6 : 1 - currentDay 
         
@@ -111,6 +140,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
           `)
           .gte('game_date', mondayStr)
           .lte('game_date', sundayStr)
+          .eq('sport', sport) 
           .not('user_id', 'is', null) 
         
         const { data } = await query
@@ -143,7 +173,7 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
     }
 
     fetchLeaderboard()
-  }, [currentUserId, view, showGuests, dateOffset])
+  }, [currentUserId, view, showGuests, dateOffset, sport]) 
 
   const getDisplayName = (entry: LeaderboardEntry) => {
     if (entry.profiles?.username) return entry.profiles.username
@@ -204,6 +234,22 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             </div>
         </div>
 
+        {/* SPORT TOGGLE */}
+        <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
+             <button 
+                onClick={() => setSport('football')}
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${sport === 'football' ? 'bg-neutral-800 text-[#00ff80] shadow-sm ring-1 ring-[#00ff80]/30' : 'text-neutral-500 hover:text-neutral-300'}`}
+             >
+                <Star className="w-3 h-3" /> Football
+             </button>
+             <button 
+                onClick={() => setSport('basketball')}
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${sport === 'basketball' ? 'bg-neutral-800 text-amber-500 shadow-sm ring-1 ring-amber-500/30' : 'text-neutral-500 hover:text-neutral-300'}`}
+             >
+                <Dribbble className="w-3 h-3" /> Basketball
+             </button>
+        </div>
+
         {/* VIEW TOGGLE */}
         <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
              <button 
@@ -232,14 +278,14 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
                         </>
                     ) : (
                         <>
-                            <Filter className="w-3 h-3 text-[#00ff80]" /> <span className="text-[#00ff80]">Registered Only</span>
+                            <Filter className={`w-3 h-3 ${theme.color}`} /> <span className={theme.color}>Registered Only</span>
                         </>
                     )}
                 </button>
             </div>
         )}
 
-        {/* ADDED: Total Count Display */}
+        {/* TOTAL COUNT */}
         <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
             {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' && dateOffset === 0 ? 'today' : view === 'daily' ? 'on this day' : 'this week'}
         </div>
@@ -271,48 +317,51 @@ export default function Leaderboard({ currentUserId }: { currentUserId?: string 
             return (
                 <div 
                     key={index} 
-                    className={`flex items-center px-4 py-3 text-sm transition-colors ${isMe ? 'bg-[#00ff80]/10' : 'hover:bg-neutral-800/30'}`}
+                    className={`flex items-center px-4 py-3 text-sm transition-colors ${isMe ? 'bg-white/5' : 'hover:bg-neutral-800/30'}`}
                 >
-                <div className={`w-8 font-mono font-black ${
-                    rank === 1 ? 'text-yellow-400' : 
-                    rank === 2 ? 'text-neutral-300' : 
-                    rank === 3 ? 'text-amber-700' : 'text-neutral-600'
-                }`}>
-                    {rank}
-                </div>
-
-                <div className="flex-1 flex items-center gap-3">
-                    <div className="relative w-6 h-6 rounded-full overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0 flex items-center justify-center">
-                        {showPhoto && avatarUrl ? (
-                            <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
-                        ) : (
-                            <User className="w-3 h-3 text-neutral-500" />
-                        )}
+                    {/* Rank */}
+                    <div className={`w-8 font-mono font-black ${
+                        rank === 1 ? 'text-yellow-400' : 
+                        rank === 2 ? 'text-neutral-300' : 
+                        rank === 3 ? 'text-amber-700' : 'text-neutral-600'
+                    }`}>
+                        {rank}
                     </div>
-                    
-                    <div className="flex flex-col justify-center">
-                        <span className={`truncate max-w-[140px] leading-none ${isMe ? 'text-[#00ff80] font-bold' : 'text-neutral-300'} ${!entry.profiles ? 'opacity-70 font-mono text-xs' : ''}`}>
-                            {displayName} {isMe && '(You)'}
-                        </span>
-                        
-                        <div className="flex items-center gap-3 mt-1.5">
-                            {showStreak && (
-                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-500 uppercase tracking-wider">
-                                    <Flame className="w-3.5 h-3.5 fill-orange-500" /> {streak}
-                                </div>
-                            )}
-                            {showAccuracy && (
-                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
-                                    <Target className="w-3.5 h-3.5 text-neutral-600" /> {entry.correctCount}/10
-                                </div>
+
+                    {/* User Info */}
+                    <div className="flex-1 flex items-center gap-3">
+                        <div className="relative w-6 h-6 rounded-full overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0 flex items-center justify-center">
+                            {showPhoto && avatarUrl ? (
+                                <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
+                            ) : (
+                                <User className="w-3 h-3 text-neutral-500" />
                             )}
                         </div>
+                        
+                        <div className="flex flex-col justify-center">
+                            <span className={`truncate max-w-[140px] leading-none ${isMe ? `${theme.color} font-bold` : 'text-neutral-300'} ${!entry.profiles ? 'opacity-70 font-mono text-xs' : ''}`}>
+                                {displayName} {isMe && '(You)'}
+                            </span>
+                            
+                            <div className="flex items-center gap-3 mt-1.5">
+                                {showStreak && (
+                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-500 uppercase tracking-wider">
+                                        <Flame className="w-3.5 h-3.5 fill-orange-500" /> {streak}
+                                    </div>
+                                )}
+                                {showAccuracy && (
+                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                                        <Target className="w-3.5 h-3.5 text-neutral-600" /> {entry.correctCount}/{theme.maxQuestions}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
 
-                <div className={`font-mono font-bold ${view === 'weekly' ? 'text-purple-400' : 'text-[#00ff80]'}`}>
-                    {entry.score.toLocaleString()}
-                </div>
+                    {/* Score */}
+                    <div className={`font-mono font-bold ${view === 'weekly' ? 'text-purple-400' : theme.color}`}>
+                        {entry.score.toLocaleString()}
+                    </div>
                 </div>
             )
             })

@@ -1,20 +1,20 @@
 import type { NextConfig } from "next";
 
 // 1. Configure the PWA wrapper
-// We use require() here because next-pwa doesn't always play nice with ES imports
 const withPWA = require("next-pwa")({
   dest: "public",
   register: true,
   skipWaiting: true,
-  disable: process.env.NODE_ENV === "development", // Disable PWA in local dev to save cache headaches
-  
-  // 2. THIS IS THE CRITICAL NEW LINE:
+  disable: process.env.NODE_ENV === "development",
   importScripts: ["/custom-sw.js"], 
 });
 
-// 3. Your existing config
+// 2. Your config with the FIX applied
 const nextConfig: NextConfig = {
   images: {
+    // THIS LINE SAVES YOUR VERCEL USAGE:
+    unoptimized: true, 
+    
     remotePatterns: [
       {
         protocol: 'https',
@@ -33,5 +33,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-// 4. Wrap and export
+// 3. Wrap and export
 export default withPWA(nextConfig);

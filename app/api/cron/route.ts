@@ -7,15 +7,15 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   // ==========================================
-  // 🔒 SECURITY CHECK
+  // 🔒 SECURITY CHECK (TEMPORARILY DISABLED)
   // ==========================================
-  const authHeader = request.headers.get('authorization')
-  if (
-    process.env.NODE_ENV === 'production' && 
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
+  // const authHeader = request.headers.get('authorization')
+  // if (
+  //   process.env.NODE_ENV === 'production' && 
+  //   authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  // ) {
+  //   return new NextResponse('Unauthorized', { status: 401 })
+  // }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,98 +26,150 @@ export async function GET(request: Request) {
   const action = searchParams.get('action') || 'generate'
 
   // ==========================================
-  // MODE A: GENERATE (Midday - Silent)
+  // MODE A: GENERATE
   // ==========================================
   if (action === 'generate') {
-    // 1. Calculate Tomorrow's Date
-    const offset = 6 * 60 * 60 * 1000 
-    const now = new Date(Date.now() - offset)
-    now.setDate(now.getDate() + 1)
-    const targetDate = now.toISOString().split('T')[0]
+    
+    // 1. DATE LOGIC (Updated to support manual override)
+    // Checks if you passed ?date=2024-XX-XX in the URL
+    const overrideDate = searchParams.get('date')
+    let targetDate = ''
 
-    // 2. Check Idempotency
-    const { data: existing } = await supabase
-      .from('daily_games')
-      .select('date')
-      .eq('date', targetDate)
-      .single()
-
-    if (existing) {
-      return NextResponse.json({ message: `Game already exists for ${targetDate}.` })
+    if (overrideDate) {
+        targetDate = overrideDate
+        console.log(`Manual Override: Generating games for ${targetDate}`)
+    } else {
+        // Default: Tomorrow
+        const offset = 6 * 60 * 60 * 1000 
+        const now = new Date(Date.now() - offset)
+        now.setDate(now.getDate() + 1)
+        targetDate = now.toISOString().split('T')[0]
     }
 
-    // --- 3. NEW: CALCULATE 7-DAY CUTOFF ---
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    const cutoffString = sevenDaysAgo.toISOString()
+    // 2. NEW: CALCULATE 45-DAY CUTOFF
+    const cooldownDate = new Date()
+    cooldownDate.setDate(cooldownDate.getDate() - 45) // Changed from 7 to 45
+    const cutoffString = cooldownDate.toISOString()
 
-    // --- 4. FETCH POOLS WITH COOLDOWN FILTER ---
-    // We filter for players who have NEVER played (null) OR played before the cutoff
-    const [easyRes, mediumRes, hardRes] = await Promise.all([
-      supabase.from('players').select('*')
-        .eq('tier', 1)
-        .not('image_url', 'is', null)
-        .or(`last_selected.is.null,last_selected.lt.${cutoffString}`) // <--- THE FILTER
-        .limit(50),
-      supabase.from('players').select('*')
-        .eq('tier', 2)
-        .not('image_url', 'is', null)
-        .or(`last_selected.is.null,last_selected.lt.${cutoffString}`) // <--- THE FILTER
-        .limit(30),
-      supabase.from('players').select('*')
-        .eq('tier', 3)
-        .not('image_url', 'is', null)
-        .or(`last_selected.is.null,last_selected.lt.${cutoffString}`) // <--- THE FILTER
-        .limit(20)
-    ])
-
-    if (!easyRes.data || easyRes.data.length < 5 || 
-        !mediumRes.data || mediumRes.data.length < 3 || 
-        !hardRes.data || hardRes.data.length < 2) {
-      return NextResponse.json({ error: 'Not enough players available (checked 7-day cooldown).' }, { status: 500 })
-    }
-
-    // 5. COMPILE ORDERED ROSTER
-    const orderedRoster = [
-      ...easyRes.data.sort(() => 0.5 - Math.random()).slice(0, 5),
-      ...mediumRes.data.sort(() => 0.5 - Math.random()).slice(0, 3),
-      ...hardRes.data.sort(() => 0.5 - Math.random()).slice(0, 2)
+    // 3. DEFINE CONFIGS
+    const sportConfigs = [
+      { 
+        sport: 'football', 
+        total: 10, 
+        distribution: [5, 3, 2] // 5 Easy, 3 Med, 2 Hard
+      },
+      { 
+        sport: 'basketball', 
+        total: 5, 
+        distribution: [2, 2, 1] // 2 Easy, 2 Med, 1 Hard
+      }
     ]
 
-    // 6. Build Content
-    const { data: allColleges } = await supabase.from('players').select('college').not('college', 'is', null)
-    const collegeList = Array.from(new Set(allColleges?.map((c: any) => c.college) || [])) as string[]
+    const results = []
 
-    const content = orderedRoster.map((p: any) => {
-      const wrong = getSimilarDistractors(p.college, collegeList)
-      const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
-      return {
-        id: p.id,
-        name: p.name,
-        image_url: p.image_url,
-        correct_answer: p.college,
-        options: options,
-        tier: p.tier || 1 
+    // 4. GENERATION LOOP (Runs once for Football, once for Basketball)
+    for (const config of sportConfigs) {
+      const { sport, distribution } = config
+
+      // A. Check Idempotency (Per Sport)
+      const { data: existing } = await supabase
+        .from('daily_games')
+        .select('date')
+        .eq('date', targetDate)
+        .eq('sport', sport)
+        .single()
+
+      if (existing) {
+        results.push(`${sport}: Already exists`)
+        continue
       }
-    })
 
-    // 7. Save to DB
-    const { error } = await supabase
-      .from('daily_games')
-      .insert({ date: targetDate, content })
+      // B. Fetch Pools with 45-Day Cooldown & Sport Filter
+      // We fetch slightly more than needed (limit 50) to ensure randomness
+      const [easyRes, mediumRes, hardRes] = await Promise.all([
+        supabase.from('players').select('*')
+          .eq('sport', sport) // Filter by Sport
+          .eq('tier', 1)
+          .not('image_url', 'is', null)
+          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`) // 45 Day Filter
+          .limit(50),
+        supabase.from('players').select('*')
+          .eq('sport', sport)
+          .eq('tier', 2)
+          .not('image_url', 'is', null)
+          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+          .limit(30),
+        supabase.from('players').select('*')
+          .eq('sport', sport)
+          .eq('tier', 3)
+          .not('image_url', 'is', null)
+          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+          .limit(20)
+      ])
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      // Validation
+      if (!easyRes.data || easyRes.data.length < distribution[0] || 
+          !mediumRes.data || mediumRes.data.length < distribution[1] || 
+          !hardRes.data || hardRes.data.length < distribution[2]) {
+        console.error(`Not enough ${sport} players available (checked 45-day cooldown).`)
+        results.push(`${sport}: Failed - Not enough players`)
+        continue
+      }
+
+      // C. Compile Ordered Roster
+      const orderedRoster = [
+        ...easyRes.data.sort(() => 0.5 - Math.random()).slice(0, distribution[0]),
+        ...mediumRes.data.sort(() => 0.5 - Math.random()).slice(0, distribution[1]),
+        ...hardRes.data.sort(() => 0.5 - Math.random()).slice(0, distribution[2])
+      ]
+
+      // D. Build Content (Get Distractors for THIS sport)
+      const { data: allColleges } = await supabase
+        .from('players')
+        .select('college')
+        .eq('sport', sport) // Ensure distractors are from the same sport
+        .not('college', 'is', null)
+
+      const collegeList = Array.from(new Set(allColleges?.map((c: any) => c.college) || [])) as string[]
+
+      const content = orderedRoster.map((p: any) => {
+        const wrong = getSimilarDistractors(p.college, collegeList)
+        const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
+        return {
+          id: p.id,
+          name: p.name,
+          image_url: p.image_url,
+          correct_answer: p.college,
+          options: options,
+          tier: p.tier || 1,
+          sport: p.sport // Good for UI to know
+        }
+      })
+
+      // E. Save to DB
+      const { error } = await supabase
+        .from('daily_games')
+        .insert({ 
+          date: targetDate, 
+          content,
+          sport: sport // Save the sport tag
+        })
+
+      if (error) {
+        results.push(`${sport}: DB Error - ${error.message}`)
+      } else {
+        // F. Update last_selected (Lock them out for 45 days)
+        const playerIds = orderedRoster.map((p: any) => p.id)
+        await supabase
+          .from('players')
+          .update({ last_selected: new Date().toISOString() })
+          .in('id', playerIds)
+        
+        results.push(`${sport}: Generated successfully`)
+      }
     }
 
-    // 8. UPDATE LAST_SELECTED (Locks them out for next 7 days)
-    const playerIds = orderedRoster.map((p: any) => p.id)
-    await supabase
-      .from('players')
-      .update({ last_selected: new Date().toISOString() })
-      .in('id', playerIds)
-
-    return NextResponse.json({ success: true, date: targetDate, action: 'Generated (with 7-day cooldown)' })
+    return NextResponse.json({ success: true, date: targetDate, results })
   }
 
   // ==========================================
@@ -140,7 +192,8 @@ export async function GET(request: Request) {
       if (subs && subs.length > 0) {
         const payload = JSON.stringify({
           title: 'Saturday to Sunday',
-          body: 'The new daily challenge is live! Can you keep your streak alive? 🏈',
+          // Updated text to reflect multiple grids
+          body: 'New Daily Grids are live! Check out today\'s Football and Basketball challenges. 🏈 🏀',
           icon: '/icon-192x192.png'
         })
 

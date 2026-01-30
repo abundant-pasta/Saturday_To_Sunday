@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2 } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA' 
@@ -56,7 +56,7 @@ function HomeContent() {
 
   // 3. Share Handler 
   const handleShareApp = async () => {
-    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
     
     try {
       if (navigator.share) {
@@ -103,7 +103,7 @@ function HomeContent() {
         )}
       </div>
 
-      <div className="w-full max-w-md flex flex-col gap-8">
+      <div className="w-full max-w-md flex flex-col gap-6">
         
         {/* LOGO AREA */}
         <div className="text-center space-y-4 py-4">
@@ -118,34 +118,54 @@ function HomeContent() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        {/* --- DUAL GAME MODE CARDS --- */}
+        <div className="grid grid-cols-2 gap-4">
             
-            {/* 1. DAILY CHALLENGE CARD */}
-            <Link href="/daily" className="block group">
-                <div className="bg-gradient-to-r from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-2xl">
-                    <div className="bg-neutral-900/80 rounded-lg p-6 flex flex-col items-center justify-center gap-4 text-center h-48 backdrop-blur-sm">
-                        <div className="p-4 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
-                           <Calendar className="w-10 h-10 text-[#00ff80]" />
+            {/* FOOTBALL CARD */}
+            <Link href="/daily" className="block group h-full">
+                <div className="bg-gradient-to-br from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
+                    <div className="bg-neutral-900/80 rounded-lg p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm min-h-[140px]">
+                        <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                           <Star className="w-8 h-8 text-[#00ff80] fill-current" />
                         </div>
                         <div>
-                            <div className="text-[#00ff80] font-black uppercase text-xs tracking-[0.2em] mb-1">Play Now</div>
-                            <div className="text-white font-black text-3xl uppercase italic tracking-tighter">Daily Challenge</div>
+                            <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-1">Play Daily</div>
+                            <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">Football</div>
                         </div>
                     </div>
                 </div>
             </Link>
 
+            {/* BASKETBALL CARD */}
+            <Link href="/daily/basketball" className="block group h-full">
+                <div className="bg-gradient-to-br from-neutral-900 to-amber-950 border border-amber-500/30 group-hover:border-amber-400 p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
+                    <div className="bg-neutral-900/80 rounded-lg p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm min-h-[140px]">
+                        <div className="p-3 bg-amber-500/10 rounded-full border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">
+                           <Dribbble className="w-8 h-8 text-amber-500" />
+                        </div>
+                        <div>
+                            <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-1">Play Daily</div>
+                            <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">Basketball</div>
+                        </div>
+                    </div>
+                </div>
+            </Link>
+
+        </div>
+
+        {/* --- SECONDARY ACTIONS --- */}
+        <div className="flex flex-col gap-4">
             {/* LEADERBOARD BUTTON */}
             <Link href="/leaderboard" className="w-full">
               <Button 
                 variant="outline" 
-                className="w-full h-16 text-lg font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600"
+                className="w-full h-14 text-lg font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600"
               >
                 <Trophy className="mr-3 w-5 h-5 text-yellow-500" /> View Leaderboard
               </Button>
             </Link>
 
-            {/* --- NOTIFICATION BUTTON --- */}
+            {/* NOTIFICATION BUTTON */}
             <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden">
               <PushNotificationManager hideOnSubscribed={true} />
             </div>
@@ -153,13 +173,13 @@ function HomeContent() {
             {/* INSTALL PWA BUTTON */}
             <InstallPWA />
 
-            {/* --- NEW SHARE BUTTON --- */}
+            {/* SHARE BUTTON */}
             <Button 
                 onClick={handleShareApp}
                 variant="outline" 
-                className="w-full h-14 text-sm font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700"
+                className="w-full h-12 text-sm font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700"
             >
-                <Share2 className="mr-2 w-4 h-4" /> Share with Friends
+                <Share2 className="mr-2 w-4 h-4" /> Share App
             </Button>
 
             {/* --- FOOTER: ABOUT / LEGAL --- */}
@@ -171,7 +191,7 @@ function HomeContent() {
                     <span className="text-neutral-800">•</span>
                     <a href="mailto:support@playsaturdaytosunday.com" className="hover:text-white transition-colors">Support</a>
                 </div>
-                <p className="text-neutral-800 text-[10px] font-black uppercase tracking-widest">v1.0.0</p>
+                <p className="text-neutral-800 text-[10px] font-black uppercase tracking-widest">v1.1.0</p>
             </div>
 
         </div>
