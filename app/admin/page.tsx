@@ -1,14 +1,15 @@
 import { createClient } from '@/utils/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient as createAdminClient } from '@supabase/supabase-js' // <--- IMPORT THIS
 import AdminDashboard from '@/components/AdminDashboard'
 
 export default async function AdminPage() {
-  // 1. Standard Client: Checks if YOU are logged in and authorized
+  // 1. Standard Client: Checks if YOU are logged in
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
   const adminEmail = process.env.ADMIN_EMAIL
   const userEmail = user?.email
+  // Case-insensitive check
   const isAuthorized = user && adminEmail && userEmail?.toLowerCase() === adminEmail?.toLowerCase()
 
   if (!isAuthorized) {
@@ -22,8 +23,8 @@ export default async function AdminPage() {
     )
   }
 
-  // 2. Service Role Client: Bypasses RLS to see all 300+ players
-  // Ensure SUPABASE_SERVICE_ROLE_KEY is in your Vercel/Local env variables
+  // 2. Service Role Client: Bypasses RLS to see ALL 300+ players
+  // Ensure SUPABASE_SERVICE_ROLE_KEY is in your .env.local
   const adminDb = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -33,7 +34,7 @@ export default async function AdminPage() {
     .from('players')
     .select('*')
     .order('name', { ascending: true })
-    .limit(5000) // High limit to ensure we get every row
+    .limit(5000) // High limit to catch everyone
 
   if (error) {
     console.error("Admin Fetch Error:", error)
