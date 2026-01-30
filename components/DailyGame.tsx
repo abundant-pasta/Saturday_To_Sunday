@@ -207,10 +207,10 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
       
       if (user) {
           upsertPayload.user_id = user.id
-          conflictTarget = 'user_id, game_date, sport' 
+          conflictTarget = 'user_id,game_date,sport' 
       } else {
           upsertPayload.guest_id = getGuestId()
-          conflictTarget = 'guest_id, game_date, sport'
+          conflictTarget = 'guest_id,game_date,sport'
       }
 
       const { error } = await supabase.from('daily_results').upsert(upsertPayload, { onConflict: conflictTarget })
