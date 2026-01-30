@@ -1,13 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AdminCard from '@/components/AdminCard'
-import { Search, Filter } from 'lucide-react'
+import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 
 export default function AdminDashboard({ initialPlayers }: { initialPlayers: any[] }) {
   const [sportFilter, setSportFilter] = useState<'football' | 'basketball'>('basketball')
   const [tierFilter, setTierFilter] = useState<number | 'all'>('all')
   const [search, setSearch] = useState('')
+  
+  // PAGINATION STATE
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 50
+
+  // Reset to page 1 if filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [sportFilter, tierFilter, search])
 
   // Filter Logic
   const filteredPlayers = initialPlayers.filter(player => {
@@ -17,8 +26,11 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
     return matchesSport && matchesTier && matchesSearch
   })
 
-  // Count stats for the header
-  const totalCount = filteredPlayers.length
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedPlayers = filteredPlayers.slice(startIndex, startIndex + itemsPerPage)
+
   const missingImages = filteredPlayers.filter(p => !p.image_url).length
 
   return (
@@ -32,7 +44,7 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
               Roster <span className="text-yellow-500">Audit</span>
             </h1>
             <p className="text-slate-400 text-sm mt-1">
-              Showing <strong>{totalCount}</strong> players. 
+              Found <strong>{filteredPlayers.length}</strong> matches. 
               {missingImages > 0 && <span className="text-red-400 ml-2 font-bold">({missingImages} missing images)</span>}
             </p>
           </div>
@@ -51,47 +63,73 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
         </div>
 
         {/* CONTROLS */}
-        <div className="flex flex-col md:flex-row gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+        <div className="flex flex-col md:flex-row gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800 justify-between items-center">
           
-          {/* Sport Toggle */}
-          <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
-            {['football', 'basketball'].map((s) => (
-              <button
-                key={s}
-                onClick={() => setSportFilter(s as any)}
-                className={`px-6 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${
-                  sportFilter === s 
-                    ? s === 'football' ? 'bg-[#00ff80] text-black shadow-lg' : 'bg-amber-500 text-black shadow-lg'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                {s}
-              </button>
-            ))}
+          <div className="flex gap-4">
+            {/* Sport Toggle */}
+            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                {['football', 'basketball'].map((s) => (
+                <button
+                    key={s}
+                    onClick={() => setSportFilter(s as any)}
+                    className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${
+                    sportFilter === s 
+                        ? s === 'football' ? 'bg-[#00ff80] text-black' : 'bg-amber-500 text-black'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                >
+                    {s}
+                </button>
+                ))}
+            </div>
+
+            {/* Tier Toggle */}
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500 uppercase px-2 hidden md:inline"><Filter className="w-3 h-3 inline mr-1"/> Tier:</span>
+                {[1, 2, 3, 'all'].map((t) => (
+                <button
+                    key={t}
+                    onClick={() => setTierFilter(t as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                    tierFilter === t
+                        ? 'bg-slate-800 border-slate-600 text-white'
+                        : 'bg-transparent border-slate-800 text-slate-500 hover:border-slate-700'
+                    }`}
+                >
+                    {t === 'all' ? 'ALL' : `T${t}`}
+                </button>
+                ))}
+            </div>
           </div>
 
-          {/* Tier Toggle */}
-          <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="text-xs font-bold text-slate-500 uppercase px-2"><Filter className="w-3 h-3 inline mr-1"/> Tier:</span>
-            {[1, 2, 3, 'all'].map((t) => (
-              <button
-                key={t}
-                onClick={() => setTierFilter(t as any)}
-                className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${
-                  tierFilter === t
-                    ? 'bg-slate-800 border-slate-600 text-white'
-                    : 'bg-transparent border-slate-800 text-slate-500 hover:border-slate-700'
-                }`}
-              >
-                {t === 'all' ? 'ALL' : `Tier ${t}`}
-              </button>
-            ))}
-          </div>
+          {/* PAGINATION CONTROLS */}
+          {totalPages > 1 && (
+             <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-mono font-bold px-2">
+                    Page {currentPage} / {totalPages}
+                </span>
+                <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                >
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+             </div>
+          )}
+
         </div>
 
         {/* GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredPlayers.map((player) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in duration-500">
+          {paginatedPlayers.map((player) => (
             <AdminCard key={player.id} player={player} />
           ))}
         </div>
