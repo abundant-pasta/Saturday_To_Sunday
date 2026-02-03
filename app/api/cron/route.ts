@@ -5,6 +5,16 @@ import webpush from 'web-push'
 
 export const dynamic = 'force-dynamic'
 
+// --- HELPER: FISHER-YATES SHUFFLE (Unbiased Randomization) ---
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 export async function GET(request: Request) {
   // ==========================================
   // 🔒 SECURITY CHECK (TEMPORARILY DISABLED)
@@ -30,8 +40,7 @@ export async function GET(request: Request) {
   // ==========================================
   if (action === 'generate') {
     
-    // 1. DATE LOGIC (Updated to support manual override)
-    // Checks if you passed ?date=2024-XX-XX in the URL
+    // 1. DATE LOGIC
     const overrideDate = searchParams.get('date')
     let targetDate = ''
 
@@ -39,16 +48,15 @@ export async function GET(request: Request) {
         targetDate = overrideDate
         console.log(`Manual Override: Generating games for ${targetDate}`)
     } else {
-        // Default: Tomorrow
         const offset = 6 * 60 * 60 * 1000 
         const now = new Date(Date.now() - offset)
         now.setDate(now.getDate() + 1)
         targetDate = now.toISOString().split('T')[0]
     }
 
-    // 2. NEW: CALCULATE 45-DAY CUTOFF
+    // 2. CALCULATE 45-DAY CUTOFF
     const cooldownDate = new Date()
-    cooldownDate.setDate(cooldownDate.getDate() - 45) // Changed from 7 to 45
+    cooldownDate.setDate(cooldownDate.getDate() - 45)
     const cutoffString = cooldownDate.toISOString()
 
     // 3. DEFINE CONFIGS
@@ -67,11 +75,11 @@ export async function GET(request: Request) {
 
     const results = []
 
-    // 4. GENERATION LOOP (Runs once for Football, once for Basketball)
+    // 4. GENERATION LOOP
     for (const config of sportConfigs) {
       const { sport, distribution } = config
 
-      // A. Check Idempotency (Per Sport)
+      // A. Check Idempotency
       const { data: existing } = await supabase
         .from('daily_games')
         .select('date')
@@ -84,14 +92,13 @@ export async function GET(request: Request) {
         continue
       }
 
-      // B. Fetch Pools with 45-Day Cooldown & Sport Filter
-      // We fetch slightly more than needed (limit 50) to ensure randomness
+      // B. Fetch Pools
       const [easyRes, mediumRes, hardRes] = await Promise.all([
         supabase.from('players').select('*')
-          .eq('sport', sport) // Filter by Sport
+          .eq('sport', sport)
           .eq('tier', 1)
           .not('image_url', 'is', null)
-          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`) // 45 Day Filter
+          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
           .limit(50),
         supabase.from('players').select('*')
           .eq('sport', sport)
@@ -116,25 +123,36 @@ export async function GET(request: Request) {
         continue
       }
 
-      // C. Compile Ordered Roster
-      const orderedRoster = [
-        ...easyRes.data.sort(() => 0.5 - Math.random()).slice(0, distribution[0]),
-        ...mediumRes.data.sort(() => 0.5 - Math.random()).slice(0, distribution[1]),
-        ...hardRes.data.sort(() => 0.5 - Math.random()).slice(0, distribution[2])
+      // C. Compile Ordered Roster (Applied Shuffle Logic Here Too)
+      const rosterPool = [
+        ...shuffleArray(easyRes.data).slice(0, distribution[0]),
+        ...shuffleArray(mediumRes.data).slice(0, distribution[1]),
+        ...shuffleArray(hardRes.data).slice(0, distribution[2])
       ]
+      
+      // Shuffle the final roster order so tiers are mixed (optional, but good for gameplay)
+      // If you want them strictly ordered Easy -> Hard, remove this line.
+      // currently your UI seems to present them sequentially, so keeping original order might be better?
+      // I will keep the tiers ordered (Easy first) but randomized *within* tiers as done above.
+      const orderedRoster = rosterPool; 
 
-      // D. Build Content (Get Distractors for THIS sport)
+      // D. Build Content
       const { data: allColleges } = await supabase
         .from('players')
         .select('college')
-        .eq('sport', sport) // Ensure distractors are from the same sport
+        .eq('sport', sport)
         .not('college', 'is', null)
 
       const collegeList = Array.from(new Set(allColleges?.map((c: any) => c.college) || [])) as string[]
 
       const content = orderedRoster.map((p: any) => {
         const wrong = getSimilarDistractors(p.college, collegeList)
-        const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
+        
+        // --- THE FIX IS HERE ---
+        // Old: .sort(() => 0.5 - Math.random()) -> Biased
+        // New: shuffleArray() -> Perfectly random
+        const options = shuffleArray([p.college, ...wrong])
+
         return {
           id: p.id,
           name: p.name,
@@ -142,7 +160,7 @@ export async function GET(request: Request) {
           correct_answer: p.college,
           options: options,
           tier: p.tier || 1,
-          sport: p.sport // Good for UI to know
+          sport: p.sport 
         }
       })
 
@@ -152,13 +170,13 @@ export async function GET(request: Request) {
         .insert({ 
           date: targetDate, 
           content,
-          sport: sport // Save the sport tag
+          sport: sport 
         })
 
       if (error) {
         results.push(`${sport}: DB Error - ${error.message}`)
       } else {
-        // F. Update last_selected (Lock them out for 45 days)
+        // F. Update last_selected
         const playerIds = orderedRoster.map((p: any) => p.id)
         await supabase
           .from('players')
@@ -173,7 +191,7 @@ export async function GET(request: Request) {
   }
 
   // ==========================================
-  // MODE B: NOTIFY (Morning - Loud)
+  // MODE B: NOTIFY
   // ==========================================
   if (action === 'notify') {
     try {
@@ -192,7 +210,6 @@ export async function GET(request: Request) {
       if (subs && subs.length > 0) {
         const payload = JSON.stringify({
           title: 'Saturday to Sunday',
-          // Updated text to reflect multiple grids
           body: 'New Daily Grids are live! Check out today\'s Football and Basketball challenges. 🏈 🏀',
           icon: '/icon-192x192.png'
         })

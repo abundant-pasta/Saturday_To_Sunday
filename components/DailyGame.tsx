@@ -176,7 +176,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     loadGame()
   }, [sport, config.rounds])
 
-  // AUTH LISTENER
+  // 2. AUTH LISTENER
   useEffect(() => {
     const checkSession = async () => {
         const { data: { session } } = await supabase.auth.getSession()
@@ -188,6 +188,35 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // 3. STREAK FETCHER (New Logic)
+  // This fetches the streak when the user loads AND re-fetches after saving to get the latest increment
+  useEffect(() => {
+    const getStreak = async () => {
+        if (!user) return
+        
+        // Select the correct column based on the sport
+        const column = sport === 'basketball' ? 'streak_basketball' : 'streak_football'
+
+        const { data } = await supabase
+            .from('profiles')
+            .select(column)
+            .eq('id', user.id)
+            .single()
+        
+        if (data) {
+            // @ts-ignore
+            setStreak(data[column] || 0)
+        }
+    }
+    
+    // Fetch initially if user exists
+    if (user) getStreak()
+    
+    // Trigger a refresh after the game is saved (DB trigger will have updated the streak by now)
+    if (isSaved) getStreak()
+    
+  }, [user, sport, isSaved])
 
   // 4. SAVE LOGIC
   useEffect(() => {

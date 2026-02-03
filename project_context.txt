@@ -1,6 +1,74 @@
 PROJECT CONTEXT EXPORT
 ======================
 
+--- START FILE: middleware.ts ---
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            request.cookies.set(name, value)
+          )
+          response = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  // This refreshes the session so the server knows who you are
+  await supabase.auth.getUser()
+
+  return response
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
+}
+--- END FILE: middleware.ts ---
+
+--- START FILE: vercel.json ---
+{
+    "crons": [
+      {
+        "path": "/api/cron?action=generate",
+        "schedule": "0 19 * * *" 
+      },
+      {
+        "path": "/api/cron?action=notify",
+        "schedule": "0 16 * * *"
+      }
+    ]
+  }
+--- END FILE: vercel.json ---
+
 --- START FILE: README.md ---
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
@@ -47,12 +115,13 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
@@ -64,22 +133,24 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
     "next": "16.1.1",
+    "next-pwa": "^5.6.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
 }
-
 --- END FILE: package.json ---
 
 --- START FILE: tsconfig.json ---
@@ -12512,8 +12583,21 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 --- START FILE: next.config.ts ---
 import type { NextConfig } from "next";
 
+// 1. Configure the PWA wrapper
+const withPWA = require("next-pwa")({
+  dest: "public",
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === "development",
+  importScripts: ["/custom-sw.js"], 
+});
+
+// 2. Your config with the FIX applied
 const nextConfig: NextConfig = {
   images: {
+    // THIS LINE SAVES YOUR VERCEL USAGE:
+    unoptimized: true, 
+    
     remotePatterns: [
       {
         protocol: 'https',
@@ -12521,19 +12605,26 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'a.espncdn.com', // <--- Added this one
+        hostname: 'a.espncdn.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
       },
     ],
   },
 };
 
-export default nextConfig;
+// 3. Wrap and export
+export default withPWA(nextConfig);
 --- END FILE: next.config.ts ---
 
 --- START FILE: app/actions.ts ---
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { getSimilarDistractors } from '@/lib/conferences'
 
@@ -12547,21 +12638,38 @@ function generateRoomCode() {
   return result
 }
 
-// --- 1. CREATE ROOM ---
+// --- 1. CREATE ROOM (Football Only for now) ---
 export async function createRoom(hostName: string) {
   const supabase = await createClient()
   const safeHostName = hostName || 'Host'
 
-  // Fetch initial player
-  const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
+  // SAFEGUARD: Added .eq('sport', 'football') to prevent NBA players from appearing
+  const { count } = await supabase
+    .from('players')
+    .select('*', { count: 'exact', head: true })
+    .gt('rating', 0)
+    .eq('sport', 'football') 
+
   const randomOffset = Math.floor(Math.random() * (count || 100))
-  const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)
+  
+  const { data: players } = await supabase
+    .from('players')
+    .select('*')
+    .gt('rating', 0)
+    .eq('sport', 'football') // SAFEGUARD
+    .range(randomOffset, randomOffset)
+    .limit(1)
+
   const p = players?.[0]
   
   if (!p) throw new Error("Failed to pick a player")
 
-  // Generate REALISTIC Options using your new lib
-  const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
+  const { data: allCollegesData } = await supabase
+    .from('players')
+    .select('college')
+    .eq('sport', 'football') // SAFEGUARD
+    .not('college', 'is', null)
+
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
   
   const wrongColleges = getSimilarDistractors(p.college, collegeList)
@@ -12569,7 +12677,6 @@ export async function createRoom(hostName: string) {
   const options = [p.college, ...wrongColleges].sort(() => 0.5 - Math.random())
   const roomCode = generateRoomCode() 
 
-  // Create Room
   const { data: room, error } = await supabase
     .from('rooms')
     .insert({
@@ -12591,7 +12698,6 @@ export async function createRoom(hostName: string) {
     throw new Error('Failed to create room')
   }
 
-  // Add Host
   const { data: participant } = await supabase
     .from('room_participants')
     .insert({ room_id: room.id, name: safeHostName, is_host: true })
@@ -12608,11 +12714,9 @@ export async function joinRoom(roomCode: string, playerName: string) {
 
   if (!roomCode) return { success: false, error: 'No code provided' }
 
-  // Check if room exists
   const { data: room } = await supabase.from('rooms').select('id, code').eq('code', roomCode.toUpperCase()).single()
   if (!room) return { success: false, error: 'Room not found' }
 
-  // Add participant
   const { data: participant, error: joinError } = await supabase
     .from('room_participants')
     .insert({ room_id: room.id, name: safeName, is_host: false })
@@ -12644,7 +12748,6 @@ export async function submitAnswer(roomCode: string, participantId: string, answ
   const isCorrect = answer === room.correct_answer
   const pointsToAdd = isCorrect ? points : 0
 
-  // Update Participant Score
   if (pointsToAdd > 0) {
     const { data: p } = await supabase.from('room_participants').select('score').eq('id', participantId).single()
     if (p) {
@@ -12652,7 +12755,6 @@ export async function submitAnswer(roomCode: string, participantId: string, answ
     }
   }
 
-  // Record Submission
   await supabase.from('round_submissions').insert({
     room_id: room.id,
     player_id: participantId,
@@ -12663,33 +12765,48 @@ export async function submitAnswer(roomCode: string, participantId: string, answ
   return { isCorrect, waiting: true }
 }
 
-// --- 5. ADVANCE ROUND ---
+// --- 5. ADVANCE ROUND (Football Only) ---
 export async function advanceRound(roomCode: string) {
   const supabase = await createClient()
 
   const { data: room } = await supabase.from('rooms').select('*').eq('code', roomCode).single()
   if (!room) return
 
-  // Check Game Over
   if (room.current_round >= room.total_rounds) {
     await supabase.from('rooms').update({ game_state: 'finished' }).eq('id', room.id)
     revalidatePath(`/room/${roomCode}`)
     return { gameOver: true }
   }
 
-  // Get Next Player
-  const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
+  // SAFEGUARD: Added .eq('sport', 'football')
+  const { count } = await supabase
+    .from('players')
+    .select('*', { count: 'exact', head: true })
+    .gt('rating', 0)
+    .eq('sport', 'football') 
+
   const randomOffset = Math.floor(Math.random() * (count || 100))
-  const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset).limit(1)
+  
+  const { data: players } = await supabase
+    .from('players')
+    .select('*')
+    .gt('rating', 0)
+    .eq('sport', 'football') // SAFEGUARD
+    .range(randomOffset, randomOffset)
+    .limit(1)
+
   const nextPlayer = players?.[0]
 
   if (nextPlayer) {
-    // Realistic Options Logic
-    const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
+    const { data: allCollegesData } = await supabase
+        .from('players')
+        .select('college')
+        .eq('sport', 'football') // SAFEGUARD
+        .not('college', 'is', null)
+
     const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
     
     const wrong = getSimilarDistractors(nextPlayer.college, collegeList)
-    
     const nextOptions = [nextPlayer.college, ...wrong].sort(() => 0.5 - Math.random())
 
     await supabase.from('rooms').update({
@@ -12725,39 +12842,61 @@ export async function updatePlayerImage(playerId: string, imageUrl: string) {
   revalidatePath('/admin')
 }
 
-// --- 7. DAILY GAME (NEW) ---
-export async function getDailyGame() {
+// --- 7. DAILY GAME (MULTI-SPORT SUPPORT) ---
+// Note: We accept a 'sport' parameter now.
+export async function getDailyGame(sport: string = 'football') {
   const supabase = await createClient()
-  const today = new Date().toISOString().split('T')[0] 
+  
+  // 1. DATE LOGIC
+  const offset = 6 * 60 * 60 * 1000 
+  const adjustedTime = new Date(Date.now() - offset)
+  const today = adjustedTime.toISOString().split('T')[0]
 
-  // 1. Check if today's game exists
-  const { data: existing } = await supabase
+  // 2. FETCH GAME (Filtered by Sport)
+  // Ensure your 'daily_games' table has a 'sport' column, or this filter will fail.
+  // If you haven't added it yet, run: ALTER TABLE daily_games ADD COLUMN sport TEXT DEFAULT 'football';
+  const { data: existingGames } = await supabase
     .from('daily_games')
     .select('content')
     .eq('date', today)
-    .single()
+    .eq('sport', sport) // <--- The Logic Wall
+    .limit(1)
 
-  if (existing) return existing.content
+  if (existingGames && existingGames.length > 0) {
+      return existingGames[0].content
+  }
 
-  // 2. Generate New Game (Lazy Load)
-  const { count } = await supabase.from('players').select('*', { count: 'exact', head: true }).gt('rating', 0)
-  const maxOffset = Math.max(0, (count || 0) - 60)
-  const randomOffset = Math.floor(Math.random() * maxOffset)
+  // 3. EMERGENCY FALLBACK
+  console.log(`CRON MISS: Generating emergency ${sport} game for today...`)
+
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! 
+  )
+
+  // Fetch pool using Service Role & Sport Filter
+  const { data: pool } = await supabaseAdmin
+    .from('players')
+    .select('*')
+    .gt('rating', 0)
+    .eq('sport', sport) // <--- Fetch only relevant players
+    .limit(200)
   
-  // Fetch a pool to pick from
-  const { data: players } = await supabase.from('players').select('*').gt('rating', 0).range(randomOffset, randomOffset + 59)
+  if (!pool || pool.length < 10) return null
+
+  // Shuffle and pick 10
+  const selectedPlayers = pool.sort(() => 0.5 - Math.random()).slice(0, 10)
   
-  if (!players || players.length < 10) return null
+  // Get colleges for distractors (Filtered by Sport)
+  const { data: allCollegesData } = await supabase
+    .from('players')
+    .select('college')
+    .eq('sport', sport) // <--- Distractors must match the sport
+    .not('college', 'is', null)
 
-  // Shuffle and pick 10 unique players
-  const dailyPlayers = players.sort(() => 0.5 - Math.random()).slice(0, 10)
-
-  // Get College List for distractors
-  const { data: allCollegesData } = await supabase.from('players').select('college').not('college', 'is', null)
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
 
-  // Build Questions
-  const questions = dailyPlayers.map(p => {
+  const questions = selectedPlayers.map((p: any) => {
     const wrong = getSimilarDistractors(p.college, collegeList)
     const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
     return {
@@ -12765,25 +12904,25 @@ export async function getDailyGame() {
       name: p.name,
       image_url: p.image_url,
       correct_answer: p.college,
-      options: options
+      options: options,
+      tier: p.tier,
+      sport: p.sport // Useful for UI
     }
   })
 
-  // 3. Save to DB
-  const { error } = await supabase.from('daily_games').insert({ date: today, content: questions })
-
-  // If insert failed (race condition), fetch existing
-  if (error) {
-    const { data: retry } = await supabase.from('daily_games').select('content').eq('date', today).single()
-    return retry?.content
-  }
+  // Save it immediately with the Sport tag
+  await supabaseAdmin.from('daily_games').insert({ 
+    date: today, 
+    content: questions,
+    sport: sport // <--- Save with sport tag
+  })
 
   return questions
 }
 --- END FILE: app/actions.ts ---
 
 --- START FILE: app/layout.tsx ---
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import Script from 'next/script'
@@ -12799,9 +12938,30 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+// 1. New Viewport Export (Critical for PWA "App Feel")
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false, // Prevents zooming on text inputs
+}
+
 export const metadata: Metadata = {
   title: 'Saturday to Sunday',
   description: 'Test your College Football knowledge.',
+  manifest: '/manifest.json', // <--- Links to your PWA config
+  
+  appleWebApp: {
+    title: 'S2S',
+    statusBarStyle: 'black-translucent',
+    capable: true, // <--- Removes Safari browser bars
+  },
+
+  icons: {
+    icon: '/ios-icon.png',       // Browser tab
+    apple: '/ios-icon.png',      // iPhone Home Screen
+  },
 }
 
 export default function RootLayout({
@@ -12812,10 +12972,27 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Google AdSense Script */}
+        {/* --- Google Analytics (GA4) --- */}
+        <Script
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-9ZR4V6KFK6"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+        >
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-9ZR4V6KFK6');
+          `}
+        </Script>
+
+        {/* --- Google AdSense --- */}
         <Script
           async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE" // <--- REMEMBER TO PASTE YOUR ID HERE
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE"
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
@@ -12833,145 +13010,229 @@ export default function RootLayout({
 }
 --- END FILE: app/layout.tsx ---
 
+--- START FILE: app/manifest.ts ---
+import { MetadataRoute } from 'next'
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'Saturday to Sunday',
+    short_name: 'S2S',
+    description: 'Guess the college. Beat your friends.',
+    start_url: '/',
+    display: 'standalone', // <--- This tells the browser to hide UI
+    background_color: '#0a0a0a',
+    theme_color: '#0a0a0a',
+    icons: [
+      {
+        src: '/icon-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        src: '/icon-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
+      },
+    ],
+  }
+}
+--- END FILE: app/manifest.ts ---
+
 --- START FILE: app/page.tsx ---
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
-import { createRoom, joinRoom } from '@/app/actions'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Users, Play, Loader2, Trophy, Calendar } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
+import InstallPWA from '@/components/InstallPWA' 
+import PushNotificationManager from '@/components/PushNotificationManager'
+import { createBrowserClient } from '@supabase/ssr'
 
-export default function Home() {
+// Wrapper for Suspense (Best Practice)
+export default function HomePage() {
+    return (
+        <Suspense fallback={<div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center"><Loader2 className="animate-spin text-neutral-600" /></div>}>
+            <HomeContent />
+        </Suspense>
+    )
+}
+
+function HomeContent() {
   const router = useRouter()
-  const [hostName, setHostName] = useState('')
-  const [joinName, setJoinName] = useState('')
-  const [roomCode, setRoomCode] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  
+  // Auth State
+  const [user, setUser] = useState<any>(null)
+  
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-  const handleCreate = async () => {
-    if (!hostName) return
-    setIsLoading(true)
-    try {
-      const result = await createRoom(hostName)
-      if (result.success && result.code) {
-        router.push(`/room/${result.code}?playerId=${result.playerId}`)
-      }
-    } catch (e) {
-      console.error(e)
-      setIsLoading(false)
+  // 1. Check Session on Mount
+  useEffect(() => {
+    const getUser = async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        setUser(session?.user ?? null)
     }
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // 2. Auth Handlers
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+            redirectTo: `${window.location.origin}/auth/callback`
+        }
+    })
   }
 
-  const handleJoin = async () => {
-    if (!roomCode || !joinName) return
-    setIsLoading(true)
-    setError('')
+  // 3. Share Handler 
+  const handleShareApp = async () => {
+    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+    
     try {
-      const result = await joinRoom(roomCode.toUpperCase(), joinName)
-      if (result.success) {
-        router.push(`/room/${result.code}?playerId=${result.playerId}`)
+      if (navigator.share) {
+        await navigator.share({ text })
       } else {
-        setError(result.error || 'Failed to join')
-        setIsLoading(false)
+        await navigator.clipboard.writeText(text)
+        alert('Link copied to clipboard!')
       }
-    } catch (e) {
-      setError('Failed to join room')
-      setIsLoading(false)
+    } catch (err) {
+      console.error("Error sharing:", err)
     }
   }
 
   return (
-    // THEME: Swapped bg-slate-950 for bg-neutral-950 to get a deeper charcoal finish
-    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden">
-      <div className="w-full max-w-md flex flex-col gap-4">
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden relative">
+      
+      {/* --- TOP RIGHT PROFILE ICON --- */}
+      <div className="absolute top-4 right-4 z-50">
+        {user ? (
+            // LOGGED IN: Go to Profile
+            <Link href="/profile">
+                <button 
+                    className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative block shadow-lg"
+                >
+                    {user.user_metadata?.avatar_url ? (
+                        <Image src={user.user_metadata.avatar_url} alt="User" fill className="object-cover" />
+                    ) : (
+                        <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                             <UserIcon className="w-5 h-5 text-neutral-400" />
+                        </div>
+                    )}
+                </button>
+            </Link>
+        ) : (
+            // LOGGED OUT: Google Login
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleGoogleLogin}
+                className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 rounded-full w-10 h-10 transition-all"
+            >
+                <UserIcon className="w-6 h-6" />
+            </Button>
+        )}
+      </div>
+
+      <div className="w-full max-w-md flex flex-col gap-6">
         
         {/* LOGO AREA */}
-        <div className="text-center space-y-2 py-2">
+        <div className="text-center space-y-4 py-4">
           <div className="flex justify-center">
-            {/* Yellow trophy provides great contrast against the neon brand color */}
-            <Trophy className="w-8 h-8 md:w-12 md:h-12 text-yellow-400" />
+            <Trophy className="w-16 h-16 text-yellow-400 animate-in zoom-in duration-700" />
           </div>
           <div>
-            <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-tight">
+            <h1 className="text-5xl font-black italic uppercase tracking-tighter text-white leading-tight drop-shadow-2xl">
               Saturday To Sunday
             </h1>
-            <p className="text-neutral-400 font-bold text-xs md:text-sm tracking-wide">Guess the college. Beat your friends.</p>
+            <p className="text-neutral-400 font-bold text-sm tracking-wide mt-2 uppercase">Guess the college. Beat your friends.</p>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
+        {/* --- DUAL GAME MODE CARDS --- */}
+        <div className="grid grid-cols-2 gap-4">
             
-            {/* 1. DAILY CHALLENGE CARD */}
-            <Link href="/daily" className="block group">
-                {/* NEON BRAND: Swapped indigo for a deep emerald gradient and neon green hover border */}
-                <div className="bg-gradient-to-r from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer">
-                    <div className="bg-neutral-900/50 rounded-lg p-3 md:p-4 flex items-center justify-between">
-                        <div>
-                            {/* Neon Text using Hex Code */}
-                            <div className="text-[#00ff80] font-black uppercase text-[10px] md:text-sm tracking-widest mb-0.5">Single Player</div>
-                            <div className="text-white font-bold text-lg md:text-xl flex items-center gap-2"><Calendar className="w-4 h-4 md:w-5 md:h-5" /> Daily Challenge</div>
+            {/* FOOTBALL CARD */}
+            <Link href="/daily" className="block group h-full">
+                <div className="bg-gradient-to-br from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
+                    <div className="bg-neutral-900/80 rounded-lg p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm min-h-[140px]">
+                        <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                           <Star className="w-8 h-8 text-[#00ff80] fill-current" />
                         </div>
-                        {/* Neon Button: Swapped bg-indigo for Hex #00ff80 */}
-                        <div className="bg-[#00ff80] text-black px-3 py-1.5 md:px-4 md:py-2 rounded font-black uppercase text-xs md:text-sm transition-colors group-hover:bg-white">Play</div>
+                        <div>
+                            <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-1">Play Daily</div>
+                            <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">Football</div>
+                        </div>
                     </div>
                 </div>
             </Link>
 
-            {/* 2. HOST GAME CARD */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
-                {/* Blue text swapped for Neon Green */}
-                <div className="flex items-center gap-2 text-[#00ff80] font-black uppercase text-[10px] md:text-xs tracking-widest">
-                    <Users className="w-3 h-3 md:w-4 md:h-4" /> Host a Game
+            {/* BASKETBALL CARD */}
+            <Link href="/daily/basketball" className="block group h-full">
+                <div className="bg-gradient-to-br from-neutral-900 to-amber-950 border border-amber-500/30 group-hover:border-amber-400 p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
+                    <div className="bg-neutral-900/80 rounded-lg p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm min-h-[140px]">
+                        <div className="p-3 bg-amber-500/10 rounded-full border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">
+                           <Dribbble className="w-8 h-8 text-amber-500" />
+                        </div>
+                        <div>
+                            <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-1">Play Daily</div>
+                            <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">Basketball</div>
+                        </div>
+                    </div>
                 </div>
-                <div className="space-y-2 md:space-y-3">
-                    <Input 
-                        placeholder="Your Name (e.g. SickosMode)" 
-                        className="bg-neutral-950 border-neutral-800 h-10 md:h-12 font-bold text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
-                        value={hostName}
-                        onChange={(e) => setHostName(e.target.value)}
-                    />
-                    <Button 
-                        className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
-                        onClick={handleCreate} 
-                        disabled={isLoading || !hostName}
-                    >
-                        {isLoading ? <Loader2 className="animate-spin" /> : 'Create Room'}
-                    </Button>
-                </div>
+            </Link>
+
+        </div>
+
+        {/* --- SECONDARY ACTIONS --- */}
+        <div className="flex flex-col gap-4">
+            {/* LEADERBOARD BUTTON */}
+            <Link href="/leaderboard" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full h-14 text-lg font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600"
+              >
+                <Trophy className="mr-3 w-5 h-5 text-yellow-500" /> View Leaderboard
+              </Button>
+            </Link>
+
+            {/* NOTIFICATION BUTTON */}
+            <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden">
+              <PushNotificationManager hideOnSubscribed={true} />
             </div>
 
-            {/* 3. JOIN GAME CARD */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 md:p-6 space-y-3 md:space-y-4 shadow-xl">
-                <div className="flex items-center gap-2 text-[#00ff80] font-black uppercase text-[10px] md:text-xs tracking-widest">
-                    <Play className="w-3 h-3 md:w-4 md:h-4 fill-current" /> Join a Game
+            {/* INSTALL PWA BUTTON */}
+            <InstallPWA />
+
+            {/* SHARE BUTTON */}
+            <Button 
+                onClick={handleShareApp}
+                variant="outline" 
+                className="w-full h-12 text-sm font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700"
+            >
+                <Share2 className="mr-2 w-4 h-4" /> Share App
+            </Button>
+
+            {/* --- FOOTER: ABOUT / LEGAL --- */}
+            <div className="pt-8 pb-4 flex flex-col items-center gap-3 border-t border-neutral-900 mt-4">
+                <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+                    <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+                    <span className="text-neutral-800">•</span>
+                    <Link href="/termsofservice" className="hover:text-white transition-colors">Terms</Link>
+                    <span className="text-neutral-800">•</span>
+                    <a href="mailto:support@playsaturdaytosunday.com" className="hover:text-white transition-colors">Support</a>
                 </div>
-                <div className="grid grid-cols-5 gap-2 md:gap-3">
-                    <Input 
-                        placeholder="Your Name" 
-                        className="col-span-3 bg-neutral-950 border-neutral-800 h-10 md:h-12 font-bold text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
-                        value={joinName}
-                        onChange={(e) => setJoinName(e.target.value)}
-                    />
-                    <Input 
-                        placeholder="ABCD" 
-                        className="col-span-2 bg-neutral-950 border-neutral-800 h-10 md:h-12 font-black text-center uppercase text-white placeholder:text-neutral-600 focus-visible:ring-[#00ff80]"
-                        maxLength={4}
-                        value={roomCode}
-                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                    />
-                </div>
-                {error && <div className="text-red-500 text-xs font-bold text-center">{error}</div>}
-                <Button 
-                    className="w-full h-10 md:h-12 text-base md:text-lg font-black uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
-                    onClick={handleJoin} 
-                    disabled={isLoading || !roomCode || !joinName}
-                >
-                    {isLoading ? <Loader2 className="animate-spin" /> : 'Enter Room'}
-                </Button>
+                <p className="text-neutral-800 text-[10px] font-black uppercase tracking-widest">v1.1.0</p>
             </div>
 
         </div>
@@ -13063,280 +13324,949 @@ export default async function RoomPage({ params, searchParams }: Props) {
 }
 --- END FILE: app/room/[code]/page.tsx ---
 
---- START FILE: app/admin/page.tsx ---
-import { createClient } from '@/utils/supabase/server'
-import { deletePlayer, updatePlayerImage } from '@/app/actions'
-import Image from 'next/image'
-import AdminCard from '@/components/AdminCard' // We will create this component next
+--- START FILE: app/privacy/page.tsx ---
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 
-export default async function AdminPage() {
-  const supabase = await createClient()
-
-  // Fetch ALL active players
-  const { data: players } = await supabase
-    .from('players')
-    .select('*')
-    .gt('rating', 0)
-    .order('name', { ascending: true })
-
+export default function PrivacyPolicy() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-yellow-400">Player Database Audit</h1>
-          <div className="text-slate-400">
-            Scanning <strong>{players?.length}</strong> active players
-          </div>
+    <div className="min-h-[100dvh] bg-neutral-950 text-neutral-200 font-sans p-6 md:p-12">
+      <div className="max-w-3xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="space-y-4 border-b border-neutral-800 pb-8">
+          <Link href="/" className="inline-flex items-center text-[#00ff80] hover:text-[#00ff80]/80 font-bold uppercase tracking-widest text-xs mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Game
+          </Link>
+          <h1 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter">
+            Privacy <span className="text-[#00ff80]">Policy</span>
+          </h1>
+          <p className="text-neutral-500 font-mono text-sm uppercase tracking-widest">
+            Last Updated: January 6, 2026
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {players?.map((player) => (
-            <AdminCard key={player.id} player={player} />
-          ))}
+        {/* Content */}
+        <div className="prose prose-invert prose-neutral max-w-none space-y-8">
+          <p className="text-lg leading-relaxed text-neutral-300">
+            Welcome to <strong>Saturday to Sunday</strong> ("we," "our," or "us"). We respect your privacy and are committed to protecting the personal information you share with us. This Privacy Policy explains how we collect, use, and safeguard your data when you use our website (playsaturdaytosunday.com).
+          </p>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">1. Information We Collect</h2>
+            
+            <h3 className="text-lg font-bold text-[#00ff80] uppercase tracking-wide">A. Information You Provide</h3>
+            <p>When you sign in using Google, we collect the following information provided by that service:</p>
+            <ul className="list-disc pl-5 space-y-2 text-neutral-400">
+              <li><strong>Email Address:</strong> To authenticate your account and recover it.</li>
+              <li><strong>Name:</strong> To display on your profile.</li>
+              <li><strong>Profile Picture:</strong> To display as your avatar (optional).</li>
+            </ul>
+
+            <h3 className="text-lg font-bold text-[#00ff80] uppercase tracking-wide mt-6">B. Automatically Collected Information</h3>
+            <ul className="list-disc pl-5 space-y-2 text-neutral-400">
+              <li><strong>Gameplay Data:</strong> We record your daily scores, streaks, answers, and time taken to generate leaderboards and personal stats.</li>
+              <li><strong>Device Information:</strong> We may collect basic information about your browser or device type to ensure the game works correctly (e.g., mobile vs. desktop).</li>
+            </ul>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">2. How We Use Your Information</h2>
+            <p>We use your data for the following purposes:</p>
+            <ul className="list-disc pl-5 space-y-2 text-neutral-400">
+              <li><strong>To Provide the Service:</strong> Allowing you to log in, save your progress, and maintain your daily streak.</li>
+              <li><strong>Leaderboards:</strong> Your Username and Score may be displayed publicly on the daily leaderboard.</li>
+              <li><strong>Communication:</strong> We may use your email to respond to support inquiries. We do not send marketing emails without your explicit consent.</li>
+            </ul>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">3. Data Sharing and Third Parties</h2>
+            <p>We do not sell, trade, or rent your personal information to others. We share data only with trusted service providers who help us operate the app:</p>
+            <ul className="list-disc pl-5 space-y-2 text-neutral-400">
+              <li><strong>Supabase:</strong> Our database and authentication provider.</li>
+              <li><strong>Vercel:</strong> Our hosting provider.</li>
+              <li><strong>Google:</strong> For authentication services.</li>
+            </ul>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">4. Cookies and Local Storage</h2>
+            <p>We use local storage on your device to save your "current game" state (so you don't lose progress if you refresh). We also use cookies for session management (keeping you logged in).</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">5. Data Deletion</h2>
+            <p>You have the right to request the deletion of your data. If you wish to delete your account and all associated data, please contact us at <a href="mailto:support@playsaturdaytosunday.com" className="text-[#00ff80] hover:underline">support@playsaturdaytosunday.com</a>.</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">6. Children&apos;s Privacy</h2>
+            <p>Our service is not intended for individuals under the age of 13. We do not knowingly collect personal information from children under 13.</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">7. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy from time to time. We will notify users of significant changes by updating the "Last Updated" date at the top of this policy.</p>
+          </section>
+
+          <section className="space-y-4 border-t border-neutral-800 pt-8">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">Contact Us</h2>
+            <p>If you have any questions about this Privacy Policy, please contact us at:</p>
+            <p className="font-bold text-[#00ff80]">support@playsaturdaytosunday.com</p>
+          </section>
         </div>
       </div>
     </div>
   )
 }
---- END FILE: app/admin/page.tsx ---
+--- END FILE: app/privacy/page.tsx ---
 
---- START FILE: app/daily/page.tsx ---
-'use client'
+--- START FILE: app/auth/callback/route.ts ---
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
 
-import { useState, useEffect } from 'react'
-import { getDailyGame } from '@/app/actions'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle } from 'lucide-react'
-import Link from 'next/link'
-import Image from 'next/image'
-
-export default function DailyGame() {
-  const [questions, setQuestions] = useState<any[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [score, setScore] = useState(0)
-  const [gameState, setGameState] = useState<'loading' | 'playing' | 'finished'>('loading')
-  const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
-  const [selectedOption, setSelectedOption] = useState<string | null>(null)
-  const [showResult, setShowResult] = useState(false)
+export async function GET(request: Request) {
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get('code')
   
-  // Logic: Points drop from 100
-  const [potentialPoints, setPotentialPoints] = useState(100)
-  const [isImageReady, setIsImageReady] = useState(false)
+  if (code) {
+    const cookieStore = await cookies() // Await is important in Next.js 15+
 
-  // Load Game
-  useEffect(() => {
-    const load = async () => {
-      const data = await getDailyGame()
-      if (data) {
-        setQuestions(data)
-        setResults(new Array(data.length).fill('pending'))
-        setGameState('playing')
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options })
+          },
+          remove(name: string, options: CookieOptions) {
+            cookieStore.delete({ name, ...options })
+          },
+        },
       }
-    }
-    load()
-  }, [])
-
-  // Timer: Drops 5 points every 0.5s
-  useEffect(() => {
-    if (gameState !== 'playing' || showResult || !isImageReady) return
-
-    const timer = setInterval(() => {
-      setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
-    }, 500)
-
-    return () => clearInterval(timer)
-  }, [gameState, showResult, isImageReady])
-
-  const handleGuess = (option: string) => {
-    if (showResult) return
-
-    setSelectedOption(option)
-    const currentQ = questions[currentIndex]
-    const isCorrect = option === currentQ.correct_answer
+    )
     
-    // SCORING
-    if (isCorrect) {
-        setScore(s => s + potentialPoints)
-    }
-    
-    const newResults = [...results]
-    newResults[currentIndex] = isCorrect ? 'correct' : 'wrong'
-    setResults(newResults)
-
-    setShowResult(true)
-
-    // Auto Advance logic
-    setTimeout(() => {
-      if (currentIndex < questions.length - 1) {
-        setCurrentIndex(prev => prev + 1)
-        setSelectedOption(null)
-        setShowResult(false)
-        setPotentialPoints(100)
-        setIsImageReady(false) 
-      } else {
-        setGameState('finished')
-      }
-    }, 1500)
+    await supabase.auth.exchangeCodeForSession(code)
   }
 
-  const handleShare = async () => {
-    const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
-    const text = `Saturday to Sunday Daily\n${new Date().toLocaleDateString()}\nScore: ${score}/1000\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com/daily`
-    
-    try {
-      await navigator.clipboard.writeText(text)
-      alert('Result copied! Paste in group chat.')
-    } catch (err) {
-      console.error(err)
-    }
-  }
+  // Redirect back to the daily game
+  return NextResponse.redirect(`${origin}/daily`)
+}
+--- END FILE: app/auth/callback/route.ts ---
 
-  if (gameState === 'loading') return <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading Daily Challenge...</div>
+--- START FILE: app/admin/page.tsx ---
+import { createClient } from '@/utils/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js' 
+import AdminDashboard from '@/components/AdminDashboard'
 
-  // --- GAME OVER SCREEN ---
-  if (gameState === 'finished') {
+export default async function AdminPage() {
+  // 1. STANDARD CLIENT: Used ONLY to check if YOU are logged in
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const adminEmail = process.env.ADMIN_EMAIL
+  const userEmail = user?.email
+  // Case-insensitive check
+  const isAuthorized = user && adminEmail && userEmail?.toLowerCase() === adminEmail?.toLowerCase()
+
+  if (!isAuthorized) {
     return (
-      <div className="min-h-[100dvh] bg-slate-950 text-white flex flex-col items-center justify-center p-4 space-y-8">
-        <Trophy className="w-20 h-20 text-yellow-400 animate-bounce" />
-        <div className="text-center space-y-2">
-            <h1 className="text-4xl font-black italic uppercase">Daily Complete</h1>
-            <p className="text-slate-400">Come back tomorrow for new players.</p>
-        </div>
-        
-        <Card className="w-full max-w-md bg-slate-900 border-slate-800">
-            <CardContent className="pt-6 text-center space-y-4">
-                <div className="flex flex-col items-center justify-center">
-                    <span className="text-slate-400 text-xs uppercase tracking-widest font-bold">Final Score</span>
-                    <div className="text-6xl font-black text-white tracking-tighter">{score}<span className="text-2xl text-slate-500">/1000</span></div>
-                </div>
-                <div className="flex justify-center gap-1 pt-2">
-                    {results.map((r, i) => (
-                        <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
-
-        <Button onClick={handleShare} className="w-full max-w-md h-14 text-xl font-bold bg-indigo-600 hover:bg-indigo-500 transition-all hover:scale-105 shadow-lg">
-            <Share2 className="mr-2" /> Share Result
-        </Button>
-        
-        <Link href="/" className="text-slate-500 hover:text-white flex items-center gap-2">
-            <Home className="w-4 h-4" /> Back to Home
-        </Link>
+      <div className="min-h-screen bg-black text-white p-8 font-mono flex flex-col items-center justify-center">
+        <h1 className="text-red-500 text-4xl font-black italic uppercase mb-4">Access Denied</h1>
+        <p className="text-slate-500">Authenticated as: {userEmail || 'Guest'}</p>
+        <p className="text-slate-700 text-sm mt-2">Required: {adminEmail || 'Not Set'}</p>
       </div>
     )
   }
 
-  // --- PLAYING SCREEN ---
-  const q = questions[currentIndex]
-  const isCorrect = selectedOption === q.correct_answer
+  // 2. SERVICE ROLE CLIENT: This is the "God Mode" key.
+  // It bypasses Row Level Security (RLS) entirely.
+  const adminDb = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  // Fetch ALL players without restrictions
+  const { data: players, error } = await adminDb
+    .from('players')
+    .select('*')
+    .order('name', { ascending: true })
+    .limit(10000) // Huge limit to ensure we get everyone
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-black text-white p-8">
+        <h2 className="text-red-500 font-bold">Database Error</h2>
+        <pre>{JSON.stringify(error, null, 2)}</pre>
+        <p className="mt-4 text-slate-400">
+           Tip: Check if SUPABASE_SERVICE_ROLE_KEY is set in your .env.local file.
+        </p>
+      </div>
+    )
+  }
+
+  return <AdminDashboard initialPlayers={players || []} />
+}
+--- END FILE: app/admin/page.tsx ---
+
+--- START FILE: app/leaderboard/page.tsx ---
+'use client'
+
+import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Home, Trophy } from 'lucide-react'
+import Leaderboard from '@/components/Leaderboard'
+import { Button } from '@/components/ui/button'
+
+export default function LeaderboardPage() {
+  const [userId, setUserId] = useState<string | undefined>()
   
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUserId(session?.user?.id)
+    }
+    getUser()
+  }, [])
+
   return (
-    <div className="h-[100dvh] bg-slate-950 text-white flex flex-col font-sans overflow-hidden">
-      {/* Header */}
-      <header className="h-14 border-b border-slate-800 flex items-center justify-between px-4 bg-slate-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
-         <div className="flex items-center gap-2">
-             <Link href="/" className="font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 text-lg">S2S</Link>
-             
-             {/* UPDATED: Brighter Green Score */}
-             <div className="text-xs font-mono text-slate-500 border-l border-slate-700 pl-2 ml-2">SCORE: <span className="text-green-400 font-black text-sm">{score}</span></div>
-         </div>
-         
-         {/* REMOVED: Duplicate Timer from here */}
-         <div className="text-xs font-mono text-slate-400">{currentIndex + 1}/10</div>
-      </header>
-      
-      {/* Progress Bar */}
-      <Progress value={((currentIndex) / 10) * 100} className="h-1 bg-slate-800 shrink-0" />
-
-      {/* Main Container: Flex Col to fill space */}
-      <main className="flex-1 w-full max-w-md mx-auto p-4 flex flex-col gap-4 overflow-hidden">
-        
-        {/* IMAGE CARD */}
-        <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
-           
-           {/* THE IMAGE */}
-           {q.image_url ? (
-             <Image 
-                src={q.image_url} 
-                alt="Player" 
-                fill 
-                className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
-                onLoadingComplete={() => setIsImageReady(true)}
-                priority={true}
-             />
-           ) : (
-             <div className="flex items-center justify-center h-full text-slate-600"><AlertCircle /> No Image</div>
-           )}
-           
-           {/* LOADING STATE - Spinner */}
-           {!isImageReady && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-50">
-                    <Loader2 className="w-8 h-8 text-slate-500 animate-spin" />
-                </div>
-           )}
-
-            {/* SYNCHRONIZED REVEAL CONTAINER - Logic: opacity-0 until image is ready */}
-            <div className={`transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}>
-                
-                {/* 1. TOP RIGHT PILLS */}
-                <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
-                    {/* Points Pill */}
-                    <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
-                        showResult 
-                            ? (isCorrect ? 'bg-green-600 text-white' : 'bg-red-600 text-white')
-                            : 'bg-yellow-400 text-black'
-                    }`}>
-                        {showResult ? (isCorrect ? `+${potentialPoints}` : '+0') : `${potentialPoints}`}
-                    </div>
-
-                    {/* Result Pill */}
-                    {showResult && (
-                        <div className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-widest shadow-xl border border-black/10 ${
-                            isCorrect ? 'bg-white text-green-700' : 'bg-white text-red-600'
-                        }`}>
-                            {isCorrect ? 'CORRECT' : 'WRONG'}
-                        </div>
-                    )}
-                </div>
-
-                {/* 2. PLAYER NAME OVERLAY */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
-                </div>
-            </div>
+    <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center p-4 pt-12 font-sans relative">
+       
+       {/* --- TOP LEFT HOME BUTTON --- */}
+       <div className="absolute top-4 left-4 z-20">
+            <Link href="/">
+                <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-full">
+                    <Home className="w-6 h-6" />
+                </Button>
+            </Link>
         </div>
 
-        {/* OPTIONS GRID */}
-        <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
-            {q.options.map((opt: string) => {
-                let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700"
-                if (showResult) {
-                    if (opt === q.correct_answer) btnClass = "bg-green-600 text-white border-green-500 ring-2 ring-green-400"
-                    else if (opt === selectedOption) btnClass = "bg-red-600 text-white border-red-500"
-                    else btnClass = "bg-slate-900 text-slate-600 opacity-30"
-                }
-
-                return (
-                    <Button 
-                        key={opt} 
-                        onClick={() => handleGuess(opt)} 
-                        disabled={showResult || !isImageReady} 
-                        className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}
-                    >
-                        {opt}
-                    </Button>
-                )
-            })}
+       <div className="text-center space-y-2 mb-8">
+            <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(250,204,21,0.3)]" />
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter drop-shadow-[0_0_15px_rgba(0,255,128,0.3)]">
+              Daily <span className="text-[#00ff80]">Leaderboard</span>
+            </h1>
+            <p className="text-neutral-400 text-sm font-mono uppercase tracking-widest font-bold">See who is leading the pack today.</p>
         </div>
-      </main>
+
+        <div className="w-full max-w-md">
+            <Leaderboard currentUserId={userId} />
+        </div>
     </div>
   )
 }
+--- END FILE: app/leaderboard/page.tsx ---
+
+--- START FILE: app/daily/page.tsx ---
+import DailyGameWrapper from '@/components/DailyGame'
+
+export default function FootballDailyPage() {
+  // Defaults to sport="football"
+  return <DailyGameWrapper />
+}
 --- END FILE: app/daily/page.tsx ---
+
+--- START FILE: app/daily/basketball/page.tsx ---
+import DailyGameWrapper from '@/components/DailyGame'
+
+export default function BasketballDailyPage() {
+  return <DailyGameWrapper sport="basketball" />
+}
+--- END FILE: app/daily/basketball/page.tsx ---
+
+--- START FILE: app/profile/page.tsx ---
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import Image from 'next/image'
+import { createBrowserClient } from '@supabase/ssr'
+import { ChevronLeft, LogOut, Mail, User as UserIcon, Pencil, Check, Loader2, X, Trophy, Flame, Zap, Hash } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import PushNotificationManager from '@/components/PushNotificationManager'
+
+export default function ProfilePage() {
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  // --- STATS STATE ---
+  const [stats, setStats] = useState({
+    gamesPlayed: 0,
+    bestScore: 0,
+    currentStreak: 0,
+    maxStreak: 0 // You might need to add this column to DB, or we just track current
+  })
+
+  // --- EDITING STATE ---
+  const [username, setUsername] = useState('')
+  const [newUsername, setNewUsername] = useState('')
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [showAvatar, setShowAvatar] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    const getUserAndProfile = async () => {
+      // 1. Get Auth User
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        router.push('/')
+        return
+      }
+      setUser(session.user)
+
+      // 2. Get Public Profile Data
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, show_avatar, current_streak, max_streak')
+        .eq('id', session.user.id)
+        .single()
+
+      // 3. Get Game Stats (Aggregate from daily_results)
+      const { data: results, count } = await supabase
+        .from('daily_results')
+        .select('score', { count: 'exact' })
+        .eq('user_id', session.user.id)
+      
+      // Calculate Stats
+      const gamesPlayed = count || 0
+      const bestScore = results ? Math.max(...results.map(r => r.score), 0) : 0
+      
+      // Update State
+      if (profile) {
+        setUsername(profile.username || session.user.email?.split('@')[0] || 'Player')
+        setNewUsername(profile.username || session.user.email?.split('@')[0] || 'Player')
+        if (profile.show_avatar !== null) setShowAvatar(profile.show_avatar)
+        
+        setStats({
+            gamesPlayed,
+            bestScore,
+            currentStreak: profile.current_streak || 0,
+            maxStreak: profile.max_streak || (profile.current_streak || 0) // Fallback if column missing
+        })
+      }
+      
+      setLoading(false)
+    }
+    getUserAndProfile()
+  }, [router, supabase])
+
+  // --- HANDLER: Save Name ---
+  const handleUpdateName = async () => {
+    if (!user || !newUsername.trim()) return
+    setSaving(true)
+    
+    const { error } = await supabase
+        .from('profiles')
+        .update({ username: newUsername.trim() })
+        .eq('id', user.id)
+
+    if (!error) {
+        setUsername(newUsername.trim())
+        setIsEditingName(false)
+    }
+    setSaving(false)
+  }
+
+  // --- HANDLER: Toggle Avatar ---
+  const toggleAvatar = async () => {
+      if (!user) return
+      const newValue = !showAvatar
+      setShowAvatar(newValue)
+      await supabase.from('profiles').update({ show_avatar: newValue }).eq('id', user.id)
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  if (loading) return (
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white">
+        <Loader2 className="animate-spin text-neutral-600" />
+    </div>
+  )
+
+  return (
+    <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans p-4 pb-12">
+      
+      {/* HEADER */}
+      <div className="max-w-md mx-auto flex items-center mb-6 pt-4">
+        <Link href="/">
+          <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-white hover:bg-neutral-800">
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
+        </Link>
+        <h1 className="text-xl font-black uppercase tracking-widest ml-4">My Career</h1>
+      </div>
+
+      <div className="max-w-md mx-auto flex flex-col gap-6">
+        
+        {/* USER CARD */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 flex flex-col items-center text-center gap-4 shadow-xl">
+          <div className={`w-24 h-24 rounded-full overflow-hidden border-4 relative transition-all duration-300 ${showAvatar ? 'border-neutral-800' : 'border-neutral-800 opacity-50 grayscale'}`}>
+            {user?.user_metadata?.avatar_url ? (
+              <Image src={user.user_metadata.avatar_url} alt="Profile" fill className="object-cover" />
+            ) : (
+              <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                <UserIcon className="w-10 h-10 text-neutral-600" />
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col items-center gap-1">
+             <h2 className="text-2xl font-bold text-white">{username}</h2>
+             <div className="flex items-center justify-center gap-2 text-neutral-500 text-sm font-medium">
+                <Mail className="w-3 h-3" />
+                {user?.email}
+            </div>
+          </div>
+        </div>
+
+        {/* --- STATS GRID --- */}
+        <div className="grid grid-cols-2 gap-3">
+            {/* BEST SCORE */}
+            <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex flex-col items-center justify-center gap-1 hover:border-[#00ff80]/30 transition-colors">
+                <div className="flex items-center gap-2 text-yellow-500 mb-1">
+                    <Trophy className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Best Score</span>
+                </div>
+                <span className="text-3xl font-black text-white font-mono">{stats.bestScore.toLocaleString()}</span>
+            </div>
+
+            {/* GAMES PLAYED */}
+            <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex flex-col items-center justify-center gap-1 hover:border-blue-500/30 transition-colors">
+                <div className="flex items-center gap-2 text-blue-400 mb-1">
+                    <Hash className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Games</span>
+                </div>
+                <span className="text-3xl font-black text-white font-mono">{stats.gamesPlayed}</span>
+            </div>
+
+             {/* CURRENT STREAK */}
+             <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex flex-col items-center justify-center gap-1 hover:border-orange-500/30 transition-colors">
+                <div className="flex items-center gap-2 text-orange-500 mb-1">
+                    <Flame className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Streak</span>
+                </div>
+                <span className="text-3xl font-black text-white font-mono">{stats.currentStreak}</span>
+            </div>
+
+             {/* MAX STREAK (Assuming logic exists) */}
+             <div className="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 flex flex-col items-center justify-center gap-1 hover:border-purple-500/30 transition-colors">
+                <div className="flex items-center gap-2 text-purple-400 mb-1">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Max Streak</span>
+                </div>
+                <span className="text-3xl font-black text-white font-mono">{stats.maxStreak}</span>
+            </div>
+        </div>
+
+        {/* SETTINGS SECTION */}
+        <div className="space-y-3 mt-2">
+            <h3 className="text-xs font-black uppercase tracking-widest text-neutral-500 pl-2">Account Settings</h3>
+            
+            {/* DISPLAY NAME */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden px-4 py-3 flex items-center justify-between min-h-[72px]">
+                {!isEditingName ? (
+                    <>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-neutral-200">Display Name</span>
+                            <span className="text-[10px] text-neutral-500 uppercase tracking-wide">Visible on leaderboard</span>
+                        </div>
+                        <Button onClick={() => setIsEditingName(true)} variant="ghost" size="sm" className="text-neutral-400 hover:text-[#00ff80] hover:bg-neutral-800 gap-2 h-8">
+                            <span className="text-xs font-bold">{username}</span>
+                            <Pencil className="w-3 h-3" />
+                        </Button>
+                    </>
+                ) : (
+                    <div className="flex items-center gap-2 w-full animate-in fade-in duration-200">
+                        <input 
+                            type="text" 
+                            className="bg-neutral-950 border border-neutral-700 text-white px-3 py-1.5 rounded-lg w-full text-sm focus:outline-none focus:ring-1 focus:ring-[#00ff80] font-bold"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            autoFocus
+                            placeholder="Enter username"
+                        />
+                        <div className="flex items-center gap-1">
+                            <Button onClick={() => { setIsEditingName(false); setNewUsername(username); }} size="icon" className="h-8 w-8 bg-neutral-800 hover:bg-neutral-700 text-neutral-400">
+                                <X className="w-4 h-4" />
+                            </Button>
+                            <Button onClick={handleUpdateName} disabled={saving} size="icon" className="h-8 w-8 bg-[#00ff80] hover:bg-[#05ff84] text-black">
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* AVATAR TOGGLE */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden px-4 py-3 flex items-center justify-between min-h-[72px]">
+                <div className="flex flex-col">
+                    <span className="text-sm font-bold text-neutral-200">Public Avatar</span>
+                    <span className="text-[10px] text-neutral-500 uppercase tracking-wide">Show photo on leaderboard</span>
+                </div>
+                <button 
+                    onClick={toggleAvatar}
+                    className={`w-11 h-6 rounded-full relative transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-neutral-700 focus:ring-offset-2 focus:ring-offset-neutral-900 ${showAvatar ? 'bg-[#00ff80]' : 'bg-neutral-700'}`}
+                >
+                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+            </div>
+
+            {/* PUSH NOTIFICATIONS */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+                <PushNotificationManager />
+            </div>
+        </div>
+
+        {/* DANGER ZONE */}
+        <div className="pt-4">
+            <Button onClick={handleSignOut} variant="outline" className="w-full border-red-900/30 text-red-500 bg-red-950/10 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 h-12 font-bold">
+                <LogOut className="w-4 h-4 mr-2" /> Sign Out
+            </Button>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+--- END FILE: app/profile/page.tsx ---
+
+--- START FILE: app/api/web-push/unsubscribe/route.ts ---
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+export async function POST(request: Request) {
+  try {
+    const { endpoint } = await request.json()
+
+    if (!endpoint) {
+      return NextResponse.json({ error: 'No endpoint provided' }, { status: 400 })
+    }
+
+    // 🔒 ADMIN CLIENT: Bypasses RLS so Guests can unsubscribe
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Re-calculate the ID so we can find the correct row to delete
+    const id = Buffer.from(endpoint).toString('base64')
+
+    const { error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      console.error('Unsubscribe error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+  }
+}
+--- END FILE: app/api/web-push/unsubscribe/route.ts ---
+
+--- START FILE: app/api/web-push/subscribe/route.ts ---
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+export async function POST(request: Request) {
+  try {
+    const subscription = await request.json()
+    
+    if (!subscription || !subscription.endpoint) {
+      return NextResponse.json({ error: 'No subscription provided' }, { status: 400 })
+    }
+
+    // 🔒 ADMIN CLIENT: Bypasses RLS so Guests can subscribe
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // 1. Get User ID (Optional)
+    // We still try to get the user from the cookie just to link them if possible,
+    // but we don't rely on it for permission to write.
+    // (We use a separate standard client just to read the cookie securely)
+    let userId = null
+    try {
+        // Quick check for standard client just to read Auth cookie
+        const { createClient: createCookieClient } = require('@/utils/supabase/server')
+        const supabaseAuth = await createCookieClient()
+        const { data: { user } } = await supabaseAuth.auth.getUser()
+        userId = user?.id || null
+    } catch (e) {
+        // If this fails (e.g. running outside of Next.js context), strictly ignore it.
+        // Guests remain null.
+    }
+
+    // 2. Create Unique ID
+    const subscriptionId = Buffer.from(subscription.endpoint).toString('base64')
+
+    // 3. Admin Save
+    const { error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .upsert({
+        id: subscriptionId,         
+        user_id: userId,  
+        subscription: subscription
+      })
+
+    if (error) {
+      console.error('Subscription error:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+
+  } catch (err: any) {
+    console.error('Server error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+--- END FILE: app/api/web-push/subscribe/route.ts ---
+
+--- START FILE: app/api/cron/route.ts ---
+import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { getSimilarDistractors } from '@/lib/conferences'
+import webpush from 'web-push'
+
+export const dynamic = 'force-dynamic'
+
+// --- HELPER: FISHER-YATES SHUFFLE (Unbiased Randomization) ---
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+export async function GET(request: Request) {
+  // ==========================================
+  // 🔒 SECURITY CHECK (TEMPORARILY DISABLED)
+  // ==========================================
+  // const authHeader = request.headers.get('authorization')
+  // if (
+  //   process.env.NODE_ENV === 'production' && 
+  //   authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  // ) {
+  //   return new NextResponse('Unauthorized', { status: 401 })
+  // }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { searchParams } = new URL(request.url)
+  const action = searchParams.get('action') || 'generate'
+
+  // ==========================================
+  // MODE A: GENERATE
+  // ==========================================
+  if (action === 'generate') {
+    
+    // 1. DATE LOGIC
+    const overrideDate = searchParams.get('date')
+    let targetDate = ''
+
+    if (overrideDate) {
+        targetDate = overrideDate
+        console.log(`Manual Override: Generating games for ${targetDate}`)
+    } else {
+        const offset = 6 * 60 * 60 * 1000 
+        const now = new Date(Date.now() - offset)
+        now.setDate(now.getDate() + 1)
+        targetDate = now.toISOString().split('T')[0]
+    }
+
+    // 2. CALCULATE 45-DAY CUTOFF
+    const cooldownDate = new Date()
+    cooldownDate.setDate(cooldownDate.getDate() - 45)
+    const cutoffString = cooldownDate.toISOString()
+
+    // 3. DEFINE CONFIGS
+    const sportConfigs = [
+      { 
+        sport: 'football', 
+        total: 10, 
+        distribution: [5, 3, 2] // 5 Easy, 3 Med, 2 Hard
+      },
+      { 
+        sport: 'basketball', 
+        total: 5, 
+        distribution: [2, 2, 1] // 2 Easy, 2 Med, 1 Hard
+      }
+    ]
+
+    const results = []
+
+    // 4. GENERATION LOOP
+    for (const config of sportConfigs) {
+      const { sport, distribution } = config
+
+      // A. Check Idempotency
+      const { data: existing } = await supabase
+        .from('daily_games')
+        .select('date')
+        .eq('date', targetDate)
+        .eq('sport', sport)
+        .single()
+
+      if (existing) {
+        results.push(`${sport}: Already exists`)
+        continue
+      }
+
+      // B. Fetch Pools
+      const [easyRes, mediumRes, hardRes] = await Promise.all([
+        supabase.from('players').select('*')
+          .eq('sport', sport)
+          .eq('tier', 1)
+          .not('image_url', 'is', null)
+          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+          .limit(50),
+        supabase.from('players').select('*')
+          .eq('sport', sport)
+          .eq('tier', 2)
+          .not('image_url', 'is', null)
+          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+          .limit(30),
+        supabase.from('players').select('*')
+          .eq('sport', sport)
+          .eq('tier', 3)
+          .not('image_url', 'is', null)
+          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+          .limit(20)
+      ])
+
+      // Validation
+      if (!easyRes.data || easyRes.data.length < distribution[0] || 
+          !mediumRes.data || mediumRes.data.length < distribution[1] || 
+          !hardRes.data || hardRes.data.length < distribution[2]) {
+        console.error(`Not enough ${sport} players available (checked 45-day cooldown).`)
+        results.push(`${sport}: Failed - Not enough players`)
+        continue
+      }
+
+      // C. Compile Ordered Roster (Applied Shuffle Logic Here Too)
+      const rosterPool = [
+        ...shuffleArray(easyRes.data).slice(0, distribution[0]),
+        ...shuffleArray(mediumRes.data).slice(0, distribution[1]),
+        ...shuffleArray(hardRes.data).slice(0, distribution[2])
+      ]
+      
+      // Shuffle the final roster order so tiers are mixed (optional, but good for gameplay)
+      // If you want them strictly ordered Easy -> Hard, remove this line.
+      // currently your UI seems to present them sequentially, so keeping original order might be better?
+      // I will keep the tiers ordered (Easy first) but randomized *within* tiers as done above.
+      const orderedRoster = rosterPool; 
+
+      // D. Build Content
+      const { data: allColleges } = await supabase
+        .from('players')
+        .select('college')
+        .eq('sport', sport)
+        .not('college', 'is', null)
+
+      const collegeList = Array.from(new Set(allColleges?.map((c: any) => c.college) || [])) as string[]
+
+      const content = orderedRoster.map((p: any) => {
+        const wrong = getSimilarDistractors(p.college, collegeList)
+        
+        // --- THE FIX IS HERE ---
+        // Old: .sort(() => 0.5 - Math.random()) -> Biased
+        // New: shuffleArray() -> Perfectly random
+        const options = shuffleArray([p.college, ...wrong])
+
+        return {
+          id: p.id,
+          name: p.name,
+          image_url: p.image_url,
+          correct_answer: p.college,
+          options: options,
+          tier: p.tier || 1,
+          sport: p.sport 
+        }
+      })
+
+      // E. Save to DB
+      const { error } = await supabase
+        .from('daily_games')
+        .insert({ 
+          date: targetDate, 
+          content,
+          sport: sport 
+        })
+
+      if (error) {
+        results.push(`${sport}: DB Error - ${error.message}`)
+      } else {
+        // F. Update last_selected
+        const playerIds = orderedRoster.map((p: any) => p.id)
+        await supabase
+          .from('players')
+          .update({ last_selected: new Date().toISOString() })
+          .in('id', playerIds)
+        
+        results.push(`${sport}: Generated successfully`)
+      }
+    }
+
+    return NextResponse.json({ success: true, date: targetDate, results })
+  }
+
+  // ==========================================
+  // MODE B: NOTIFY
+  // ==========================================
+  if (action === 'notify') {
+    try {
+      if (!process.env.VAPID_PRIVATE_KEY || !process.env.VAPID_SUBJECT) {
+        throw new Error('Missing VAPID_PRIVATE_KEY or VAPID_SUBJECT env vars')
+      }
+
+      webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT,
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+        process.env.VAPID_PRIVATE_KEY
+      )
+
+      const { data: subs } = await supabase.from('push_subscriptions').select('subscription')
+      
+      if (subs && subs.length > 0) {
+        const payload = JSON.stringify({
+          title: 'Saturday to Sunday',
+          body: 'New Daily Grids are live! Check out today\'s Football and Basketball challenges. 🏈 🏀',
+          icon: '/icon-192x192.png'
+        })
+
+        await Promise.allSettled(
+          subs.map(sub => webpush.sendNotification(sub.subscription as any, payload))
+        )
+      }
+      
+      return NextResponse.json({ success: true, action: 'Notified' })
+
+    } catch (e: any) {
+      console.error("Cron Notify Error:", e)
+      return NextResponse.json({ error: e.message || 'Notification failed' }, { status: 500 })
+    }
+  }
+
+  return NextResponse.json({ error: 'Invalid action parameter' }, { status: 400 })
+}
+--- END FILE: app/api/cron/route.ts ---
+
+--- START FILE: app/termsofservice/page.tsx ---
+import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
+
+export default function TermsOfService() {
+  return (
+    <div className="min-h-[100dvh] bg-neutral-950 text-neutral-200 font-sans p-6 md:p-12">
+      <div className="max-w-3xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="space-y-4 border-b border-neutral-800 pb-8">
+          <Link href="/" className="inline-flex items-center text-[#00ff80] hover:text-[#00ff80]/80 font-bold uppercase tracking-widest text-xs mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Game
+          </Link>
+          <h1 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter">
+            Terms of <span className="text-[#00ff80]">Service</span>
+          </h1>
+          <p className="text-neutral-500 font-mono text-sm uppercase tracking-widest">
+            Last Updated: January 6, 2026
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="prose prose-invert prose-neutral max-w-none space-y-8">
+          <p className="text-lg leading-relaxed text-neutral-300">
+            Please read these Terms of Service ("Terms") carefully before using <strong>Saturday to Sunday</strong> (the "Service") operated by us. By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, you may not access the Service.
+          </p>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">1. Accounts</h2>
+            <p>When you create an account with us, you must provide accurate and complete information via Google Sign-In. You are responsible for safeguarding the device you use to access the Service. We reserve the right to terminate accounts that violate these Terms.</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">2. Intellectual Property</h2>
+            <ul className="list-disc pl-5 space-y-2 text-neutral-400">
+              <li><strong>Our Content:</strong> The game code, design, logos, and unique gameplay mechanics are the intellectual property of Saturday to Sunday.</li>
+              <li><strong>Third-Party Content:</strong> All NFL, NCAA, and team names, logos, and player images used in this trivia game are the property of their respective owners. They are used here for identification and informational purposes (trivia) only. <strong>Saturday to Sunday is not affiliated with, endorsed by, or sponsored by the NFL, NCAA, or any professional sports team.</strong></li>
+            </ul>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">3. User Conduct</h2>
+            <p>You agree not to:</p>
+            <ul className="list-disc pl-5 space-y-2 text-neutral-400">
+              <li>Use bots, scripts, or automated tools to play the game or manipulate the leaderboard.</li>
+              <li>Attempt to hack, reverse engineer, or disrupt the Service.</li>
+              <li>Harass or abuse other users via display names.</li>
+            </ul>
+            <p className="mt-2 text-red-400/80 italic">We reserve the right to ban any user found cheating or violating these rules.</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">4. Disclaimer of Warranties</h2>
+            <p>The Service is provided on an "AS IS" and "AS AVAILABLE" basis. We do not warrant that the Service will be uninterrupted, secure, or error-free.</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">5. Limitation of Liability</h2>
+            <p>In no event shall Saturday to Sunday, nor its creators, be liable for any indirect, incidental, or consequential damages arising out of your use of the Service.</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">6. Governing Law</h2>
+            <p>These Terms shall be governed by and construed in accordance with the laws of the State of Colorado, United States, without regard to its conflict of law provisions.</p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">7. Changes to Terms</h2>
+            <p>We reserve the right to modify or replace these Terms at any time. By continuing to access or use our Service after those revisions become effective, you agree to be bound by the revised terms.</p>
+          </section>
+
+          <section className="space-y-4 border-t border-neutral-800 pt-8">
+            <h2 className="text-2xl font-bold text-white uppercase tracking-tight">Contact Us</h2>
+            <p>If you have any questions about these Terms, please contact us at:</p>
+            <p className="font-bold text-[#00ff80]">support@playsaturdaytosunday.com</p>
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}
+--- END FILE: app/termsofservice/page.tsx ---
 
 --- START FILE: utils/supabase/client.ts ---
 import { createBrowserClient } from '@supabase/ssr'
@@ -13430,6 +14360,390 @@ alter table participants enable row level security;
 create policy "Public access participants" on participants for all using (true);
 --- END FILE: supabase/schema.sql ---
 
+--- START FILE: components/Leaderboard.tsx ---
+'use client'
+
+import { createBrowserClient } from '@supabase/ssr'
+import { useEffect, useState } from 'react'
+import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight, Target, Star, Dribbble } from 'lucide-react'
+import Image from 'next/image'
+
+type LeaderboardEntry = {
+  score: number
+  results_json?: any 
+  correctCount?: number | null
+  user_id: string | null
+  guest_id: string | null
+  profiles: {
+    username: string | null
+    full_name: string | null
+    avatar_url: string | null
+    show_avatar: boolean | null
+    current_streak: number | null
+  }
+}
+
+// THEME CONFIG
+const THEMES = {
+    football: {
+        label: 'Football',
+        icon: Star,
+        color: 'text-[#00ff80]',
+        bgColor: 'bg-[#00ff80]',
+        ring: 'ring-[#00ff80]',
+        maxQuestions: 10
+    },
+    basketball: {
+        label: 'Basketball',
+        icon: Dribbble,
+        color: 'text-amber-500',
+        bgColor: 'bg-amber-500',
+        ring: 'ring-amber-500',
+        maxQuestions: 5
+    }
+}
+
+// 1. Updated Props Interface
+interface LeaderboardProps {
+    currentUserId?: string
+    defaultSport?: 'football' | 'basketball'
+}
+
+export default function Leaderboard({ currentUserId, defaultSport = 'football' }: LeaderboardProps) {
+  const [scores, setScores] = useState<LeaderboardEntry[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  
+  // FILTERS
+  const [view, setView] = useState<'daily' | 'weekly'>('daily')
+  
+  // 2. Initialize State with Default Sport
+  const [sport, setSport] = useState<'football' | 'basketball'>(defaultSport) 
+  
+  const [showGuests, setShowGuests] = useState(false) 
+  const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
+  const [dateOffset, setDateOffset] = useState(0) 
+
+  const theme = THEMES[sport]
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const localId = localStorage.getItem('s2s_guest_id')
+        setCurrentGuestId(localId)
+    }
+
+    const fetchLeaderboard = async () => {
+      setLoading(true)
+      setScores([]) 
+      
+      const now = new Date()
+      const msPerDay = 24 * 60 * 60 * 1000
+      
+      if (view === 'daily') {
+        const gameTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
+        const targetDateObj = new Date(gameTimestamp)
+        const targetDateStr = targetDateObj.toISOString().split('T')[0]
+        
+        let query = supabase
+          .from('daily_results')
+          .select(`
+            score, 
+            user_id,
+            guest_id,
+            results:results_json, 
+            profiles (username, full_name, avatar_url, show_avatar, current_streak)
+          `)
+          .eq('game_date', targetDateStr)
+          .eq('sport', sport) 
+          .order('score', { ascending: false })
+          .limit(50)
+
+        if (!showGuests) {
+            query = query.not('user_id', 'is', null)
+        }
+
+        const { data } = await query
+        
+        const parsedData = data?.map((row: any) => ({
+            ...row,
+            correctCount: Array.isArray(row.results) 
+                ? row.results.filter((r: string) => r === 'correct').length 
+                : null 
+        }))
+
+        if (parsedData) setScores(parsedData as any)
+
+        let countQuery = supabase
+          .from('daily_results')
+          .select('*', { count: 'exact', head: true })
+          .eq('game_date', targetDateStr)
+          .eq('sport', sport) 
+        
+        if (!showGuests) {
+            countQuery = countQuery.not('user_id', 'is', null)
+        }
+        const { count } = await countQuery
+        if (count !== null) setTotalCount(count)
+
+      } else {
+        // WEEKLY VIEW
+        const currentDay = now.getDay() 
+        const diffToMon = currentDay === 0 ? -6 : 1 - currentDay 
+        
+        const monday = new Date(now)
+        monday.setDate(now.getDate() + diffToMon)
+        const mondayStr = monday.toISOString().split('T')[0]
+
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        const sundayStr = sunday.toISOString().split('T')[0]
+
+        let query = supabase
+          .from('daily_results')
+          .select(`
+             score, 
+             user_id, 
+             profiles!inner (username, full_name, avatar_url, show_avatar, current_streak)
+          `)
+          .gte('game_date', mondayStr)
+          .lte('game_date', sundayStr)
+          .eq('sport', sport) 
+          .not('user_id', 'is', null) 
+        
+        const { data } = await query
+
+        if (data) {
+           const userTotals: Record<string, LeaderboardEntry> = {}
+           
+           data.forEach((row: any) => {
+               if (!row.user_id) return
+               
+               if (!userTotals[row.user_id]) {
+                   userTotals[row.user_id] = {
+                       score: 0,
+                       user_id: row.user_id,
+                       guest_id: null,
+                       profiles: row.profiles,
+                       correctCount: null
+                   }
+               }
+               userTotals[row.user_id].score += row.score
+           })
+
+           const sortedWeekly = Object.values(userTotals).sort((a, b) => b.score - a.score)
+           setScores(sortedWeekly)
+           setTotalCount(sortedWeekly.length)
+        }
+      }
+
+      setLoading(false)
+    }
+
+    fetchLeaderboard()
+  }, [currentUserId, view, showGuests, dateOffset, sport]) 
+
+  const getDisplayName = (entry: LeaderboardEntry) => {
+    if (entry.profiles?.username) return entry.profiles.username
+    if (entry.profiles?.full_name) return entry.profiles.full_name
+    if (entry.guest_id) {
+        const shortId = entry.guest_id.slice(-4).toUpperCase()
+        return `Guest-${shortId}`
+    }
+    return 'Anonymous'
+  }
+
+  const getDisplayDate = () => {
+    if (view === 'weekly') return 'This Week'
+    
+    if (dateOffset === 0) return 'Today'
+    if (dateOffset === 1) return 'Yesterday'
+    
+    const now = new Date()
+    const msPerDay = 24 * 60 * 60 * 1000
+    const targetTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
+    return new Date(targetTimestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  return (
+    <div className="w-full max-w-md mx-auto mt-6 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden shadow-2xl font-sans">
+      
+      {/* HEADER */}
+      <div className="bg-neutral-900/50 px-4 py-3 border-b border-neutral-800 flex flex-col gap-3">
+        
+        <div className="flex items-center justify-between">
+            <h3 className="font-bold text-neutral-200 uppercase tracking-widest text-xs flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-yellow-500" /> Leaderboard
+            </h3>
+            
+            <div className="flex items-center gap-2">
+                {view === 'daily' && (
+                    <button 
+                        onClick={() => setDateOffset(prev => prev + 1)}
+                        className="p-1 hover:bg-neutral-800 rounded text-neutral-500 hover:text-white transition-colors"
+                    >
+                        <ChevronLeft className="w-3 h-3" />
+                    </button>
+                )}
+                
+                <span className="text-[10px] text-neutral-500 font-mono font-bold min-w-[60px] text-center">
+                    {getDisplayDate()}
+                </span>
+
+                {view === 'daily' && (
+                    <button 
+                        onClick={() => setDateOffset(prev => prev - 1)}
+                        disabled={dateOffset === 0}
+                        className={`p-1 rounded transition-colors ${dateOffset === 0 ? 'opacity-30 cursor-not-allowed text-neutral-600' : 'hover:bg-neutral-800 text-neutral-500 hover:text-white'}`}
+                    >
+                        <ChevronRight className="w-3 h-3" />
+                    </button>
+                )}
+            </div>
+        </div>
+
+        {/* SPORT TOGGLE */}
+        <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
+             <button 
+                onClick={() => setSport('football')}
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${sport === 'football' ? 'bg-neutral-800 text-[#00ff80] shadow-sm ring-1 ring-[#00ff80]/30' : 'text-neutral-500 hover:text-neutral-300'}`}
+             >
+                <Star className="w-3 h-3" /> Football
+             </button>
+             <button 
+                onClick={() => setSport('basketball')}
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${sport === 'basketball' ? 'bg-neutral-800 text-amber-500 shadow-sm ring-1 ring-amber-500/30' : 'text-neutral-500 hover:text-neutral-300'}`}
+             >
+                <Dribbble className="w-3 h-3" /> Basketball
+             </button>
+        </div>
+
+        {/* VIEW TOGGLE */}
+        <div className="flex bg-neutral-950 p-1 rounded-lg border border-neutral-800 relative">
+             <button 
+                onClick={() => { setView('daily'); setDateOffset(0); }} 
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${view === 'daily' ? 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}
+             >
+                <Flame className={`w-3 h-3 ${view === 'daily' ? 'text-orange-500' : 'text-neutral-600'}`} /> Daily
+             </button>
+             <button 
+                onClick={() => setView('weekly')}
+                className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${view === 'weekly' ? 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}
+             >
+                <CalendarDays className={`w-3 h-3 ${view === 'weekly' ? 'text-purple-500' : 'text-neutral-600'}`} /> Weekly
+             </button>
+        </div>
+
+        {view === 'daily' && (
+            <div className="flex justify-center border-t border-neutral-800/50 pt-2">
+                <button 
+                    onClick={() => setShowGuests(!showGuests)}
+                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full transition-all border border-transparent hover:border-neutral-700 bg-neutral-800/50 text-neutral-400 hover:text-white"
+                >
+                    {showGuests ? (
+                        <>
+                            <Users className="w-3 h-3" /> Showing All Players
+                        </>
+                    ) : (
+                        <>
+                            <Filter className={`w-3 h-3 ${theme.color}`} /> <span className={theme.color}>Registered Only</span>
+                        </>
+                    )}
+                </button>
+            </div>
+        )}
+
+        {/* TOTAL COUNT */}
+        <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
+            {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' && dateOffset === 0 ? 'today' : view === 'daily' ? 'on this day' : 'this week'}
+        </div>
+      </div>
+
+      {/* LIST */}
+      <div className="max-h-64 overflow-y-auto divide-y divide-neutral-800/50 scrollbar-thin scrollbar-thumb-neutral-700">
+        {loading ? (
+             <div className="flex justify-center py-8"><Loader2 className="animate-spin text-neutral-600" /></div>
+        ) : scores.length === 0 ? (
+            <div className="p-8 text-center text-neutral-500 text-xs uppercase tracking-widest font-bold">
+                No scores found.
+            </div>
+        ) : (
+            scores.map((entry, index) => {
+            
+            const isMe = (currentUserId && entry.user_id === currentUserId) || 
+                         (currentGuestId && entry.guest_id === currentGuestId)
+
+            const rank = index + 1
+            const displayName = getDisplayName(entry)
+            const showPhoto = entry.profiles?.show_avatar !== false 
+            const avatarUrl = entry.profiles?.avatar_url
+            const streak = entry.profiles?.current_streak || 0
+            const showStreak = streak > 2
+            
+            const showAccuracy = view === 'daily' && entry.correctCount != null
+
+            return (
+                <div 
+                    key={index} 
+                    className={`flex items-center px-4 py-3 text-sm transition-colors ${isMe ? 'bg-white/5' : 'hover:bg-neutral-800/30'}`}
+                >
+                    {/* Rank */}
+                    <div className={`w-8 font-mono font-black ${
+                        rank === 1 ? 'text-yellow-400' : 
+                        rank === 2 ? 'text-neutral-300' : 
+                        rank === 3 ? 'text-amber-700' : 'text-neutral-600'
+                    }`}>
+                        {rank}
+                    </div>
+
+                    {/* User Info */}
+                    <div className="flex-1 flex items-center gap-3">
+                        <div className="relative w-6 h-6 rounded-full overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0 flex items-center justify-center">
+                            {showPhoto && avatarUrl ? (
+                                <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
+                            ) : (
+                                <User className="w-3 h-3 text-neutral-500" />
+                            )}
+                        </div>
+                        
+                        <div className="flex flex-col justify-center">
+                            <span className={`truncate max-w-[140px] leading-none ${isMe ? `${theme.color} font-bold` : 'text-neutral-300'} ${!entry.profiles ? 'opacity-70 font-mono text-xs' : ''}`}>
+                                {displayName} {isMe && '(You)'}
+                            </span>
+                            
+                            <div className="flex items-center gap-3 mt-1.5">
+                                {showStreak && (
+                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-orange-500 uppercase tracking-wider">
+                                        <Flame className="w-3.5 h-3.5 fill-orange-500" /> {streak}
+                                    </div>
+                                )}
+                                {showAccuracy && (
+                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                                        <Target className="w-3.5 h-3.5 text-neutral-600" /> {entry.correctCount}/{theme.maxQuestions}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Score */}
+                    <div className={`font-mono font-bold ${view === 'weekly' ? 'text-purple-400' : theme.color}`}>
+                        {entry.score.toLocaleString()}
+                    </div>
+                </div>
+            )
+            })
+        )}
+      </div>
+    </div>
+  )
+}
+--- END FILE: components/Leaderboard.tsx ---
+
 --- START FILE: components/GameView.tsx ---
 'use client'
 
@@ -13444,7 +14758,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 
-// --- HELPER: Decode Text ---
+// --- HELPER: Decode HTML Entities ---
 const decodeText = (text: string) => {
   if (!text) return ''
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -13455,7 +14769,7 @@ const decodeText = (text: string) => {
   return text
 }
 
-// --- HELPER: Font Sizing ---
+// --- HELPER: Dynamic Font Sizing for long college names ---
 const getFontSize = (text: string) => {
   if (text.length > 20) return "text-xs"
   if (text.length > 15) return "text-sm"
@@ -13473,78 +14787,100 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   const searchParams = useSearchParams() 
   const supabase = createClient()
   
+  // Use ID from URL if present (for reconnects), otherwise initial prop
   const playerId = searchParams.get('playerId') || initialParticipant?.id
 
+  // --- STATE ---
   const [gameState, setGameState] = useState(initialRoom.game_state) 
   const [round, setRound] = useState(initialRoom.current_round)
   const [roomData, setRoomData] = useState(initialRoom)
+  
   const [participants, setParticipants] = useState<any[]>([])
   const [submissions, setSubmissions] = useState<any[]>([])
+  
+  // Gameplay State
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [result, setResult] = useState<'correct' | 'wrong' | null>(null)
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [hasAnswered, setHasAnswered] = useState(false)
-  
   const [isImageReady, setIsImageReady] = useState(false)
 
   // Determine Host Status
   const myself = participants.find(p => p.id === playerId)
   const isHost = myself?.is_host || initialParticipant?.is_host
+  const allAnswered = participants.length > 0 && submissions.length >= participants.length
 
-  // Reset ready state when player changes
+  // Reset image loading when player changes
   useEffect(() => {
     setIsImageReady(false)
   }, [player.id])
 
-  // --- POLLING ---
+  // --- POLLING (The Heartbeat) ---
   useEffect(() => {
     const fetchGameData = async () => {
+        // 1. Refresh Room Data
         const { data: r } = await supabase.from('rooms').select('*').eq('id', initialRoom.id).single()
+        
         if (r) {
             if (r.current_round !== round) {
-                // Round Changed!
+                // Round Changed! Reset everything for next turn
                 setRound(r.current_round)
                 setRoomData(r)
+                
+                // Reset Round State
                 setHasAnswered(false)
                 setSelectedOption(null)
                 setResult(null)
                 setPotentialPoints(100)
                 setIsSubmitting(false)
                 setSubmissions([]) 
-                router.refresh() 
+                
+                router.refresh() // Triggers server re-fetch of 'player' prop
             } else {
+                // Just update status (e.g. waiting -> playing)
                 setGameState(r.game_state)
                 setRoomData(r)
             }
         }
+
+        // 2. Refresh Participants (Scores)
         const { data: p } = await supabase.from('room_participants').select('*').eq('room_id', initialRoom.id).order('score', { ascending: false })
         if (p) setParticipants(p)
+
+        // 3. Refresh Submissions (Who has answered?)
         const currentRoundNum = r ? r.current_round : round
         const { data: s } = await supabase.from('round_submissions').select('*').eq('room_id', initialRoom.id).eq('round_number', currentRoundNum)
         if (s) setSubmissions(s)
     }
+
     const interval = setInterval(fetchGameData, 2000)
     return () => clearInterval(interval)
   }, [round, initialRoom.id, router])
 
-  // --- TIMER ---
+  // --- COUNTDOWN TIMER ---
   useEffect(() => {
     if (gameState !== 'playing' || selectedOption || hasAnswered || !isImageReady) return 
+    
     const timer = setInterval(() => {
       setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - 5))
     }, 500)
+    
     return () => clearInterval(timer)
   }, [selectedOption, gameState, hasAnswered, isImageReady])
 
-  // --- HANDLERS ---
+  // --- ACTIONS ---
+
   const handleGuess = async (college: string) => {
     if (isSubmitting || selectedOption || hasAnswered) return 
+    
     setIsSubmitting(true)
     setSelectedOption(college)
+    
     const isCorrect = college === roomData.correct_answer
     setResult(isCorrect ? 'correct' : 'wrong')
     setHasAnswered(true) 
+    
     await submitAnswer(initialRoom.code, playerId, college, potentialPoints)
     setIsSubmitting(false)
   }
@@ -13556,8 +14892,29 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
   }
 
   const handleShare = async () => {
-    const myScore = participants.find(p => p.id === playerId)?.score || 0
-    const text = `Saturday to Sunday 🏈\nI scored ${myScore} pts.\n\nCan you beat me?\nhttps://www.playsaturdaytosunday.com/`
+    // 1. Get Details
+    const myParticipant = participants.find(p => p.id === playerId)
+    const myScore = myParticipant?.score || 0
+    const myRank = participants.findIndex(p => p.id === playerId) + 1
+    
+    // 2. Build the "Flex" Text
+    let header = `Saturday to Sunday 🏈`
+    if (myRank === 1) header += `\n🏆 I took 1st Place!`
+    else header += `\nI finished #${myRank} with ${myScore} pts.`
+
+    const text = `${header}\n\nCan you beat me?\nhttps://www.playsaturdaytosunday.com/`
+
+    // 3. Native Mobile Share (The Viral feature)
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Saturday to Sunday Party', text })
+        return
+      } catch (err) {
+        console.log('Share cancelled')
+      }
+    }
+
+    // 4. Desktop Fallback
     try {
       await navigator.clipboard.writeText(text)
       alert('Score copied to clipboard!')
@@ -13566,52 +14923,46 @@ export default function GameView({ initialRoom, player, initialParticipant }: Ga
     }
   }
 
-  const allAnswered = participants.length > 0 && submissions.length >= participants.length
-
-// 1. LOBBY
-if (gameState === 'waiting') {
-  return (
-    // Background changed to a deep charcoal (neutral-950)
-    <div className="flex flex-col items-center min-h-[100dvh] bg-neutral-950 text-white p-4 space-y-8 pt-20">
-       <Link href="/" className="absolute top-4 left-4 text-neutral-500 hover:text-white"><Home /></Link>
-      <div className="text-center space-y-2">
-        {/* THEME UPDATE: Swapped Blue/Indigo for Neon Green Gradient */}
-        <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00ff80]">Lobby</h1>
-        <p className="text-neutral-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
+  // --- RENDER: 1. LOBBY ---
+  if (gameState === 'waiting') {
+    return (
+      <div className="flex flex-col items-center min-h-[100dvh] bg-neutral-950 text-white p-4 space-y-8 pt-20">
+         <Link href="/" className="absolute top-4 left-4 text-neutral-500 hover:text-white"><Home /></Link>
+        
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-black italic uppercase text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#00ff80]">Lobby</h1>
+          <p className="text-neutral-400">Share Code: <span className="font-mono text-white font-bold">{initialRoom.code}</span></p>
+        </div>
+        
+        <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
+            <CardHeader><CardTitle className="text-neutral-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+                {participants.length === 0 && <div className="text-neutral-600 italic">Waiting...</div>}
+                {participants.map((p) => (
+                    <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-neutral-800/50">
+                        <div className="w-8 h-8 rounded-full bg-[#00ff80] text-black flex items-center justify-center font-bold">{p.name[0]}</div>
+                        <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
+                    </div>
+                ))}
+            </CardContent>
+        </Card>
+        
+        {isHost ? (
+             <Button 
+                size="lg" 
+                className="w-full max-w-md h-16 text-xl font-bold uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
+                onClick={async () => { await startGame(initialRoom.code) }}
+             >
+             <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
+           </Button>
+        ) : (
+            <div className="flex items-center gap-2 text-neutral-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
+        )}
       </div>
-      
-      {/* Card styling set to dark neutral to match brand */}
-      <Card className="w-full max-w-md bg-neutral-900 border-neutral-800">
-          <CardHeader><CardTitle className="text-neutral-500 text-xs uppercase">Players Joined</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-              {participants.length === 0 && <div className="text-neutral-600 italic">Waiting...</div>}
-              {participants.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 p-2 rounded bg-neutral-800/50">
-                      {/* Avatar background changed to Neon Green */}
-                      <div className="w-8 h-8 rounded-full bg-[#00ff80] text-black flex items-center justify-center font-bold">{p.name[0]}</div>
-                      <span className="font-bold">{p.name} {p.is_host && <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded ml-2">HOST</span>}</span>
-                  </div>
-              ))}
-          </CardContent>
-      </Card>
-      
-      {isHost ? (
-           /* THEME UPDATE: Swapped Green-600 for Brand Neon #00ff80 */
-           <Button 
-              size="lg" 
-              className="w-full max-w-md h-16 text-xl font-bold uppercase bg-[#00ff80] hover:bg-[#05ff84] text-black transition-all" 
-              onClick={async () => { await startGame(initialRoom.code) }}
-           >
-           <Play className="w-6 h-6 mr-2 fill-current" /> Start Game
-         </Button>
-      ) : (
-          <div className="flex items-center gap-2 text-neutral-500 animate-pulse"><Loader2 className="w-4 h-4 animate-spin" /> Waiting for host to start...</div>
-      )}
-    </div>
-  )
-}
+    )
+  }
 
-  // 2. GAME OVER
+  // --- RENDER: 2. GAME OVER ---
   if (gameState === 'finished') {
     const myRankIndex = participants.findIndex(p => p.id === playerId)
     const myRank = myRankIndex + 1
@@ -13636,6 +14987,7 @@ if (gameState === 'waiting') {
             <div className="flex justify-center mb-2">{icon}</div>
             <h1 className={`text-4xl md:text-5xl font-black italic uppercase tracking-tighter ${titleColor}`}>{endMessage}</h1>
         </div>
+        
         <Card className="w-full max-w-md bg-slate-900 border-slate-800 shadow-2xl">
             <CardHeader className="text-center border-b border-slate-800">
                 <CardTitle className="text-slate-500 text-xs uppercase tracking-widest">Final Standings</CardTitle>
@@ -13686,7 +15038,7 @@ if (gameState === 'waiting') {
     )
   }
 
-  // 3. PLAYING
+  // --- RENDER: 3. PLAYING ---
   return (
     <div className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden">
       {/* Header */}
@@ -13706,10 +15058,10 @@ if (gameState === 'waiting') {
       {/* Main Content Area */}
       <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-4 gap-4 overflow-hidden">
         
-        {/* GAME AREA - Flex Column to fill space */}
+        {/* GAME AREA - Flex Column */}
         <div className="lg:col-span-3 flex flex-col h-full gap-4 max-w-md lg:max-w-none mx-auto w-full">
 
-          {/* THE CARD - Flex 1 to take remaining space */}
+          {/* THE CARD - Flex 1 */}
           <div className="flex-1 relative bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-2xl min-h-0">
                 {/* Image */}
                 {player.image_url ? (
@@ -13731,7 +15083,7 @@ if (gameState === 'waiting') {
                     </div>
                 )}
 
-                {/* --- THE DOUBLE PILL UI --- */}
+                {/* --- FEEDBACK UI --- */}
                 <div className="absolute top-3 right-3 flex flex-col items-end gap-1 z-20">
                     {/* Points Pill */}
                     <div className={`px-3 py-1 rounded-full font-black text-sm md:text-lg shadow-xl border border-black/10 transition-all ${
@@ -13758,19 +15110,27 @@ if (gameState === 'waiting') {
                 </div>
           </div>
 
-          {/* OPTIONS GRID - Fixed height */}
+          {/* OPTIONS GRID */}
           <div className="grid grid-cols-2 gap-2 md:gap-3 shrink-0 h-32 md:h-40">
             {roomData.options.map((option: string) => {
                 const isSelected = selectedOption === option
                 const isCorrectAnswer = option === roomData.correct_answer
+                
                 let btnClass = "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" 
+                
                 if (hasAnswered) {
                     if (isSelected) btnClass = isCorrectAnswer ? "bg-green-600 text-white border-green-500 ring-2 ring-green-400" : "bg-red-600 text-white border-red-500 ring-2 ring-red-400"
                     else if (isCorrectAnswer) btnClass = "bg-green-600 text-white border-green-500 opacity-100"
                     else btnClass = "bg-slate-900 text-slate-600 border-slate-800 opacity-40"
                 }
+                
                 return (
-                  <Button key={option} onClick={() => handleGuess(option)} disabled={hasAnswered || isSubmitting || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}>
+                  <Button 
+                    key={option} 
+                    onClick={() => handleGuess(option)} 
+                    disabled={hasAnswered || isSubmitting || !isImageReady} 
+                    className={`h-full text-xs md:text-sm font-bold uppercase tracking-wide shadow-lg transition-all whitespace-normal leading-tight px-1 ${btnClass} ${getFontSize(decodeText(option))}`}
+                  >
                     {decodeText(option)}
                   </Button>
                 )
@@ -13785,9 +15145,11 @@ if (gameState === 'waiting') {
                     </Button>
                 </div>
             )}
+            
+             {/* Waiting Indicator (Guest) */}
              {hasAnswered && !isHost && (
                  <div className="w-full shrink-0 py-2 text-center text-slate-500 animate-pulse font-mono text-xs border border-slate-800 rounded-lg bg-slate-900/50">
-                    Waiting for host...
+                    Waiting for host to advance...
                 </div>
             )}
         </div>
@@ -13816,6 +15178,170 @@ if (gameState === 'waiting') {
   )
 }
 --- END FILE: components/GameView.tsx ---
+
+--- START FILE: components/InstallPWA.tsx ---
+'use client'
+
+import { useState, useEffect } from 'react'
+import { X, Share, PlusSquare, MoreHorizontal, Download, Compass, Smartphone } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+export default function InstallPwa() {
+  const [isOpen, setIsOpen] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
+  const [isChromeIOS, setIsChromeIOS] = useState(false)
+  const [isStandalone, setIsStandalone] = useState(false)
+  const [promptInstall, setPromptInstall] = useState<any>(null)
+
+  useEffect(() => {
+    // 1. Check if already installed
+    const checkStandalone = () => {
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+      setIsStandalone(!!isStandaloneMode)
+    }
+    
+    checkStandalone()
+    
+    try {
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone)
+    } catch(e) {
+        // Fallback for older browsers
+    }
+
+    // 2. Detect iOS & Chrome on iOS
+    const userAgent = window.navigator.userAgent.toLowerCase()
+    const isIosDevice = /iphone|ipad|ipod/.test(userAgent)
+    const isChrome = /crios/.test(userAgent)
+    
+    setIsIOS(isIosDevice)
+    setIsChromeIOS(isChrome)
+
+    // 3. Listen for Native Install Prompt (Android/Desktop Chrome)
+    const handler = (e: any) => {
+      e.preventDefault()
+      setPromptInstall(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+
+    const installHandler = () => {
+        setIsStandalone(true)
+        setPromptInstall(null)
+    }
+    window.addEventListener('appinstalled', installHandler)
+
+    return () => {
+        window.removeEventListener('beforeinstallprompt', handler)
+        window.removeEventListener('appinstalled', installHandler)
+    }
+  }, [])
+
+  const handleInstallClick = (e: any) => {
+    e.preventDefault()
+    if (promptInstall) {
+        promptInstall.prompt() // Native Prompt (Android/Desktop)
+    } else {
+        setIsOpen(true) // Open the Manual Instructions Modal (iOS)
+    }
+  }
+
+  // If installed, show nothing
+  if (isStandalone) return null
+
+  return (
+    <>
+      {/* 1. THE TRIGGER BUTTON (Visible by default) */}
+      <Button 
+        onClick={handleInstallClick}
+        variant="outline"
+        className="w-full h-12 border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white font-bold uppercase tracking-widest transition-all"
+      >
+        <Download className="mr-2 w-4 h-4" /> 
+        {isIOS ? "Install App" : "Install App"}
+      </Button>
+
+      {/* 2. THE MODAL OVERLAY (Hidden until clicked) */}
+      {isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-sm p-6 relative shadow-2xl animate-in zoom-in-95 duration-200 ring-1 ring-white/10">
+            
+            <button 
+                onClick={() => setIsOpen(false)}
+                className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors"
+            >
+                <X className="w-6 h-6" />
+            </button>
+
+            <div className="flex flex-col items-center text-center mb-6">
+                <div className="w-12 h-12 bg-[#00ff80]/10 rounded-xl flex items-center justify-center mb-3 border border-[#00ff80]/20">
+                    <Smartphone className="w-6 h-6 text-[#00ff80]" />
+                </div>
+                <h2 className="text-xl font-black italic uppercase text-white tracking-tight">
+                    Install App
+                </h2>
+                <p className="text-sm text-neutral-400 mt-2 leading-relaxed">
+                    Add <span className="text-white font-bold">Saturday to Sunday</span> to your home screen for full-screen gameplay.
+                </p>
+            </div>
+
+            {isIOS ? (
+                /* --- iOS INSTRUCTIONS --- */
+                <div className="space-y-4">
+                    {/* Step 1: Share */}
+                    <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
+                        <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 border border-neutral-700 font-bold text-neutral-400 text-sm">
+                            1
+                        </div>
+                        <p className="text-sm text-neutral-300">
+                            Tap <span className="text-white font-bold inline-flex items-center mx-1"><Share className="w-3.5 h-3.5 mx-1" /> Share</span> 
+                            {isChromeIOS ? " in the address bar" : " in the menu bar"}
+                        </p>
+                    </div>
+
+                    {/* Step 2: Scroll Down */}
+                    <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
+                        <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 border border-neutral-700 font-bold text-neutral-400 text-sm">
+                            2
+                        </div>
+                        <p className="text-sm text-neutral-300">
+                            Scroll down the list of options
+                        </p>
+                    </div>
+
+                    {/* Step 3: Add */}
+                    <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
+                        <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 border border-neutral-700 font-bold text-neutral-400 text-sm">
+                            3
+                        </div>
+                        <p className="text-sm text-neutral-300">Tap <span className="text-white font-bold inline-flex items-center mx-1"><PlusSquare className="w-3.5 h-3.5 mx-1" /> Add to Home Screen</span></p>
+                    </div>
+                </div>
+            ) : (
+                /* --- GENERIC FALLBACK --- */
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
+                        <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 font-bold text-neutral-400">1</div>
+                        <p className="text-sm text-neutral-300">Tap the browser <span className="text-white font-bold inline-flex items-center mx-1"><MoreHorizontal className="w-4 h-4" /> Menu</span> button</p>
+                    </div>
+                    <div className="flex items-center gap-4 bg-neutral-800/30 p-3 rounded-xl border border-neutral-800/50">
+                        <div className="w-8 h-8 bg-neutral-800 rounded-full flex items-center justify-center shrink-0 font-bold text-neutral-400">2</div>
+                        <p className="text-sm text-neutral-300">Select <span className="font-bold text-white">Install App</span> or <span className="font-bold text-white">Add to Home Screen</span></p>
+                    </div>
+                </div>
+            )}
+
+            <Button 
+                onClick={() => setIsOpen(false)}
+                className="w-full mt-6 h-12 text-black font-bold bg-[#00ff80] hover:bg-[#05ff84]"
+            >
+                Done
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+--- END FILE: components/InstallPWA.tsx ---
 
 --- START FILE: components/PlayerCard.tsx ---
 'use client'
@@ -13909,68 +15435,230 @@ export default function PlayerCard({
 }
 --- END FILE: components/PlayerCard.tsx ---
 
+--- START FILE: components/AuthButton.tsx ---
+'use client'
+
+import { createBrowserClient } from '@supabase/ssr'
+import { useState, useEffect } from 'react'
+import Image from 'next/image'
+import type { Session } from '@supabase/supabase-js'
+
+export default function AuthButton() {
+  const [user, setUser] = useState<Session['user'] | null>(null)
+  const [loading, setLoading] = useState(true) // Prevent "Login" flash
+  
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user ?? null)
+      setLoading(false)
+    }
+    getUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase])
+
+  const handleLogin = async () => {
+    // Uses location.origin to automatically detect Localhost vs Production
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+      },
+    })
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    window.location.reload()
+  }
+
+  // View: Loading (Prevents flicker)
+  if (loading) {
+    return <div className="h-8 w-24 bg-slate-800/50 rounded-full animate-pulse" />
+  }
+
+  // View: User is Logged In
+  if (user) {
+    return (
+      <div className="flex items-center gap-3 bg-slate-900/50 pr-4 py-1 pl-1 rounded-full border border-slate-800">
+        <div className="relative h-8 w-8 rounded-full overflow-hidden border border-slate-600">
+             {user.user_metadata?.avatar_url ? (
+                <Image 
+                    src={user.user_metadata.avatar_url} 
+                    alt="User" 
+                    fill 
+                    className="object-cover"
+                />
+             ) : (
+                <div className="h-full w-full bg-green-500 flex items-center justify-center text-xs font-bold text-slate-900">
+                    {user.email?.[0]?.toUpperCase()}
+                </div>
+             )}
+        </div>
+        
+        <button 
+            onClick={handleLogout}
+            className="text-[10px] font-bold text-slate-400 hover:text-white transition-colors uppercase tracking-widest"
+        >
+            Sign Out
+        </button>
+      </div>
+    )
+  }
+
+  // View: User is Logged Out
+  return (
+    <button
+      onClick={handleLogin}
+      className="flex items-center gap-2 bg-white text-slate-900 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-colors shadow-lg shadow-white/10"
+    >
+      <svg className="h-4 w-4" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+        <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+        <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+        <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+      </svg>
+      Login
+    </button>
+  )
+}
+--- END FILE: components/AuthButton.tsx ---
+
 --- START FILE: components/IntroScreen.tsx ---
-import { ClockIcon, TrophyIcon, PlayIcon } from '@heroicons/react/24/outline';
+'use client'
+
+import { ClockIcon, PlayIcon, StarIcon, TrophyIcon } from '@heroicons/react/24/outline';
+import { Zap, GraduationCap, Swords, Star, Dribbble } from 'lucide-react';
 
 interface IntroScreenProps {
   onStart: () => void;
+  challengerScore?: string | null;
+  sport: 'football' | 'basketball'; // NEW: Required prop
 }
 
-export default function IntroScreen({ onStart }: IntroScreenProps) {
+// THEME CONFIG
+const THEMES = {
+    football: {
+        label: 'Football',
+        accent: 'text-[#00ff80]',
+        bgAccent: 'bg-[#00ff80]',
+        button: 'bg-[#00ff80] hover:bg-[#05ff84] text-black shadow-[0_0_20px_rgba(0,255,128,0.3)]',
+        glow: 'bg-[#00ff80]/10',
+        dropShadow: 'drop-shadow-[0_0_15px_rgba(0,255,128,0.4)]',
+        playerCount: 10,
+        icon: Star
+    },
+    basketball: {
+        label: 'Basketball',
+        accent: 'text-amber-500',
+        bgAccent: 'bg-amber-500',
+        button: 'bg-amber-500 hover:bg-amber-400 text-black shadow-[0_0_20px_rgba(245,158,11,0.3)]',
+        glow: 'bg-amber-500/10',
+        dropShadow: 'drop-shadow-[0_0_15px_rgba(245,158,11,0.4)]',
+        playerCount: 5,
+        icon: Dribbble
+    }
+}
+
+export default function IntroScreen({ onStart, challengerScore, sport }: IntroScreenProps) {
+  const theme = THEMES[sport]
+
   return (
-    <div className="min-h-[100dvh] bg-slate-950 flex items-center justify-center p-4 animate-in fade-in duration-500">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden dark:bg-slate-900 border border-slate-800">
+    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 animate-in fade-in duration-500 font-sans">
+      <div className="w-full max-w-lg bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden border border-neutral-800 ring-1 ring-white/5">
         
-        {/* Hero Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center">
-          <h1 className="text-3xl font-black text-white italic tracking-tighter uppercase drop-shadow-md">
-            Daily Challenge
-          </h1>
-          <p className="text-blue-100 font-medium mt-2">
-            10 Players. Speed counts.
-          </p>
-        </div>
+        {/* DYNAMIC HEADER */}
+        {challengerScore ? (
+            // --- CHALLENGE MODE HEADER ---
+            <div className="relative bg-neutral-900 p-8 text-center border-b border-neutral-800">
+                <div className="absolute inset-0 bg-red-500/10 blur-3xl opacity-40 pointer-events-none" />
+                
+                <div className="relative z-10 flex justify-center mb-2">
+                    <Swords className="w-8 h-8 text-red-500 animate-pulse" />
+                </div>
+
+                <h1 className="relative text-4xl font-black text-white italic tracking-tighter uppercase drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+                    Challenge <span className="text-red-500">Accepted?</span>
+                </h1>
+                <p className="relative text-neutral-300 font-mono text-xs md:text-sm mt-3 uppercase tracking-widest font-bold">
+                    Your friend scored <span className="text-white text-lg mx-1">{challengerScore}</span>
+                    <br/>Can you beat them?
+                </p>
+            </div>
+        ) : (
+            // --- STANDARD HEADER ---
+            <div className="relative bg-neutral-900 p-8 text-center border-b border-neutral-800">
+                <div className={`absolute inset-0 ${theme.glow} blur-3xl opacity-40 pointer-events-none`} />
+                
+                <div className="flex justify-center mb-4">
+                    <div className={`p-3 rounded-full bg-neutral-800 border border-neutral-700 ${theme.accent}`}>
+                        <theme.icon className="w-8 h-8 fill-current" />
+                    </div>
+                </div>
+
+                <h1 className={`relative text-4xl font-black text-white italic tracking-tighter uppercase ${theme.dropShadow}`}>
+                    Daily <span className={theme.accent}>{theme.label}</span>
+                </h1>
+                <p className="relative text-neutral-400 font-mono text-xs md:text-sm mt-2 uppercase tracking-widest font-bold">
+                    {theme.playerCount} Players. <span className="text-white">1350 Points</span> on the line.
+                </p>
+            </div>
+        )}
 
         {/* Rules Body */}
         <div className="p-6 space-y-6">
             
-            {/* Rule 1 */}
-            <div className="flex items-start gap-4">
-                <div className="h-10 w-10 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-900 dark:text-white font-bold text-lg">1</div>
+            {/* Rule 1: The Concept */}
+            <div className="flex items-start gap-4 group">
+                <div className={`h-12 w-12 shrink-0 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center ${theme.accent} shadow-lg group-hover:scale-105 transition-transform`}>
+                    <GraduationCap className="w-6 h-6" />
+                </div>
                 <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">Guess the Player</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                        An image will appear. You have 4 options. Select the correct player name instantly.
+                    <h3 className="font-bold text-white text-lg uppercase tracking-tight">The Assignment</h3>
+                    <p className="text-sm text-neutral-400 leading-relaxed mt-1">
+                        We show you {sport === 'football' ? 'an NFL' : 'an NBA'} player. You tell us where they played in college.
                     </p>
                 </div>
             </div>
 
-            {/* Rule 2 */}
-            <div className="flex items-start gap-4">
-                <div className="h-10 w-10 shrink-0 rounded-full bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center text-yellow-600 dark:text-yellow-400">
-                    <ClockIcon className="w-6 h-6" />
+            {/* Rule 2: Multipliers */}
+            <div className="flex items-start gap-4 group">
+                <div className="h-12 w-12 shrink-0 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-yellow-400 shadow-lg group-hover:scale-105 transition-transform group-hover:border-yellow-400/50">
+                    <Zap className="w-6 h-6 fill-current" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">Speed = Points</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Points drop from <span className="font-bold text-green-600">100</span> to <span className="font-bold text-red-500">10</span> based on time. 
+                    <h3 className="font-bold text-white text-lg uppercase tracking-tight">Big Plays = Big Points</h3>
+                    <p className="text-sm text-neutral-400 leading-relaxed mt-1 mb-2">
+                        Stars are standard, but the obscure guys score double.
                     </p>
-                    {/* Visual Bar */}
-                    <div className="mt-3 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                        <div className="h-full w-3/4 bg-gradient-to-r from-green-500 to-yellow-500" />
+                    <div className="flex flex-wrap gap-2">
+                        <span className="px-2 py-1 rounded-md text-[10px] font-black bg-neutral-950 text-neutral-400 border border-neutral-800">EASY (1x)</span>
+                        <span className="px-2 py-1 rounded-md text-[10px] font-black bg-yellow-900/20 text-yellow-500 border border-yellow-500/30">MED (1.5x)</span>
+                        <span className="px-2 py-1 rounded-md text-[10px] font-black bg-red-900/20 text-red-500 border border-red-500/30">HARD (2.0x)</span>
                     </div>
                 </div>
             </div>
 
-            {/* Rule 3 */}
-            <div className="flex items-start gap-4">
-                <div className="h-10 w-10 shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <TrophyIcon className="w-6 h-6" />
+            {/* Rule 3: Speed Logic */}
+            <div className="flex items-start gap-4 group">
+                <div className="h-12 w-12 shrink-0 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center text-blue-400 shadow-lg group-hover:scale-105 transition-transform group-hover:border-blue-400/50">
+                    <ClockIcon className="w-6 h-6" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">Perfect Score: 1000</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Compete against the global leaderboard. One mistake breaks your perfect streak.
+                    <h3 className="font-bold text-white text-lg uppercase tracking-tight">Beat the Blitz</h3>
+                    <p className="text-sm text-neutral-400 leading-relaxed mt-1">
+                        You get a <span className="text-white font-bold">1-second "huddle"</span> to think, then points start draining fast.
                     </p>
                 </div>
             </div>
@@ -13978,16 +15666,20 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
         </div>
 
         {/* Footer Action */}
-        <div className="p-6 pt-0 bg-white dark:bg-slate-900">
+        <div className="p-6 pt-2 bg-neutral-900 border-t border-neutral-800/50">
           <button 
             onClick={onStart}
-            className="w-full group relative flex items-center justify-center gap-3 rounded-xl bg-slate-900 dark:bg-white py-4 text-lg font-black text-white dark:text-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+            className={`w-full group relative flex items-center justify-center gap-3 rounded-xl py-4 text-lg font-black shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200
+                ${challengerScore 
+                    ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-900/20' 
+                    : theme.button}
+            `}
           >
-            <span>START GAME</span>
-            <PlayIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            <span>{challengerScore ? "ACCEPT CHALLENGE" : "START GAME"}</span>
+            <PlayIcon className="w-6 h-6 stroke-2 group-hover:translate-x-1 transition-transform fill-current" />
           </button>
-          <p className="mt-4 text-center text-[10px] text-slate-400 uppercase tracking-widest font-bold">
-            New Players Daily at 06:00 UTC
+          <p className="mt-4 text-center text-[10px] text-neutral-500 uppercase tracking-widest font-bold font-mono">
+            Good Luck &bull; New Roster Daily
           </p>
         </div>
       </div>
@@ -13996,95 +15688,1040 @@ export default function IntroScreen({ onStart }: IntroScreenProps) {
 }
 --- END FILE: components/IntroScreen.tsx ---
 
+--- START FILE: components/LiveRankDisplay.tsx ---
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createBrowserClient } from '@supabase/ssr'
+import { Trophy, Loader2, Users } from 'lucide-react'
+
+interface LiveRankProps {
+  score: number
+  sport: string // 'basketball' or 'football'
+}
+
+export default function LiveRankDisplay({ score, sport }: LiveRankProps) {
+  const [rank, setRank] = useState<number | null>(null)
+  const [total, setTotal] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    async function fetchRank() {
+      setLoading(true)
+      try {
+        // 1. Get TOTAL number of games played for this sport
+        const { count: totalCount, error: totalError } = await supabase
+          .from('games') // <--- Ensure your table name is 'games'
+          .select('*', { count: 'exact', head: true })
+          .eq('sport', sport)
+
+        if (totalError) throw totalError
+
+        // 2. Get number of players with a HIGHER score
+        const { count: betterCount, error: rankError } = await supabase
+          .from('games')
+          .select('*', { count: 'exact', head: true })
+          .eq('sport', sport)
+          .gt('score', score) // greater than my score
+
+        if (rankError) throw rankError
+
+        // Rank = (People better than me) + 1
+        setRank((betterCount || 0) + 1)
+        setTotal(totalCount || 0)
+        
+      } catch (err) {
+        console.error("Error fetching rank:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (sport) {
+      fetchRank()
+    }
+  }, [score, sport, supabase])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 text-slate-500 py-4">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span className="text-xs font-mono uppercase">Calculating Rank...</span>
+      </div>
+    )
+  }
+
+  if (!rank || !total) return null
+
+  // Calculate top % for flair
+  const topPercent = Math.max(1, Math.round((rank / total) * 100))
+
+  return (
+    <div className="w-full max-w-xs mx-auto mt-6 p-4 bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col items-center animate-in zoom-in-95 duration-500">
+      
+      {/* Label */}
+      <div className="flex items-center gap-2 text-slate-400 mb-1">
+        <Trophy className="w-3 h-3 text-yellow-500" />
+        <span className="text-[10px] font-bold uppercase tracking-widest">Global Ranking</span>
+      </div>
+
+      {/* The Big Numbers */}
+      <div className="flex items-baseline gap-2">
+        <span className="text-4xl font-black text-white drop-shadow-lg">
+            #{rank}
+        </span>
+        <span className="text-sm text-slate-500 font-bold flex items-center gap-1">
+            <span className="text-slate-600">/</span> {total}
+        </span>
+      </div>
+
+      {/* Percentile Badge */}
+      <div className="mt-2 bg-slate-950 px-3 py-1 rounded-full border border-slate-800">
+        <p className="text-[10px] font-medium text-slate-300">
+            Top <span className={topPercent <= 10 ? 'text-green-400' : 'text-blue-400'}>{topPercent}%</span> of players
+        </p>
+      </div>
+    </div>
+  )
+}
+--- END FILE: components/LiveRankDisplay.tsx ---
+
+--- START FILE: components/PushNotificationManager.tsx ---
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Bell, Loader2, BellOff, CheckCircle2 } from 'lucide-react'
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const outputArray = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i)
+  }
+  return outputArray
+}
+
+interface PushManagerProps {
+  hideOnSubscribed?: boolean
+}
+
+export default function PushNotificationManager({ hideOnSubscribed = false }: PushManagerProps) {
+  const [isSupported, setIsSupported] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [justSubscribed, setJustSubscribed] = useState(false)
+  
+  // NEW: Track if we are in the app
+  const [isStandalone, setIsStandalone] = useState(false)
+
+  useEffect(() => {
+    // 1. CHECK IF INSTALLED (Standalone Mode)
+    const checkStandalone = () => {
+        const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+        setIsStandalone(!!isStandaloneMode)
+    }
+    checkStandalone()
+
+    // 2. CHECK SERVICE WORKER SUPPORT
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      setIsSupported(true)
+      
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+           return registration.pushManager.getSubscription()
+        })
+        .then((subscription) => {
+           if (subscription) {
+             setIsSubscribed(true)
+           }
+        })
+        .catch((err) => console.error("SW Error:", err))
+        .finally(() => setLoading(false))
+
+    } else {
+      setIsSupported(false)
+      setLoading(false)
+    }
+  }, [])
+
+  async function subscribeToPush() {
+    setLoading(true)
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const sub = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+        )
+      })
+
+      const res = await fetch('/api/web-push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub)
+      })
+
+      if (!res.ok) throw new Error('Failed to save to DB')
+      
+      setIsSubscribed(true)
+      setJustSubscribed(true)
+
+    } catch (error: any) {
+      console.error(error)
+      alert(`Error: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function unsubscribeFromPush() {
+    setLoading(true)
+    try {
+      const registration = await navigator.serviceWorker.ready
+      const sub = await registration.pushManager.getSubscription()
+      if (sub) {
+        await fetch('/api/web-push/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint })
+        })
+        await sub.unsubscribe()
+      }
+      setIsSubscribed(false)
+      setJustSubscribed(false)
+    } catch (error) {
+      console.error(error)
+      alert('Failed to unsubscribe.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // --- CRITICAL CHANGE: HIDE IF NOT INSTALLED ---
+  // If we are in the browser, return NULL so the Install Button is the only thing visible.
+  if (!isStandalone) return null
+
+  // --- SAFETY CHECK ---
+  if (!isSupported) return null
+
+  // --- STATE 2: HOME PAGE SUCCESS MESSAGE ---
+  if (hideOnSubscribed && isSubscribed) {
+    if (justSubscribed) {
+      return (
+        <div className="flex items-center gap-3 p-4 w-full bg-[#00ff80]/10 rounded-xl mb-4 border border-[#00ff80]/20 animate-in fade-in slide-in-from-bottom-2">
+           <CheckCircle2 className="w-5 h-5 text-[#00ff80]" />
+           <div className="flex flex-col">
+             <span className="text-sm font-bold text-white">Daily notifications enabled.</span>
+             <span className="text-[10px] text-neutral-400">Change this setting in your Profile.</span>
+           </div>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // --- STATE 3: STANDARD TOGGLE (Only visible inside the App) ---
+  return (
+    <div className="flex items-center justify-between p-4 w-full bg-neutral-900/50 border border-neutral-800 rounded-xl mb-4">
+      <div className="flex flex-col text-left">
+         <span className="text-sm font-bold text-white flex items-center gap-2">
+            <Bell className="w-4 h-4 text-[#00ff80]" /> Daily Reminders
+         </span>
+         <span className="text-[10px] font-medium text-neutral-500 uppercase tracking-wide">
+            Get alerted at 9:00 AM
+         </span>
+      </div>
+
+      {loading ? (
+        <Loader2 className="animate-spin w-5 h-5 text-neutral-500" />
+      ) : isSubscribed ? (
+        <button
+          onClick={unsubscribeFromPush}
+          className="px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[10px] font-black uppercase tracking-widest rounded border border-red-500/20 transition-colors flex items-center gap-2"
+        >
+          <BellOff className="w-3 h-3" /> Turn Off
+        </button>
+      ) : (
+        <button
+          onClick={subscribeToPush}
+          className="px-4 py-2 bg-white text-black hover:bg-neutral-200 text-xs font-black uppercase tracking-widest rounded transition-colors"
+        >
+          Turn On
+        </button>
+      )}
+    </div>
+  )
+}
+--- END FILE: components/PushNotificationManager.tsx ---
+
+--- START FILE: components/DailyGame.tsx ---
+'use client'
+
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { getDailyGame } from '@/app/actions' 
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Star, Shield, Flame, Zap, Medal, Skull, Dribbble } from 'lucide-react'
+import Link from 'next/link'
+import Image from 'next/image'
+import IntroScreen from '@/components/IntroScreen'
+import AuthButton from '@/components/AuthButton'
+import { createBrowserClient } from '@supabase/ssr'
+import Leaderboard from '@/components/Leaderboard'
+import InstallPWA from '@/components/InstallPWA'
+import PushNotificationManager from '@/components/PushNotificationManager'
+
+// --- CONSTANTS & THEMES ---
+const THEMES = {
+  football: {
+    primary: 'text-[#00ff80]',
+    bgPrimary: 'bg-[#00ff80]',
+    borderPrimary: 'border-[#00ff80]',
+    cardBg: 'bg-neutral-900',
+    ring: 'ring-[#00ff80]',
+    icon: Star,
+    label: 'Football'
+  },
+  basketball: {
+    primary: 'text-amber-400',
+    bgPrimary: 'bg-amber-600',
+    borderPrimary: 'border-amber-600',
+    cardBg: 'bg-gradient-to-br from-amber-950 to-black',
+    ring: 'ring-amber-500',
+    icon: Dribbble, 
+    label: 'Basketball'
+  }
+}
+
+// --- CONFIG: Game Lengths & SCALING ---
+const GAME_CONFIG = {
+    football: { 
+        rounds: 10, 
+        maxScore: 1350, 
+        pointScale: 1.0 
+    },
+    basketball: { 
+        rounds: 5, 
+        maxScore: 1350, 
+        pointScale: 2.0 
+    } 
+}
+
+// --- HELPER: Get Date ---
+const getGameDate = () => {
+    const offset = 6 * 60 * 60 * 1000 
+    const adjustedTime = new Date(Date.now() - offset)
+    return adjustedTime.toISOString().split('T')[0]
+}
+
+// --- HELPER: Multiplier Logic ---
+const getMultiplier = (tier: number) => {
+    if (tier === 3) return 2.0
+    if (tier === 2) return 1.5
+    return 1.0
+}
+
+const cleanText = (text: string) => text ? text.replace(/&amp;/g, '&') : ''
+
+const getGuestId = () => {
+    if (typeof window === 'undefined') return null
+    let id = localStorage.getItem('s2s_guest_id')
+    if (!id) {
+        id = 'guest_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+        localStorage.setItem('s2s_guest_id', id)
+    }
+    return id
+}
+
+// --- HELPER: Dynamic Ranks ---
+const getRankTitle = (score: number, sport: 'football' | 'basketball') => {
+    if (sport === 'football') {
+        if (score >= 1100) return { title: "Heisman Hopeful", color: "text-yellow-400", icon: Trophy }
+        if (score >= 700) return { title: "All-American", color: "text-[#00ff80]", icon: Medal }
+        if (score >= 300) return { title: "Varsity Starter", color: "text-blue-400", icon: Star }
+        if (score > 0) return { title: "Practice Squad", color: "text-neutral-400", icon: Shield }
+        return { title: "Redshirt", color: "text-red-500", icon: Skull }
+    } else {
+        if (score >= 1100) return { title: "MVP Contender", color: "text-yellow-400", icon: Trophy }
+        if (score >= 700) return { title: "All-Star", color: "text-amber-500", icon: Medal }
+        if (score >= 300) return { title: "Starting 5", color: "text-blue-400", icon: Star }
+        if (score > 0) return { title: "6th Man", color: "text-neutral-400", icon: Shield }
+        return { title: "G-League", color: "text-red-500", icon: Skull }
+    }
+}
+
+// --- PROPS INTERFACE ---
+interface DailyGameProps {
+    sport?: 'football' | 'basketball'
+}
+
+export default function DailyGameWrapper({ sport = 'football' }: DailyGameProps) {
+    return (
+        <Suspense fallback={<div className="bg-neutral-950 min-h-screen flex items-center justify-center text-white"><Loader2 className="animate-spin" /></div>}>
+            <DailyGame sport={sport} />
+        </Suspense>
+    )
+}
+
+function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
+  const searchParams = useSearchParams()
+  const challengerScore = searchParams.get('s')
+  const theme = THEMES[sport]
+  const config = GAME_CONFIG[sport]
+
+  const [questions, setQuestions] = useState<any[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [score, setScore] = useState(0)
+  const [streak, setStreak] = useState(0)
+  
+  const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
+  const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
+  const [potentialPoints, setPotentialPoints] = useState(100)
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [showResult, setShowResult] = useState(false)
+  const [isImageReady, setIsImageReady] = useState(false)
+
+  const [user, setUser] = useState<any>(null)
+  const [isSaved, setIsSaved] = useState(false)
+  
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!, 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  // 1. INITIAL LOAD
+  useEffect(() => {
+    const loadGame = async () => {
+      try {
+          const data = await getDailyGame(sport) 
+          
+          if (data && data.length > 0) {
+            const gameData = data.slice(0, config.rounds)
+            setQuestions(gameData)
+            
+            const storageKeyScore = `s2s_${sport}_today_score`
+            const storageKeyDate = `s2s_${sport}_last_played_date`
+            const storageKeyResults = `s2s_${sport}_daily_results`
+
+            const savedScore = localStorage.getItem(storageKeyScore)
+            const savedDate = localStorage.getItem(storageKeyDate)
+            const savedResults = localStorage.getItem(storageKeyResults) 
+            
+            const today = getGameDate()
+
+            if (savedScore && savedDate === today) {
+                setScore(parseInt(savedScore))
+                try {
+                    if (savedResults) setResults(JSON.parse(savedResults))
+                    else setResults(new Array(gameData.length).fill('pending'))
+                } catch (e) {
+                    setResults(new Array(gameData.length).fill('pending'))
+                }
+                setGameState('finished')
+                setIsSaved(true) 
+            } else {
+                setResults(new Array(gameData.length).fill('pending'))
+                setGameState('intro')
+            }
+          }
+      } catch (err) {
+          console.error("Critical Error Loading Game:", err)
+      }
+    }
+    loadGame()
+  }, [sport, config.rounds])
+
+  // 2. AUTH LISTENER
+  useEffect(() => {
+    const checkSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) setUser(session.user)
+    }
+    checkSession()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // 3. STREAK FETCHER (New Logic)
+  // This fetches the streak when the user loads AND re-fetches after saving to get the latest increment
+  useEffect(() => {
+    const getStreak = async () => {
+        if (!user) return
+        
+        // Select the correct column based on the sport
+        const column = sport === 'basketball' ? 'streak_basketball' : 'streak_football'
+
+        const { data } = await supabase
+            .from('profiles')
+            .select(column)
+            .eq('id', user.id)
+            .single()
+        
+        if (data) {
+            // @ts-ignore
+            setStreak(data[column] || 0)
+        }
+    }
+    
+    // Fetch initially if user exists
+    if (user) getStreak()
+    
+    // Trigger a refresh after the game is saved (DB trigger will have updated the streak by now)
+    if (isSaved) getStreak()
+    
+  }, [user, sport, isSaved])
+
+  // 4. SAVE LOGIC
+  useEffect(() => {
+    const saveScore = async () => {
+      if (gameState !== 'finished' || isSaved || score <= 0) return
+
+      const todayISO = getGameDate() 
+      
+      let upsertPayload: any = {
+          score: score,
+          game_date: todayISO,
+          results_json: results,
+          sport: sport 
+      }
+      
+      let conflictTarget = ''
+      
+      if (user) {
+          upsertPayload.user_id = user.id
+          conflictTarget = 'user_id,game_date,sport' 
+      } else {
+          upsertPayload.guest_id = getGuestId()
+          conflictTarget = 'guest_id,game_date,sport'
+      }
+
+      const { error } = await supabase.from('daily_results').upsert(upsertPayload, { onConflict: conflictTarget })
+      if (!error) setIsSaved(true)
+    }
+    saveScore()
+  }, [gameState, user, score, isSaved, results, sport])
+
+  const handleStartGame = () => {
+      setGameState('playing')
+  }
+
+  // TIMER LOGIC
+  useEffect(() => {
+    if (gameState !== 'playing' || showResult || !isImageReady) return
+    const currentQ = questions[currentIndex]
+    const tier = currentQ ? (currentQ.tier || 1) : 1
+    const multiplier = getMultiplier(tier)
+    const decayAmount = 5 / multiplier
+    let decayInterval: any
+    const startTimer = setTimeout(() => {
+        decayInterval = setInterval(() => {
+            setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - decayAmount))
+        }, 800)
+    }, 1000)
+    return () => { clearTimeout(startTimer); if (decayInterval) clearInterval(decayInterval) }
+  }, [gameState, showResult, isImageReady, currentIndex, questions])
+
+  const handleGuess = (option: string) => {
+    if (showResult) return
+    setSelectedOption(option)
+    const currentQ = questions[currentIndex]
+    const isCorrect = option === currentQ.correct_answer
+    
+    let newScore = score
+    if (isCorrect) {
+        const multiplier = getMultiplier(currentQ.tier || 1)
+        const pointsAwarded = Math.round(potentialPoints * multiplier * config.pointScale)
+        newScore = score + pointsAwarded
+        setScore(newScore)
+    }
+    
+    const newResults = [...results]
+    newResults[currentIndex] = isCorrect ? 'correct' : 'wrong'
+    setResults(newResults)
+    setShowResult(true)
+
+    setTimeout(() => {
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex(prev => prev + 1)
+        setSelectedOption(null)
+        setShowResult(false)
+        setPotentialPoints(100)
+        setIsImageReady(false) 
+      } else {
+        localStorage.setItem(`s2s_${sport}_today_score`, newScore.toString())
+        localStorage.setItem(`s2s_${sport}_last_played_date`, getGameDate())
+        localStorage.setItem(`s2s_${sport}_daily_results`, JSON.stringify(newResults))
+        setGameState('finished')
+      }
+    }, 1500)
+  }
+
+  // --- SHARE LOGIC ---
+  const handleShare = async () => {
+    const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
+    const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
+    const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    const streakText = streak > 1 ? ` | 🔥 ${streak}` : ''
+    
+    const rankInfo = getRankTitle(score, sport)
+    const domain = 'https://www.playsaturdaytosunday.com'
+    const challengeUrl = `${domain}/daily${sport === 'basketball' ? '/basketball' : ''}?s=${score}` 
+
+    const text = `Saturday to Sunday (${shortDate})
+${sport === 'basketball' ? '🏀' : '🏈'} ${theme.label} Mode
+Score: ${score.toLocaleString()} (${rankInfo.title})${streakText}
+
+${squares}
+
+Can you beat my score? 👇
+${challengeUrl}`
+  
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        alert('Copied to clipboard!') 
+      }
+    } catch (err) {
+      await navigator.clipboard.writeText(text)
+    }
+  }
+
+  // --- RENDER ---
+  if (gameState === 'loading') return <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
+  
+  if (gameState === 'intro') {
+      const firstImage = questions[0]?.image_url
+      return (
+        <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden relative">
+             <IntroScreen 
+                onStart={handleStartGame} 
+                challengerScore={challengerScore} 
+                sport={sport} // PASS SPORT PROP
+             /> 
+             {firstImage && (
+                <div className="hidden"><Image src={firstImage} alt="Preload Q1" width={400} height={400} priority={true} /></div>
+             )}
+        </div>
+      )
+  }
+
+  // FINISHED SCREEN
+  const rankInfo = getRankTitle(score, sport)
+
+  if (gameState === 'finished') {
+    return (
+      // UPDATED: Changed from 'justify-center' to 'justify-start' + overflow-y-auto to allow scrolling for leaderboard
+      <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-start p-4 space-y-4 animate-in fade-in duration-500 relative overflow-y-auto">
+        <Link href="/" className="absolute top-4 left-4 z-20">
+            <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white rounded-full"><Home className="w-6 h-6" /></Button>
+        </Link>
+
+        {/* Added top padding so it doesn't touch the very top on scroll */}
+        <div className="text-center space-y-2 mb-2 mt-8">
+            <Trophy className={`w-16 h-16 ${theme.primary} mx-auto animate-bounce mb-2`} />
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter">Daily Complete</h1>
+        </div>
+        
+        <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden shrink-0`}>
+        <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
+            <div className="flex flex-col items-center justify-center gap-2">
+                <div className="flex flex-col items-center">
+                    <span className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
+                    <div className={`text-6xl font-black ${theme.primary} font-mono tracking-tighter leading-none`}>
+                        {score}<span className="text-2xl text-neutral-600">/{config.maxScore}</span>
+                    </div>
+                </div>
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-black/40 ${theme.primary} ${theme.borderPrimary} border-opacity-30 shadow-lg mt-2`}>
+                    <rankInfo.icon className="w-4 h-4 fill-current" />
+                    <span className="text-xs font-black uppercase tracking-widest">{rankInfo.title}</span>
+                </div>
+            </div>
+            
+            <div className="flex justify-center gap-1 mt-4">
+                {results.map((r, i) => (
+                    <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-[#00ff80]' : r === 'wrong' ? 'bg-red-500' : 'bg-neutral-800'}`} />
+                ))}
+            </div>
+
+            <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black mt-6 hover:opacity-90 shadow-lg`}>
+                <Share2 className="mr-2 w-5 h-5" /> Share Result
+            </Button>
+            
+            <div className="pt-4 w-full">
+                <Link href={sport === 'football' ? '/daily/basketball' : '/daily'} className="w-full block">
+                    <Button variant="outline" className={`w-full h-12 text-lg font-bold border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800 ${sport === 'football' ? 'text-amber-500 hover:text-amber-400 hover:border-amber-500' : 'text-[#00ff80] hover:text-[#00ff80] hover:border-[#00ff80]'} transition-all`}>
+                        {sport === 'football' ? 'Play Basketball Mode 🏀' : 'Play Football Mode 🏈'}
+                    </Button>
+                </Link>
+            </div>
+
+        </CardContent>
+        </Card>
+
+        {/* --- LEADERBOARD ADDED HERE --- */}
+        <div className="w-full max-w-md pb-8 animate-in slide-in-from-bottom-4 duration-700 delay-200">
+             <Leaderboard currentUserId={user?.id} defaultSport={sport} />
+        </div>
+        </div>
+    )
+  }
+
+  // PLAYING SCREEN
+  const q = questions[currentIndex]
+  const nextQ = questions[currentIndex + 1] 
+  
+  if (!q) return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">Loading...</div>
+
+  const currentPotential = Math.round(potentialPoints * getMultiplier(q.tier || 1) * config.pointScale)
+
+  return (
+    <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
+        
+        {nextQ && nextQ.image_url && (
+            <div className="hidden"><Image src={nextQ.image_url} alt="Preload Next" width={400} height={400} priority={true} /></div>
+        )}
+
+        {/* HEADER */}
+        <div className="w-full max-w-md mx-auto pt-2 px-2 pb-0 shrink-0 z-50">
+           <div className={`flex items-center justify-between ${theme.cardBg} backdrop-blur-md rounded-full px-4 py-2 border border-white/5 shadow-2xl`}>
+               <Link href="/"><button className="text-neutral-400 hover:text-white"><Home className="w-4 h-4" /></button></Link>
+               <div className="flex items-center gap-2">
+                   <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Score</div>
+                   <div className={`text-lg font-black ${theme.primary} tabular-nums leading-none`}>{score}</div>
+               </div>
+               <div className="text-[10px] font-bold text-neutral-500 font-mono tracking-widest"><span className="text-white">{currentIndex + 1}</span>/{config.rounds}</div>
+           </div>
+           <div className="mt-2 px-1">
+              <Progress value={((currentIndex) / config.rounds) * 100} className={`h-1 bg-neutral-800 rounded-full [&>div]:${theme.bgPrimary}`} />
+           </div>
+        </div>
+
+        {/* MAIN GAME CARD */}
+        <main className="flex-1 w-full max-w-md mx-auto p-2 pb-4 flex flex-col gap-2 overflow-hidden h-full">
+            <div className={`flex-1 relative ${theme.cardBg} rounded-xl overflow-hidden border ${theme.borderPrimary} border-opacity-20 shadow-2xl min-h-0`}>
+               <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
+                   <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-black/20 bg-white text-black flex items-center gap-1`}>
+                       <theme.icon className="w-3 h-3 text-black" />
+                       {theme.label}
+                   </div>
+                   <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black' }`}>
+                        {showResult ? (selectedOption === q.correct_answer ? `+${currentPotential}` : '+0') : `${currentPotential}`}
+                   </div>
+               </div>
+
+               {q.image_url ? (
+                 <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />
+               ) : ( <div className="flex items-center justify-center h-full text-neutral-600"><AlertCircle /> No Image</div> )}
+               
+               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 shrink-0 h-32 md:h-40">
+                {q.options.map((opt: string) => {
+                    let btnClass = `bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:${theme.borderPrimary} hover:border-opacity-50`
+                    if (showResult) {
+                        if (opt === q.correct_answer) btnClass = `bg-[#00ff80] text-black border-[#00ff80] ring-2 ring-[#00ff80] ring-opacity-50` 
+                        else if (opt === selectedOption) btnClass = "bg-red-500 text-white border-red-600" 
+                        else btnClass = "bg-neutral-950 text-neutral-600 opacity-30" 
+                    }
+                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}> {cleanText(opt)} </Button> )
+                })}
+            </div>
+        </main>
+    </div>
+  )
+}
+--- END FILE: components/DailyGame.tsx ---
+
 --- START FILE: components/AdminCard.tsx ---
 'use client'
 
 import { useState } from 'react'
-import { deletePlayer, updatePlayerImage } from '@/app/actions'
-import Image from 'next/image'
-import { Trash2, Save, X, ImageIcon } from 'lucide-react'
+import { createBrowserClient } from '@supabase/ssr'
+import { Save, RefreshCw, ExternalLink, ImageOff } from 'lucide-react'
 
 export default function AdminCard({ player }: { player: any }) {
-  const [isDeleted, setIsDeleted] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [newUrl, setNewUrl] = useState(player.image_url || '')
+  const [imageUrl, setImageUrl] = useState(player.image_url || '')
+  // Default to 4 if null, to handle your messy data
+  const [tier, setTier] = useState(player.tier || 4) 
+  const [isDirty, setIsDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [imgError, setImgError] = useState(false)
 
-  if (isDeleted) return null
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
-  const handleDelete = async () => {
-    if (confirm(`Are you sure you want to delete ${player.name}?`)) {
-      await deletePlayer(player.id)
-      setIsDeleted(true)
+  const handleSave = async () => {
+    setSaving(true)
+    const { error } = await supabase
+      .from('players')
+      .update({ image_url: imageUrl, tier: tier })
+      .eq('id', player.id)
+
+    if (!error) {
+      setIsDirty(false)
+      setImgError(false)
+    } else {
+      alert("Error saving: " + error.message)
     }
+    setSaving(false)
   }
 
-  const handleUpdate = async () => {
-    await updatePlayerImage(player.id, newUrl)
-    setIsEditing(false)
-    // Optional: Force a refresh or just rely on local state updates if you want
+  const handleChange = (type: 'image' | 'tier', value: any) => {
+    if (type === 'image') setImageUrl(value)
+    if (type === 'tier') setTier(parseInt(value))
+    setIsDirty(true)
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 flex flex-col gap-4 relative group">
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow">
       
-      {/* HEADER INFO */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-bold text-lg leading-tight">{player.name}</h3>
-          <p className="text-xs text-slate-500 uppercase">{player.team} • {player.college}</p>
+      {/* HEADER */}
+      <div className="p-3 border-b border-slate-800 bg-slate-950/30 flex justify-between items-start">
+        <div className="overflow-hidden">
+          <h3 className="font-bold text-white text-sm truncate pr-2" title={player.name}>{player.name}</h3>
+          <p className="text-xs text-slate-400 truncate">{player.college} • {player.team}</p>
         </div>
-        <button 
-            onClick={handleDelete}
-            className="text-slate-600 hover:text-red-500 transition-colors p-1"
-            title="Delete Player"
-        >
-            <Trash2 className="w-5 h-5" />
-        </button>
+        <div className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+            tier === 1 ? 'border-yellow-500/30 text-yellow-500' :
+            tier === 2 ? 'border-blue-500/30 text-blue-500' :
+            tier === 3 ? 'border-green-500/30 text-green-500' :
+            'border-slate-500/30 text-slate-500'
+        }`}>
+            T{tier}
+        </div>
       </div>
 
-      {/* IMAGE AREA */}
-      <div className="relative w-full aspect-square bg-slate-950 rounded border border-slate-800 overflow-hidden flex items-center justify-center">
-        {player.image_url ? (
-            <Image 
-                src={player.image_url} 
-                alt={player.name} 
-                fill 
-                className="object-cover"
-                sizes="300px"
-            />
+      {/* IMAGE */}
+      <div className="relative h-48 w-full bg-slate-950 flex items-center justify-center group">
+        {imageUrl && !imgError ? (
+          <img 
+            src={imageUrl} 
+            alt={player.name}
+            className="h-full w-full object-contain p-2"
+            onError={() => setImgError(true)} 
+          />
         ) : (
-            <ImageIcon className="text-slate-700 w-12 h-12" />
+          <div className="text-center p-4">
+            <ImageOff className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+            <span className="text-xs text-slate-600 block">{imgError ? "Broken Link" : "No Image"}</span>
+          </div>
         )}
+        <a 
+            href={`https://www.google.com/search?q=${player.name}+${player.sport}+espn+headshot&tbm=isch`} 
+            target="_blank"
+            rel="noreferrer"
+            className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+            <ExternalLink className="w-3 h-3" />
+        </a>
       </div>
 
-      {/* EDIT URL TOOL */}
-      <div className="space-y-2">
-        {isEditing ? (
+      {/* EDIT CONTROLS */}
+      <div className="p-3 bg-slate-900 border-t border-slate-800 mt-auto space-y-3">
+        <div className="flex items-center justify-between">
+           <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tier</label>
+           <select 
+             value={tier}
+             onChange={(e) => handleChange('tier', e.target.value)}
+             className="bg-slate-950 border border-slate-800 text-xs text-white rounded px-2 py-1 focus:outline-none focus:border-yellow-500"
+           >
+             <option value={1}>Tier 1 (Star)</option>
+             <option value={2}>Tier 2 (Starter)</option>
+             <option value={3}>Tier 3 (Role)</option>
+             <option value={4}>Tier 4 (Deep)</option>
+           </select>
+        </div>
+        <div>
+            <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1 block">Image URL</label>
             <div className="flex gap-2">
                 <input 
                     type="text" 
-                    value={newUrl}
-                    onChange={(e) => setNewUrl(e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs text-white"
-                    placeholder="Paste Image URL..."
+                    value={imageUrl}
+                    onChange={(e) => { handleChange('image', e.target.value); setImgError(false); }}
+                    className={`flex-1 bg-slate-950 border text-xs px-2 py-2 rounded focus:outline-none focus:ring-1 ${imgError ? 'border-red-900 text-red-400' : 'border-slate-800 text-slate-300 focus:ring-blue-500'}`}
+                    placeholder="https://..."
                 />
-                <button onClick={handleUpdate} className="bg-green-600 text-white p-1 rounded hover:bg-green-500"><Save className="w-4 h-4" /></button>
-                <button onClick={() => setIsEditing(false)} className="bg-slate-700 text-white p-1 rounded hover:bg-slate-600"><X className="w-4 h-4" /></button>
+                <button 
+                    onClick={handleSave}
+                    disabled={!isDirty || saving}
+                    className={`px-3 rounded flex items-center justify-center transition-colors ${
+                        isDirty ? 'bg-green-600 hover:bg-green-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                    }`}
+                >
+                    {saving ? <RefreshCw className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4" />}
+                </button>
             </div>
-        ) : (
-            <button 
-                onClick={() => setIsEditing(true)}
-                className="w-full text-xs font-bold text-blue-400 hover:text-blue-300 py-1 border border-blue-900/50 rounded hover:bg-blue-900/20"
-            >
-                {player.image_url ? 'Change Photo' : 'Add Photo'}
-            </button>
-        )}
+        </div>
       </div>
-
     </div>
   )
 }
 --- END FILE: components/AdminCard.tsx ---
+
+--- START FILE: components/AdminDashboard.tsx ---
+'use client'
+
+import { useState, useEffect } from 'react'
+import AdminCard from '@/components/AdminCard'
+import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+
+export default function AdminDashboard({ initialPlayers }: { initialPlayers: any[] }) {
+  const [sportFilter, setSportFilter] = useState<'football' | 'basketball'>('basketball')
+  const [tierFilter, setTierFilter] = useState<number | 'all'>('all')
+  const [search, setSearch] = useState('')
+  
+  // PAGINATION
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 50
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [sportFilter, tierFilter, search])
+
+  // --- THE FIX FOR "MISSING PLAYERS" ---
+  // We use strict matching for the filter logic, but we normalize the data first.
+  const filteredPlayers = initialPlayers.filter(player => {
+    // 1. Normalize Sport: Handle "Basketball", "basketball", "NBA", or null
+    const playerSport = (player.sport || 'basketball').toLowerCase()
+    const filterSport = sportFilter.toLowerCase()
+    const matchesSport = playerSport.includes(filterSport) // 'includes' is safer for messy data
+
+    // 2. Normalize Tier: Treat null as Tier 4
+    const playerTier = player.tier || 4
+    const matchesTier = tierFilter === 'all' ? true : playerTier === tierFilter
+
+    // 3. Search
+    const matchesSearch = player.name.toLowerCase().includes(search.toLowerCase())
+
+    return matchesSport && matchesTier && matchesSearch
+  })
+
+  const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedPlayers = filteredPlayers.slice(startIndex, startIndex + itemsPerPage)
+
+  const missingImages = filteredPlayers.filter(p => !p.image_url).length
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white p-6 font-sans">
+      <div className="max-w-7xl mx-auto space-y-6">
+        
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-6">
+          <div>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter">
+              Roster <span className="text-yellow-500">Audit</span>
+            </h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Found <strong>{filteredPlayers.length}</strong> matches. 
+              {missingImages > 0 && <span className="text-red-400 ml-2 font-bold">({missingImages} missing images)</span>}
+            </p>
+          </div>
+          
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <input 
+              type="text" 
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+            />
+          </div>
+        </div>
+
+        {/* CONTROLS */}
+        <div className="flex flex-col md:flex-row gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800 justify-between items-center">
+          <div className="flex gap-4">
+            {/* Sport Toggle */}
+            <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                {['football', 'basketball'].map((s) => (
+                <button
+                    key={s}
+                    onClick={() => setSportFilter(s as any)}
+                    className={`px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${
+                    sportFilter === s 
+                        ? s === 'football' ? 'bg-[#00ff80] text-black' : 'bg-amber-500 text-black'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                >
+                    {s}
+                </button>
+                ))}
+            </div>
+
+            {/* Tier Toggle (Now includes T4) */}
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500 uppercase px-2 hidden md:inline"><Filter className="w-3 h-3 inline mr-1"/> Tier:</span>
+                {[1, 2, 3, 4, 'all'].map((t) => (
+                <button
+                    key={t}
+                    onClick={() => setTierFilter(t as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                    tierFilter === t
+                        ? 'bg-slate-800 border-slate-600 text-white'
+                        : 'bg-transparent border-slate-800 text-slate-500 hover:border-slate-700'
+                    }`}
+                >
+                    {t === 'all' ? 'ALL' : `T${t}`}
+                </button>
+                ))}
+            </div>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+             <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30"
+                >
+                    <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-mono font-bold px-2">
+                    {currentPage} / {totalPages}
+                </span>
+                <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30"
+                >
+                    <ChevronRight className="w-4 h-4" />
+                </button>
+             </div>
+          )}
+        </div>
+
+        {/* GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in duration-500">
+          {paginatedPlayers.map((player) => (
+            <AdminCard key={player.id} player={player} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+--- END FILE: components/AdminDashboard.tsx ---
 
 --- START FILE: components/ui/tabs.tsx ---
 "use client"
@@ -14364,6 +17001,34 @@ Input.displayName = "Input"
 
 export { Input }
 --- END FILE: components/ui/input.tsx ---
+
+--- START FILE: public/custom-sw.js ---
+self.addEventListener('push', function(event) {
+  if (event.data) {
+    const data = event.data.json()
+    const options = {
+      body: data.body,
+      icon: '/icon-192x192.png', // Make sure you have this icon in /public
+      badge: '/icon-192x192.png',
+      vibrate: [100, 50, 100],
+      data: {
+        dateOfArrival: Date.now(),
+        primaryKey: '2'
+      }
+    }
+    event.waitUntil(
+      self.registration.showNotification(data.title, options)
+    )
+  }
+})
+
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close()
+  event.waitUntil(
+    clients.openWindow('https://www.playsaturdaytosunday.com/daily')
+  )
+})
+--- END FILE: public/custom-sw.js ---
 
 --- START FILE: lib/utils.ts ---
 import { type ClassValue, clsx } from "clsx"

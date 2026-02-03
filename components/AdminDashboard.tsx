@@ -9,24 +9,32 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
   const [tierFilter, setTierFilter] = useState<number | 'all'>('all')
   const [search, setSearch] = useState('')
   
-  // PAGINATION STATE
+  // PAGINATION
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 50
 
-  // Reset to page 1 if filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [sportFilter, tierFilter, search])
 
-  // Filter Logic
+  // --- THE FIX FOR "MISSING PLAYERS" ---
+  // We use strict matching for the filter logic, but we normalize the data first.
   const filteredPlayers = initialPlayers.filter(player => {
-    const matchesSport = player.sport === sportFilter
-    const matchesTier = tierFilter === 'all' ? true : player.tier === tierFilter
+    // 1. Normalize Sport: Handle "Basketball", "basketball", "NBA", or null
+    const playerSport = (player.sport || 'basketball').toLowerCase()
+    const filterSport = sportFilter.toLowerCase()
+    const matchesSport = playerSport.includes(filterSport) // 'includes' is safer for messy data
+
+    // 2. Normalize Tier: Treat null as Tier 4
+    const playerTier = player.tier || 4
+    const matchesTier = tierFilter === 'all' ? true : playerTier === tierFilter
+
+    // 3. Search
     const matchesSearch = player.name.toLowerCase().includes(search.toLowerCase())
+
     return matchesSport && matchesTier && matchesSearch
   })
 
-  // Pagination Logic
   const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedPlayers = filteredPlayers.slice(startIndex, startIndex + itemsPerPage)
@@ -49,12 +57,11 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
             </p>
           </div>
           
-          {/* SEARCH */}
           <div className="relative w-full md:w-64">
             <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
             <input 
               type="text" 
-              placeholder="Search player name..."
+              placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
@@ -64,7 +71,6 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
 
         {/* CONTROLS */}
         <div className="flex flex-col md:flex-row gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-800 justify-between items-center">
-          
           <div className="flex gap-4">
             {/* Sport Toggle */}
             <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
@@ -83,10 +89,10 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
                 ))}
             </div>
 
-            {/* Tier Toggle */}
+            {/* Tier Toggle (Now includes T4) */}
             <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-500 uppercase px-2 hidden md:inline"><Filter className="w-3 h-3 inline mr-1"/> Tier:</span>
-                {[1, 2, 3, 'all'].map((t) => (
+                {[1, 2, 3, 4, 'all'].map((t) => (
                 <button
                     key={t}
                     onClick={() => setTierFilter(t as any)}
@@ -102,29 +108,28 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
             </div>
           </div>
 
-          {/* PAGINATION CONTROLS */}
+          {/* Pagination */}
           {totalPages > 1 && (
              <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
                 <button 
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30"
                 >
                     <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="text-xs font-mono font-bold px-2">
-                    Page {currentPage} / {totalPages}
+                    {currentPage} / {totalPages}
                 </span>
                 <button 
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30 disabled:hover:bg-transparent"
+                    className="p-1.5 hover:bg-slate-800 rounded disabled:opacity-30"
                 >
                     <ChevronRight className="w-4 h-4" />
                 </button>
              </div>
           )}
-
         </div>
 
         {/* GRID */}
@@ -133,12 +138,6 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
             <AdminCard key={player.id} player={player} />
           ))}
         </div>
-        
-        {filteredPlayers.length === 0 && (
-            <div className="text-center py-20 text-slate-500">
-                No players found matching these filters.
-            </div>
-        )}
       </div>
     </div>
   )
