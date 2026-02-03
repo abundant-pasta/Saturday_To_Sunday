@@ -16,7 +16,9 @@ type LeaderboardEntry = {
     full_name: string | null
     avatar_url: string | null
     show_avatar: boolean | null
-    current_streak: number | null
+    // UPDATED: Now specific streaks
+    streak_football: number | null
+    streak_basketball: number | null
   }
 }
 
@@ -40,7 +42,6 @@ const THEMES = {
     }
 }
 
-// 1. Updated Props Interface
 interface LeaderboardProps {
     currentUserId?: string
     defaultSport?: 'football' | 'basketball'
@@ -53,8 +54,6 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
   
   // FILTERS
   const [view, setView] = useState<'daily' | 'weekly'>('daily')
-  
-  // 2. Initialize State with Default Sport
   const [sport, setSport] = useState<'football' | 'basketball'>(defaultSport) 
   
   const [showGuests, setShowGuests] = useState(false) 
@@ -86,6 +85,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
         const targetDateObj = new Date(gameTimestamp)
         const targetDateStr = targetDateObj.toISOString().split('T')[0]
         
+        // UPDATED QUERY: Fetching streak_football and streak_basketball
         let query = supabase
           .from('daily_results')
           .select(`
@@ -93,13 +93,13 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
             user_id,
             guest_id,
             results:results_json, 
-            profiles (username, full_name, avatar_url, show_avatar, current_streak)
+            profiles (username, full_name, avatar_url, show_avatar, streak_football, streak_basketball)
           `)
-          .eq('game_date', targetDateStr)
+          .eq('game_date', targetDateStr) 
           .eq('sport', sport) 
           .order('score', { ascending: false })
           .limit(50)
-
+//redeploy
         if (!showGuests) {
             query = query.not('user_id', 'is', null)
         }
@@ -140,12 +140,13 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
         sunday.setDate(monday.getDate() + 6)
         const sundayStr = sunday.toISOString().split('T')[0]
 
+        // UPDATED QUERY: Fetching streak_football and streak_basketball
         let query = supabase
           .from('daily_results')
           .select(`
              score, 
              user_id, 
-             profiles!inner (username, full_name, avatar_url, show_avatar, current_streak)
+             profiles!inner (username, full_name, avatar_url, show_avatar, streak_football, streak_basketball)
           `)
           .gte('game_date', mondayStr)
           .lte('game_date', sundayStr)
@@ -318,7 +319,12 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
             const displayName = getDisplayName(entry)
             const showPhoto = entry.profiles?.show_avatar !== false 
             const avatarUrl = entry.profiles?.avatar_url
-            const streak = entry.profiles?.current_streak || 0
+            
+            // --- UPDATED: SELECT CORRECT STREAK BASED ON SPORT ---
+            const streak = sport === 'basketball' 
+                ? entry.profiles?.streak_basketball || 0
+                : entry.profiles?.streak_football || 0
+
             const showStreak = streak > 2
             
             const showAccuracy = view === 'daily' && entry.correctCount != null
