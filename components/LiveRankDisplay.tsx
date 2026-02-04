@@ -59,10 +59,10 @@ export default function LiveRankDisplay({ score, sport }: LiveRankProps) {
         <Trophy className="w-2.5 h-2.5" />
         <span className="text-[9px] font-black uppercase tracking-widest">Rank</span>
       </div>
-      <div className="flex items-baseline gap-0.5">
+      <div className="flex items-baseline gap-1">
         <span className="text-2xl font-black italic tracking-tighter text-white">#{rank}</span>
-        {/* BUMPED SIZE: Increased from 9px to text-xs (12px) for readability */}
-        <span className="text-xs font-bold text-neutral-500 uppercase">/{total}</span>
+        {/* BUMPED SIZE: Changed from text-[9px] to text-sm for better readability */}
+        <span className="text-sm font-bold text-neutral-500 uppercase tracking-tighter">/ {total}</span>
       </div>
     </div>
   )

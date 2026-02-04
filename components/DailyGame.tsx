@@ -6,7 +6,7 @@ import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Star, Shield, Flame, Zap, Medal, Skull, Dribbble } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, AlertCircle, Star, Shield, Medal, Skull, Dribbble } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -159,7 +159,8 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         if (!user) return
         const column = sport === 'basketball' ? 'streak_basketball' : 'streak_football'
         const { data } = await supabase.from('profiles').select(column).eq('id', user.id).single()
-        if (data) setStreak(data[column] || 0)
+        // FIXED: TypeScript casting to any to allow dynamic indexing
+        if (data) setStreak((data as any)[column] || 0)
     }
     if (user) getStreak()
     if (isSaved) getStreak()
@@ -246,10 +247,12 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden shrink-0`}>
           <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
               
+              {/* FIXED: Absolute positioned Rank Badge */}
               <div className="absolute top-6 left-6">
                   <LiveRankDisplay key={`${sport}-${score}`} score={score} sport={sport} />
               </div>
 
+              {/* FIXED: Centered Score and Rank Badge */}
               <div className="flex flex-col items-center justify-center gap-2">
                   <div className="flex flex-col items-center">
                       <span className="text-neutral-500 text-[10px] uppercase tracking-[0.15em] font-black mb-1">Final Score</span>
