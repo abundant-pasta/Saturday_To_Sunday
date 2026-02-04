@@ -1,5 +1,6 @@
 'use client'
 
+import LiveRankDisplay from '@/components/LiveRankDisplay' // Adjust path if needed
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { getDailyGame } from '@/app/actions' 
@@ -359,50 +360,57 @@ ${challengeUrl}`
 
   if (gameState === 'finished') {
     return (
-      // UPDATED: Changed from 'justify-center' to 'justify-start' + overflow-y-auto to allow scrolling for leaderboard
       <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-start p-4 space-y-4 animate-in fade-in duration-500 relative overflow-y-auto">
         <Link href="/" className="absolute top-4 left-4 z-20">
             <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white rounded-full"><Home className="w-6 h-6" /></Button>
         </Link>
 
-        {/* Added top padding so it doesn't touch the very top on scroll */}
         <div className="text-center space-y-2 mb-2 mt-8">
             <Trophy className={`w-16 h-16 ${theme.primary} mx-auto animate-bounce mb-2`} />
             <h1 className="text-3xl font-black italic uppercase tracking-tighter">Daily Complete</h1>
         </div>
         
         <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden shrink-0`}>
-        <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
-            <div className="flex flex-col items-center justify-center gap-2">
-                <div className="flex flex-col items-center">
-                    <span className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
-                    <div className={`text-6xl font-black ${theme.primary} font-mono tracking-tighter leading-none`}>
-                        {score}<span className="text-2xl text-neutral-600">/{config.maxScore}</span>
-                    </div>
-                </div>
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-black/40 ${theme.primary} ${theme.borderPrimary} border-opacity-30 shadow-lg mt-2`}>
-                    <rankInfo.icon className="w-4 h-4 fill-current" />
-                    <span className="text-xs font-black uppercase tracking-widest">{rankInfo.title}</span>
-                </div>
-            </div>
-            
-            <div className="flex justify-center gap-1 mt-4">
-                {results.map((r, i) => (
-                    <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-[#00ff80]' : r === 'wrong' ? 'bg-red-500' : 'bg-neutral-800'}`} />
-                ))}
-            </div>
+          <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
+              <div className="flex flex-col items-center justify-center gap-2">
+                  <div className="flex flex-col items-center">
+                      <span className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
+                      <div className={`text-6xl font-black ${theme.primary} font-mono tracking-tighter leading-none`}>
+                          {score}<span className="text-2xl text-neutral-600">/{config.maxScore}</span>
+                      </div>
+                  </div>
+                  
+                  {/* Rank Title Badge */}
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-black/40 ${theme.primary} ${theme.borderPrimary} border-opacity-30 shadow-lg mt-2`}>
+                      <rankInfo.icon className="w-4 h-4 fill-current" />
+                      <span className="text-xs font-black uppercase tracking-widest">{rankInfo.title}</span>
+                  </div>
 
-            <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black mt-6 hover:opacity-90 shadow-lg`}>
-                <Share2 className="mr-2 w-5 h-5" /> Share Result
-            </Button>
-            
-            <div className="pt-4 w-full">
-                <Link href={sport === 'football' ? '/daily/basketball' : '/daily'} className="w-full block">
-                    <Button variant="outline" className={`w-full h-12 text-lg font-bold border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800 ${sport === 'football' ? 'text-amber-500 hover:text-amber-400 hover:border-amber-500' : 'text-[#00ff80] hover:text-[#00ff80] hover:border-[#00ff80]'} transition-all`}>
-                        {sport === 'football' ? 'Play Basketball Mode 🏀' : 'Play Football Mode 🏈'}
-                    </Button>
-                </Link>
-            </div>
+                  {/* NEW: Live Ranking Component */}
+                  <LiveRankDisplay 
+                    key={`${sport}-${score}`} // Key forces re-mount if sport or score changes
+                    score={score} 
+                    sport={sport} 
+                  />
+              </div>
+              
+              <div className="flex justify-center gap-1 mt-4">
+                  {results.map((r, i) => (
+                      <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-[#00ff80]' : r === 'wrong' ? 'bg-red-500' : 'bg-neutral-800'}`} />
+                  ))}
+              </div>
+
+              <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black mt-6 hover:opacity-90 shadow-lg`}>
+                  <Share2 className="mr-2 w-5 h-5" /> Share Result
+              </Button>
+              
+              <div className="pt-4 w-full">
+                  <Link href={sport === 'football' ? '/daily/basketball' : '/daily'} className="w-full block">
+                      <Button variant="outline" className={`w-full h-12 text-lg font-bold border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800 ${sport === 'football' ? 'text-amber-500 hover:text-amber-400 hover:border-amber-500' : 'text-[#00ff80] hover:text-[#00ff80] hover:border-[#00ff80]'} transition-all`}>
+                          {sport === 'football' ? 'Play Basketball Mode 🏀' : 'Play Football Mode 🏈'}
+                      </Button>
+                  </Link>
+              </div>
 
         </CardContent>
         </Card>

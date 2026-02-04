@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { Trophy, Loader2, Users } from 'lucide-react'
+import { Trophy, Loader2 } from 'lucide-react'
 
 interface LiveRankProps {
   score: number
-  sport: string // 'basketball' or 'football'
+  sport: string 
 }
 
 export default function LiveRankDisplay({ score, sport }: LiveRankProps) {
@@ -23,24 +23,25 @@ export default function LiveRankDisplay({ score, sport }: LiveRankProps) {
     async function fetchRank() {
       setLoading(true)
       try {
-        // 1. Get TOTAL number of games played for this sport
-        const { count: totalCount, error: totalError } = await supabase
-          .from('games') // <--- Ensure your table name is 'games'
+        // Use the same date logic as your game to target TODAY
+        const offset = 6 * 60 * 60 * 1000 
+        const today = new Date(Date.now() - offset).toISOString().split('T')[0]
+
+        // 1. Get TOTAL players for TODAY
+        const { count: totalCount } = await supabase
+          .from('daily_results') 
           .select('*', { count: 'exact', head: true })
           .eq('sport', sport)
+          .eq('game_date', today)
 
-        if (totalError) throw totalError
-
-        // 2. Get number of players with a HIGHER score
-        const { count: betterCount, error: rankError } = await supabase
-          .from('games')
+        // 2. Get number of players with a HIGHER score TODAY
+        const { count: betterCount } = await supabase
+          .from('daily_results')
           .select('*', { count: 'exact', head: true })
           .eq('sport', sport)
-          .gt('score', score) // greater than my score
+          .eq('game_date', today)
+          .gt('score', score) 
 
-        if (rankError) throw rankError
-
-        // Rank = (People better than me) + 1
         setRank((betterCount || 0) + 1)
         setTotal(totalCount || 0)
         
@@ -51,49 +52,40 @@ export default function LiveRankDisplay({ score, sport }: LiveRankProps) {
       }
     }
 
-    if (sport) {
+    if (sport && score > 0) {
       fetchRank()
     }
   }, [score, sport, supabase])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 text-slate-500 py-4">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        <span className="text-xs font-mono uppercase">Calculating Rank...</span>
-      </div>
-    )
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center gap-2 text-neutral-500 py-4">
+      <Loader2 className="w-3 h-3 animate-spin" />
+      <span className="text-[10px] font-bold uppercase tracking-widest">Calculating Live Rank...</span>
+    </div>
+  )
 
   if (!rank || !total) return null
 
-  // Calculate top % for flair
   const topPercent = Math.max(1, Math.round((rank / total) * 100))
 
   return (
-    <div className="w-full max-w-xs mx-auto mt-6 p-4 bg-slate-900/50 border border-slate-800 rounded-xl flex flex-col items-center animate-in zoom-in-95 duration-500">
-      
-      {/* Label */}
-      <div className="flex items-center gap-2 text-slate-400 mb-1">
+    <div className="w-full py-4 border-t border-white/5 mt-4 animate-in fade-in zoom-in-95 duration-500">
+      <div className="flex items-center justify-center gap-2 text-neutral-500 mb-2">
         <Trophy className="w-3 h-3 text-yellow-500" />
-        <span className="text-[10px] font-bold uppercase tracking-widest">Global Ranking</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest">Live Daily Standings</span>
       </div>
 
-      {/* The Big Numbers */}
-      <div className="flex items-baseline gap-2">
-        <span className="text-4xl font-black text-white drop-shadow-lg">
-            #{rank}
-        </span>
-        <span className="text-sm text-slate-500 font-bold flex items-center gap-1">
-            <span className="text-slate-600">/</span> {total}
-        </span>
+      <div className="flex items-baseline justify-center gap-2">
+        <span className="text-4xl font-black text-white italic">#{rank}</span>
+        <span className="text-sm text-neutral-500 font-bold">/ {total}</span>
       </div>
 
-      {/* Percentile Badge */}
-      <div className="mt-2 bg-slate-950 px-3 py-1 rounded-full border border-slate-800">
-        <p className="text-[10px] font-medium text-slate-300">
-            Top <span className={topPercent <= 10 ? 'text-green-400' : 'text-blue-400'}>{topPercent}%</span> of players
-        </p>
+      <div className="mt-2 flex justify-center">
+        <div className="bg-white/5 px-3 py-1 rounded-full border border-white/10">
+          <p className="text-[10px] font-black uppercase tracking-tighter">
+            Top <span className={topPercent <= 10 ? 'text-[#00ff80]' : 'text-blue-400'}>{topPercent}%</span> of players
+          </p>
+        </div>
       </div>
     </div>
   )
