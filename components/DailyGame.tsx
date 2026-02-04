@@ -1,6 +1,5 @@
 'use client'
 
-import LiveRankDisplay from '@/components/LiveRankDisplay' // Adjust path if needed
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { getDailyGame } from '@/app/actions' 
@@ -11,13 +10,10 @@ import { Home, Share2, Loader2, Trophy, AlertCircle, Star, Shield, Flame, Zap, M
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
-import AuthButton from '@/components/AuthButton'
 import { createBrowserClient } from '@supabase/ssr'
 import Leaderboard from '@/components/Leaderboard'
-import InstallPWA from '@/components/InstallPWA'
-import PushNotificationManager from '@/components/PushNotificationManager'
+import LiveRankDisplay from '@/components/LiveRankDisplay'
 
-// --- CONSTANTS & THEMES ---
 const THEMES = {
   football: {
     primary: 'text-[#00ff80]',
@@ -39,28 +35,16 @@ const THEMES = {
   }
 }
 
-// --- CONFIG: Game Lengths & SCALING ---
 const GAME_CONFIG = {
-    football: { 
-        rounds: 10, 
-        maxScore: 1350, 
-        pointScale: 1.0 
-    },
-    basketball: { 
-        rounds: 5, 
-        maxScore: 1350, 
-        pointScale: 2.0 
-    } 
+    football: { rounds: 10, maxScore: 1350, pointScale: 1.0 },
+    basketball: { rounds: 5, maxScore: 1350, pointScale: 2.0 } 
 }
 
-// --- HELPER: Get Date ---
 const getGameDate = () => {
     const offset = 6 * 60 * 60 * 1000 
-    const adjustedTime = new Date(Date.now() - offset)
-    return adjustedTime.toISOString().split('T')[0]
+    return new Date(Date.now() - offset).toISOString().split('T')[0]
 }
 
-// --- HELPER: Multiplier Logic ---
 const getMultiplier = (tier: number) => {
     if (tier === 3) return 2.0
     if (tier === 2) return 1.5
@@ -79,29 +63,23 @@ const getGuestId = () => {
     return id
 }
 
-// --- HELPER: Dynamic Ranks ---
 const getRankTitle = (score: number, sport: 'football' | 'basketball') => {
     if (sport === 'football') {
-        if (score >= 1100) return { title: "Heisman Hopeful", color: "text-yellow-400", icon: Trophy }
-        if (score >= 700) return { title: "All-American", color: "text-[#00ff80]", icon: Medal }
-        if (score >= 300) return { title: "Varsity Starter", color: "text-blue-400", icon: Star }
-        if (score > 0) return { title: "Practice Squad", color: "text-neutral-400", icon: Shield }
-        return { title: "Redshirt", color: "text-red-500", icon: Skull }
+        if (score >= 1100) return { title: "Heisman Hopeful", icon: Trophy }
+        if (score >= 700) return { title: "All-American", icon: Medal }
+        if (score >= 300) return { title: "Varsity Starter", icon: Star }
+        if (score > 0) return { title: "Practice Squad", icon: Shield }
+        return { title: "Redshirt", icon: Skull }
     } else {
-        if (score >= 1100) return { title: "MVP Contender", color: "text-yellow-400", icon: Trophy }
-        if (score >= 700) return { title: "All-Star", color: "text-amber-500", icon: Medal }
-        if (score >= 300) return { title: "Starting 5", color: "text-blue-400", icon: Star }
-        if (score > 0) return { title: "6th Man", color: "text-neutral-400", icon: Shield }
-        return { title: "G-League", color: "text-red-500", icon: Skull }
+        if (score >= 1100) return { title: "MVP Contender", icon: Trophy }
+        if (score >= 700) return { title: "All-Star", icon: Medal }
+        if (score >= 300) return { title: "Starting 5", icon: Star }
+        if (score > 0) return { title: "6th Man", icon: Shield }
+        return { title: "G-League", icon: Skull }
     }
 }
 
-// --- PROPS INTERFACE ---
-interface DailyGameProps {
-    sport?: 'football' | 'basketball'
-}
-
-export default function DailyGameWrapper({ sport = 'football' }: DailyGameProps) {
+export default function DailyGameWrapper({ sport = 'football' }: { sport?: 'football' | 'basketball' }) {
     return (
         <Suspense fallback={<div className="bg-neutral-950 min-h-screen flex items-center justify-center text-white"><Loader2 className="animate-spin" /></div>}>
             <DailyGame sport={sport} />
@@ -119,14 +97,12 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
-  
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
   const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [isImageReady, setIsImageReady] = useState(false)
-
   const [user, setUser] = useState<any>(null)
   const [isSaved, setIsSaved] = useState(false)
   
@@ -135,31 +111,22 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
-  // 1. INITIAL LOAD
   useEffect(() => {
     const loadGame = async () => {
       try {
           const data = await getDailyGame(sport) 
-          
           if (data && data.length > 0) {
             const gameData = data.slice(0, config.rounds)
             setQuestions(gameData)
-            
-            const storageKeyScore = `s2s_${sport}_today_score`
-            const storageKeyDate = `s2s_${sport}_last_played_date`
-            const storageKeyResults = `s2s_${sport}_daily_results`
-
-            const savedScore = localStorage.getItem(storageKeyScore)
-            const savedDate = localStorage.getItem(storageKeyDate)
-            const savedResults = localStorage.getItem(storageKeyResults) 
-            
+            const savedScore = localStorage.getItem(`s2s_${sport}_today_score`)
+            const savedDate = localStorage.getItem(`s2s_${sport}_last_played_date`)
+            const savedResults = localStorage.getItem(`s2s_${sport}_daily_results`) 
             const today = getGameDate()
 
             if (savedScore && savedDate === today) {
                 setScore(parseInt(savedScore))
                 try {
-                    if (savedResults) setResults(JSON.parse(savedResults))
-                    else setResults(new Array(gameData.length).fill('pending'))
+                    setResults(savedResults ? JSON.parse(savedResults) : new Array(gameData.length).fill('pending'))
                 } catch (e) {
                     setResults(new Array(gameData.length).fill('pending'))
                 }
@@ -170,14 +137,11 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
                 setGameState('intro')
             }
           }
-      } catch (err) {
-          console.error("Critical Error Loading Game:", err)
-      }
+      } catch (err) { console.error(err) }
     }
     loadGame()
   }, [sport, config.rounds])
 
-  // 2. AUTH LISTENER
   useEffect(() => {
     const checkSession = async () => {
         const { data: { session } } = await supabase.auth.getSession()
@@ -190,99 +154,41 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 3. STREAK FETCHER (New Logic)
-  // This fetches the streak when the user loads AND re-fetches after saving to get the latest increment
   useEffect(() => {
     const getStreak = async () => {
         if (!user) return
-        
-        // Select the correct column based on the sport
         const column = sport === 'basketball' ? 'streak_basketball' : 'streak_football'
-
-        const { data } = await supabase
-            .from('profiles')
-            .select(column)
-            .eq('id', user.id)
-            .single()
-        
-        if (data) {
-            // @ts-ignore
-            setStreak(data[column] || 0)
-        }
+        const { data } = await supabase.from('profiles').select(column).eq('id', user.id).single()
+        if (data) setStreak(data[column] || 0)
     }
-    
-    // Fetch initially if user exists
     if (user) getStreak()
-    
-    // Trigger a refresh after the game is saved (DB trigger will have updated the streak by now)
     if (isSaved) getStreak()
-    
   }, [user, sport, isSaved])
 
-  // 4. SAVE LOGIC
   useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved || score <= 0) return
-
       const todayISO = getGameDate() 
-      
-      let upsertPayload: any = {
-          score: score,
-          game_date: todayISO,
-          results_json: results,
-          sport: sport 
-      }
-      
-      let conflictTarget = ''
-      
-      if (user) {
-          upsertPayload.user_id = user.id
-          conflictTarget = 'user_id,game_date,sport' 
-      } else {
-          upsertPayload.guest_id = getGuestId()
-          conflictTarget = 'guest_id,game_date,sport'
-      }
-
+      let upsertPayload: any = { score, game_date: todayISO, results_json: results, sport }
+      let conflictTarget = user ? 'user_id,game_date,sport' : 'guest_id,game_date,sport'
+      if (user) upsertPayload.user_id = user.id
+      else upsertPayload.guest_id = getGuestId()
       const { error } = await supabase.from('daily_results').upsert(upsertPayload, { onConflict: conflictTarget })
       if (!error) setIsSaved(true)
     }
     saveScore()
   }, [gameState, user, score, isSaved, results, sport])
 
-  const handleStartGame = () => {
-      setGameState('playing')
-  }
-
-  // TIMER LOGIC
-  useEffect(() => {
-    if (gameState !== 'playing' || showResult || !isImageReady) return
-    const currentQ = questions[currentIndex]
-    const tier = currentQ ? (currentQ.tier || 1) : 1
-    const multiplier = getMultiplier(tier)
-    const decayAmount = 5 / multiplier
-    let decayInterval: any
-    const startTimer = setTimeout(() => {
-        decayInterval = setInterval(() => {
-            setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - decayAmount))
-        }, 800)
-    }, 1000)
-    return () => { clearTimeout(startTimer); if (decayInterval) clearInterval(decayInterval) }
-  }, [gameState, showResult, isImageReady, currentIndex, questions])
-
   const handleGuess = (option: string) => {
     if (showResult) return
     setSelectedOption(option)
     const currentQ = questions[currentIndex]
     const isCorrect = option === currentQ.correct_answer
-    
     let newScore = score
     if (isCorrect) {
-        const multiplier = getMultiplier(currentQ.tier || 1)
-        const pointsAwarded = Math.round(potentialPoints * multiplier * config.pointScale)
-        newScore = score + pointsAwarded
+        newScore = score + Math.round(potentialPoints * getMultiplier(currentQ.tier || 1) * config.pointScale)
         setScore(newScore)
     }
-    
     const newResults = [...results]
     newResults[currentIndex] = isCorrect ? 'correct' : 'wrong'
     setResults(newResults)
@@ -304,61 +210,28 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     }, 1500)
   }
 
-  // --- SHARE LOGIC ---
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
     const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    const streakText = streak > 1 ? ` | 🔥 ${streak}` : ''
-    
     const rankInfo = getRankTitle(score, sport)
-    const domain = 'https://www.playsaturdaytosunday.com'
-    const challengeUrl = `${domain}/daily${sport === 'basketball' ? '/basketball' : ''}?s=${score}` 
-
-    const text = `Saturday to Sunday (${shortDate})
-${sport === 'basketball' ? '🏀' : '🏈'} ${theme.label} Mode
-Score: ${score.toLocaleString()} (${rankInfo.title})${streakText}
-
-${squares}
-
-Can you beat my score? 👇
-${challengeUrl}`
-  
+    const text = `Saturday to Sunday (${shortDate})\n${sport === 'basketball' ? '🏀' : '🏈'} ${theme.label} Mode\nScore: ${score.toLocaleString()} (${rankInfo.title})\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com`
     try {
-      if (navigator.share) {
-        await navigator.share({ text })
-      } else {
-        await navigator.clipboard.writeText(text)
-        alert('Copied to clipboard!') 
-      }
-    } catch (err) {
-      await navigator.clipboard.writeText(text)
-    }
+      if (navigator.share) await navigator.share({ text })
+      else { await navigator.clipboard.writeText(text); alert('Copied!') }
+    } catch (err) { await navigator.clipboard.writeText(text) }
   }
 
-  // --- RENDER ---
-  if (gameState === 'loading') return <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
+  if (gameState === 'loading') return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
   
-  if (gameState === 'intro') {
-      const firstImage = questions[0]?.image_url
-      return (
-        <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden relative">
-             <IntroScreen 
-                onStart={handleStartGame} 
-                challengerScore={challengerScore} 
-                sport={sport} // PASS SPORT PROP
-             /> 
-             {firstImage && (
-                <div className="hidden"><Image src={firstImage} alt="Preload Q1" width={400} height={400} priority={true} /></div>
-             )}
-        </div>
-      )
-  }
-
-  // FINISHED SCREEN
-  const rankInfo = getRankTitle(score, sport)
+  if (gameState === 'intro') return (
+    <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden relative">
+        <IntroScreen onStart={() => setGameState('playing')} challengerScore={challengerScore} sport={sport} /> 
+    </div>
+  )
 
   if (gameState === 'finished') {
+    const rankInfo = getRankTitle(score, sport)
     return (
       <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-start p-4 space-y-4 animate-in fade-in duration-500 relative overflow-y-auto">
         <Link href="/" className="absolute top-4 left-4 z-20">
@@ -372,26 +245,22 @@ ${challengeUrl}`
         
         <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden shrink-0`}>
           <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
+              
+              <div className="absolute top-6 left-6">
+                  <LiveRankDisplay key={`${sport}-${score}`} score={score} sport={sport} />
+              </div>
+
               <div className="flex flex-col items-center justify-center gap-2">
                   <div className="flex flex-col items-center">
-                      <span className="text-neutral-500 text-xs uppercase tracking-widest font-bold mb-1">Final Score</span>
+                      <span className="text-neutral-500 text-[10px] uppercase tracking-[0.15em] font-black mb-1">Final Score</span>
                       <div className={`text-6xl font-black ${theme.primary} font-mono tracking-tighter leading-none`}>
                           {score}<span className="text-2xl text-neutral-600">/{config.maxScore}</span>
                       </div>
                   </div>
-                  
-                  {/* Rank Title Badge */}
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-black/40 ${theme.primary} ${theme.borderPrimary} border-opacity-30 shadow-lg mt-2`}>
                       <rankInfo.icon className="w-4 h-4 fill-current" />
                       <span className="text-xs font-black uppercase tracking-widest">{rankInfo.title}</span>
                   </div>
-
-                  {/* NEW: Live Ranking Component */}
-                  <LiveRankDisplay 
-                    key={`${sport}-${score}`} // Key forces re-mount if sport or score changes
-                    score={score} 
-                    sport={sport} 
-                  />
               </div>
               
               <div className="flex justify-center gap-1 mt-4">
@@ -411,79 +280,59 @@ ${challengeUrl}`
                       </Button>
                   </Link>
               </div>
-
-        </CardContent>
+          </CardContent>
         </Card>
 
-        {/* --- LEADERBOARD ADDED HERE --- */}
-        <div className="w-full max-w-md pb-8 animate-in slide-in-from-bottom-4 duration-700 delay-200">
+        <div className="w-full max-w-md pb-8">
              <Leaderboard currentUserId={user?.id} defaultSport={sport} />
         </div>
-        </div>
+      </div>
     )
   }
 
-  // PLAYING SCREEN
   const q = questions[currentIndex]
-  const nextQ = questions[currentIndex + 1] 
-  
-  if (!q) return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">Loading...</div>
-
-  const currentPotential = Math.round(potentialPoints * getMultiplier(q.tier || 1) * config.pointScale)
+  if (!q) return null
 
   return (
     <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
-        
-        {nextQ && nextQ.image_url && (
-            <div className="hidden"><Image src={nextQ.image_url} alt="Preload Next" width={400} height={400} priority={true} /></div>
-        )}
-
-        {/* HEADER */}
-        <div className="w-full max-w-md mx-auto pt-2 px-2 pb-0 shrink-0 z-50">
+        <div className="w-full max-w-md mx-auto pt-2 px-2 shrink-0 z-50">
            <div className={`flex items-center justify-between ${theme.cardBg} backdrop-blur-md rounded-full px-4 py-2 border border-white/5 shadow-2xl`}>
                <Link href="/"><button className="text-neutral-400 hover:text-white"><Home className="w-4 h-4" /></button></Link>
                <div className="flex items-center gap-2">
-                   <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Score</div>
                    <div className={`text-lg font-black ${theme.primary} tabular-nums leading-none`}>{score}</div>
                </div>
-               <div className="text-[10px] font-bold text-neutral-500 font-mono tracking-widest"><span className="text-white">{currentIndex + 1}</span>/{config.rounds}</div>
+               <div className="text-[10px] font-bold text-neutral-500 tracking-widest"><span className="text-white">{currentIndex + 1}</span>/{config.rounds}</div>
            </div>
            <div className="mt-2 px-1">
               <Progress value={((currentIndex) / config.rounds) * 100} className={`h-1 bg-neutral-800 rounded-full [&>div]:${theme.bgPrimary}`} />
            </div>
         </div>
 
-        {/* MAIN GAME CARD */}
         <main className="flex-1 w-full max-w-md mx-auto p-2 pb-4 flex flex-col gap-2 overflow-hidden h-full">
             <div className={`flex-1 relative ${theme.cardBg} rounded-xl overflow-hidden border ${theme.borderPrimary} border-opacity-20 shadow-2xl min-h-0`}>
                <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
-                   <div className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg border border-black/20 bg-white text-black flex items-center gap-1`}>
-                       <theme.icon className="w-3 h-3 text-black" />
-                       {theme.label}
+                   <div className="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg bg-white text-black flex items-center gap-1">
+                       <theme.icon className="w-3 h-3 text-black" /> {theme.label}
                    </div>
-                   <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl border border-black/10 transition-all ${ showResult ? (selectedOption === q.correct_answer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black' }`}>
-                        {showResult ? (selectedOption === q.correct_answer ? `+${currentPotential}` : '+0') : `${currentPotential}`}
+                   <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl transition-all ${ showResult ? (selectedOption === q.correct_answer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black' }`}>
+                        {showResult ? (selectedOption === q.correct_answer ? `+${Math.round(potentialPoints * getMultiplier(q.tier || 1) * config.pointScale)}` : '+0') : `${Math.round(potentialPoints * getMultiplier(q.tier || 1) * config.pointScale)}`}
                    </div>
                </div>
-
-               {q.image_url ? (
-                 <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />
-               ) : ( <div className="flex items-center justify-center h-full text-neutral-600"><AlertCircle /> No Image</div> )}
-               
+               {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />}
                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter shadow-black drop-shadow-lg leading-none">{q.name}</h2>
+                    <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{q.name}</h2>
                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 shrink-0 h-32 md:h-40">
                 {q.options.map((opt: string) => {
-                    let btnClass = `bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800 hover:${theme.borderPrimary} hover:border-opacity-50`
+                    let btnClass = `bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800`
                     if (showResult) {
-                        if (opt === q.correct_answer) btnClass = `bg-[#00ff80] text-black border-[#00ff80] ring-2 ring-[#00ff80] ring-opacity-50` 
-                        else if (opt === selectedOption) btnClass = "bg-red-500 text-white border-red-600" 
+                        if (opt === q.correct_answer) btnClass = `bg-[#00ff80] text-black ring-2 ring-[#00ff80]` 
+                        else if (opt === selectedOption) btnClass = "bg-red-500 text-white" 
                         else btnClass = "bg-neutral-950 text-neutral-600 opacity-30" 
                     }
-                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase whitespace-normal leading-tight shadow-lg transition-all ${btnClass}`}> {cleanText(opt)} </Button> )
+                    return ( <Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase transition-all ${btnClass}`}> {cleanText(opt)} </Button> )
                 })}
             </div>
         </main>
