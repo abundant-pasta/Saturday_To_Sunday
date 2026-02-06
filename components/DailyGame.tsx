@@ -159,7 +159,6 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         if (!user) return
         const column = sport === 'basketball' ? 'streak_basketball' : 'streak_football'
         const { data } = await supabase.from('profiles').select(column).eq('id', user.id).single()
-        // FIXED: TypeScript casting to any to allow dynamic indexing
         if (data) setStreak((data as any)[column] || 0)
     }
     if (user) getStreak()
@@ -179,6 +178,25 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     }
     saveScore()
   }, [gameState, user, score, isSaved, results, sport])
+
+  // --- RESTORED TIMER LOGIC ---
+  useEffect(() => {
+    if (gameState !== 'playing' || showResult || !isImageReady) return
+    const currentQ = questions[currentIndex]
+    const multiplier = getMultiplier(currentQ?.tier || 1)
+    
+    // Lose 5 final points per half second (scaled by tier multiplier)
+    const decayAmount = 5 / multiplier
+    let decayInterval: any
+    
+    const startTimer = setTimeout(() => {
+        decayInterval = setInterval(() => {
+            setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - decayAmount))
+        }, 500) // Half-second interval
+    }, 1000) // 1 second initial pause
+    
+    return () => { clearTimeout(startTimer); if (decayInterval) clearInterval(decayInterval) }
+  }, [gameState, showResult, isImageReady, currentIndex, questions])
 
   const handleGuess = (option: string) => {
     if (showResult) return
@@ -247,12 +265,12 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden shrink-0`}>
           <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
               
-              {/* FIXED: Absolute positioned Rank Badge */}
+              {/* RANK BADGE (Top Left) */}
               <div className="absolute top-6 left-6">
                   <LiveRankDisplay key={`${sport}-${score}`} score={score} sport={sport} />
               </div>
 
-              {/* FIXED: Centered Score and Rank Badge */}
+              {/* CENTERED SCORE AND TITLE */}
               <div className="flex flex-col items-center justify-center gap-2">
                   <div className="flex flex-col items-center">
                       <span className="text-neutral-500 text-[10px] uppercase tracking-[0.15em] font-black mb-1">Final Score</span>
