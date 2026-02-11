@@ -4,6 +4,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
 import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight, Target, Star, Dribbble } from 'lucide-react'
 import Image from 'next/image'
+import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 
 type LeaderboardEntry = {
   score: number
@@ -79,9 +80,9 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
       
       const now = new Date()
       const msPerDay = 24 * 60 * 60 * 1000
-      
+
       if (view === 'daily') {
-        const gameTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
+        const gameTimestamp = now.getTime() - TIMEZONE_OFFSET_MS - (dateOffset * msPerDay)
         const targetDateObj = new Date(gameTimestamp)
         const targetDateStr = targetDateObj.toISOString().split('T')[0]
         
@@ -203,7 +204,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
     
     const now = new Date()
     const msPerDay = 24 * 60 * 60 * 1000
-    const targetTimestamp = now.getTime() - (6 * 60 * 60 * 1000) - (dateOffset * msPerDay)
+    const targetTimestamp = now.getTime() - TIMEZONE_OFFSET_MS - (dateOffset * msPerDay)
     return new Date(targetTimestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { getDailyGame } from '@/app/actions' 
+import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -13,6 +13,7 @@ import IntroScreen from '@/components/IntroScreen'
 import { createBrowserClient } from '@supabase/ssr'
 import Leaderboard from '@/components/Leaderboard'
 import LiveRankDisplay from '@/components/LiveRankDisplay'
+import { TIMEZONE_OFFSET_MS, TIER_MULTIPLIERS, GAME_CONFIG, type Sport } from '@/lib/constants'
 
 const THEMES = {
   football: {
@@ -35,20 +36,13 @@ const THEMES = {
   }
 }
 
-const GAME_CONFIG = {
-    football: { rounds: 10, maxScore: 1350, pointScale: 1.0 },
-    basketball: { rounds: 5, maxScore: 1350, pointScale: 2.0 } 
-}
-
 const getGameDate = () => {
-    const offset = 6 * 60 * 60 * 1000 
-    return new Date(Date.now() - offset).toISOString().split('T')[0]
+    return new Date(Date.now() - TIMEZONE_OFFSET_MS).toISOString().split('T')[0]
 }
 
-const getMultiplier = (tier: number) => {
-    if (tier === 3) return 2.0
-    if (tier === 2) return 1.5
-    return 1.0
+const getMultiplier = (tier: number, sport: Sport) => {
+    const multipliers = TIER_MULTIPLIERS[sport]
+    return multipliers[tier as keyof typeof multipliers] || 1.0
 }
 
 const cleanText = (text: string) => text ? text.replace(/&amp;/g, '&') : ''
@@ -183,20 +177,20 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
     const currentQ = questions[currentIndex]
-    const multiplier = getMultiplier(currentQ?.tier || 1)
-    
+    const multiplier = getMultiplier(currentQ?.tier || 1, sport)
+
     // Lose 5 final points per half second (scaled by tier multiplier)
     const decayAmount = 5 / multiplier
     let decayInterval: any
-    
+
     const startTimer = setTimeout(() => {
         decayInterval = setInterval(() => {
             setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - decayAmount))
         }, 500) // Half-second interval
     }, 1000) // 1 second initial pause
-    
+
     return () => { clearTimeout(startTimer); if (decayInterval) clearInterval(decayInterval) }
-  }, [gameState, showResult, isImageReady, currentIndex, questions])
+  }, [gameState, showResult, isImageReady, currentIndex, questions, sport])
 
   const handleGuess = (option: string) => {
     if (showResult) return
@@ -205,7 +199,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     const isCorrect = option === currentQ.correct_answer
     let newScore = score
     if (isCorrect) {
-        newScore = score + Math.round(potentialPoints * getMultiplier(currentQ.tier || 1) * config.pointScale)
+        newScore = score + Math.round(potentialPoints * getMultiplier(currentQ.tier || 1, sport) * config.pointScale)
         setScore(newScore)
     }
     const newResults = [...results]
@@ -231,7 +225,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
 
   const handleShare = async () => {
     const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
-    const dateObj = new Date(Date.now() - 6 * 60 * 60 * 1000)
+    const dateObj = new Date(Date.now() - TIMEZONE_OFFSET_MS)
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const rankInfo = getRankTitle(score, sport)
     const text = `Saturday to Sunday (${shortDate})\n${sport === 'basketball' ? '🏀' : '🏈'} ${theme.label} Mode\nScore: ${score.toLocaleString()} (${rankInfo.title})\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com`
@@ -336,7 +330,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
                        <theme.icon className="w-3 h-3 text-black" /> {theme.label}
                    </div>
                    <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl transition-all ${ showResult ? (selectedOption === q.correct_answer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black' }`}>
-                        {showResult ? (selectedOption === q.correct_answer ? `+${Math.round(potentialPoints * getMultiplier(q.tier || 1) * config.pointScale)}` : '+0') : `${Math.round(potentialPoints * getMultiplier(q.tier || 1) * config.pointScale)}`}
+                        {showResult ? (selectedOption === q.correct_answer ? `+${Math.round(potentialPoints * getMultiplier(q.tier || 1, sport) * config.pointScale)}` : '+0') : `${Math.round(potentialPoints * getMultiplier(q.tier || 1, sport) * config.pointScale)}`}
                    </div>
                </div>
                {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Trophy, Loader2 } from 'lucide-react'
+import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 
 interface LiveRankProps {
   score: number
@@ -23,8 +24,7 @@ export default function LiveRankDisplay({ score, sport }: LiveRankProps) {
     async function fetchRank() {
       setLoading(true)
       try {
-        const offset = 6 * 60 * 60 * 1000 
-        const today = new Date(Date.now() - offset).toISOString().split('T')[0]
+        const today = new Date(Date.now() - TIMEZONE_OFFSET_MS).toISOString().split('T')[0]
 
         const { count: totalCount } = await supabase
           .from('daily_results') 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSimilarDistractors } from '@/lib/conferences'
+import { TIMEZONE_OFFSET_MS, PLAYER_COOLDOWN_DAYS, GAME_CONFIG } from '@/lib/constants'
 import webpush from 'web-push'
 
 export const dynamic = 'force-dynamic'
@@ -17,15 +18,15 @@ function shuffleArray<T>(array: T[]): T[] {
 
 export async function GET(request: Request) {
   // ==========================================
-  // 🔒 SECURITY CHECK (TEMPORARILY DISABLED)
+  // 🔒 SECURITY CHECK
   // ==========================================
-  // const authHeader = request.headers.get('authorization')
-  // if (
-  //   process.env.NODE_ENV === 'production' && 
-  //   authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  // ) {
-  //   return new NextResponse('Unauthorized', { status: 401 })
-  // }
+  const authHeader = request.headers.get('authorization')
+  if (
+    process.env.NODE_ENV === 'production' &&
+    authHeader !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return new NextResponse('Unauthorized', { status: 401 })
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,28 +49,27 @@ export async function GET(request: Request) {
         targetDate = overrideDate
         console.log(`Manual Override: Generating games for ${targetDate}`)
     } else {
-        const offset = 6 * 60 * 60 * 1000 
-        const now = new Date(Date.now() - offset)
+        const now = new Date(Date.now() - TIMEZONE_OFFSET_MS)
         now.setDate(now.getDate() + 1)
         targetDate = now.toISOString().split('T')[0]
     }
 
-    // 2. CALCULATE 45-DAY CUTOFF
+    // 2. CALCULATE COOLDOWN CUTOFF
     const cooldownDate = new Date()
-    cooldownDate.setDate(cooldownDate.getDate() - 45)
+    cooldownDate.setDate(cooldownDate.getDate() - PLAYER_COOLDOWN_DAYS)
     const cutoffString = cooldownDate.toISOString()
 
     // 3. DEFINE CONFIGS
     const sportConfigs = [
-      { 
-        sport: 'football', 
-        total: 10, 
-        distribution: [5, 3, 2] // 5 Easy, 3 Med, 2 Hard
+      {
+        sport: 'football' as const,
+        total: GAME_CONFIG.football.rounds,
+        distribution: GAME_CONFIG.football.distribution
       },
-      { 
-        sport: 'basketball', 
-        total: 5, 
-        distribution: [2, 2, 1] // 2 Easy, 2 Med, 1 Hard
+      {
+        sport: 'basketball' as const,
+        total: GAME_CONFIG.basketball.rounds,
+        distribution: GAME_CONFIG.basketball.distribution
       }
     ]
 

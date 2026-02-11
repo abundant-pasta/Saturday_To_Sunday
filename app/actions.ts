@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { getSimilarDistractors } from '@/lib/conferences'
+import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 
 // --- Helper: Generate Random Room Code ---
 function generateRoomCode() {
@@ -223,10 +224,9 @@ export async function updatePlayerImage(playerId: string, imageUrl: string) {
 // Note: We accept a 'sport' parameter now.
 export async function getDailyGame(sport: string = 'football') {
   const supabase = await createClient()
-  
+
   // 1. DATE LOGIC
-  const offset = 6 * 60 * 60 * 1000 
-  const adjustedTime = new Date(Date.now() - offset)
+  const adjustedTime = new Date(Date.now() - TIMEZONE_OFFSET_MS)
   const today = adjustedTime.toISOString().split('T')[0]
 
   // 2. FETCH GAME (Filtered by Sport)
