@@ -77,7 +77,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 2621,Yao Ming,Legend,C,China,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/1722.png,1,2026-01-30 13:55:14.653318+00,99,2026-02-06 19:31:38.939+00,basketball
 2751,Shai Gilgeous-Alexander,Legend,G,Kentucky,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/4278073.png,1,2026-01-30 20:36:09.345708+00,0,2026-02-06 19:31:38.939+00,basketball
 2806,P.J. Tucker,Legend,F,Texas,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3033.png,3,2026-01-30 20:41:17.439938+00,0,2026-02-06 19:31:38.939+00,basketball
-2628,DeMar DeRozan,Sacramento Kings,G/F,USC,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3978.png,2,2026-01-30 13:55:14.653318+00,99,2026-02-06 19:31:38.939+00,basketball
+2628,DeMar DeRozan,Sacramento Kings,G/F,USC,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3978.png,1,2026-01-30 13:55:14.653318+00,99,2026-02-06 19:31:38.939+00,basketball
 2837,Brandon Roy,Legend,G,Washington,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3020.png,2,2026-01-30 20:43:26.669775+00,0,2026-02-06 19:31:38.939+00,basketball
 1290,Will McDonald IV,NYJ,LB,Iowa State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/nw8aiicw9bjhxaqwbeo9",2,2025-12-29 20:55:18.380833+00,92,2026-02-06 19:31:37.79+00,football
 2125,Trey Benson,ARI,RB,Florida State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4429275.png&w=350&h=254,2,2026-01-05 03:20:11.655519+00,92,2026-02-06 19:31:37.79+00,football
@@ -107,7 +107,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 2596,Willis Reed,Legend,C,Grambling State,https://www.basketball-reference.com/req/202106291/images/headshots/reedwi01.jpg,1,2026-01-30 13:55:14.653318+00,99,2026-02-04 19:00:10.644+00,basketball
 2829,Vernon Maxwell,Legend,G,Florida,https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Vernon_Maxwell_Broken_Play_2023.png/960px-Vernon_Maxwell_Broken_Play_2023.png,3,2026-01-30 20:41:17.439938+00,0,2026-02-04 19:00:10.644+00,basketball
 2620,Tayshaun Prince,Legend,F,Kentucky,https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Tayshaun_Prince.jpg/960px-Tayshaun_Prince.jpg,1,2026-01-30 13:55:14.653318+00,99,2026-02-04 19:00:10.644+00,basketball
-2627,Kyle Lowry,Philadelphia 76ers,G,Villanova,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3012.png,2,2026-01-30 13:55:14.653318+00,99,2026-02-04 19:00:10.644+00,basketball
+2627,Kyle Lowry,Philadelphia 76ers,G,Villanova,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3012.png,1,2026-01-30 13:55:14.653318+00,99,2026-02-04 19:00:10.644+00,basketball
 2745,Andrew Wiggins,Legend,F,Kansas,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3059319.png,2,2026-01-30 20:35:52.903486+00,0,2026-02-04 19:00:10.644+00,basketball
 103,Raheem Mostert,MIA,RB,Purdue,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/jt7n28bmkyobsxmdbvqu",1,2025-12-29 20:55:17.526136+00,99,2026-02-04 19:00:09.475+00,football
 843,Kyle Pitts,ATL,TE,Florida,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/t8ymqyhvv8i1r80jyhy2",1,2025-12-29 20:55:17.526136+00,99,2026-02-04 19:00:09.475+00,football
@@ -136,7 +136,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1124,Bijan Robinson,ATL,RB,Texas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/rydwvaod6ethdjap41l6",1,2025-12-29 20:55:18.380833+00,99,2026-02-03 19:54:00.388+00,football
 2541,Wilt Chamberlain,Legend,C,Kansas,https://www.basketball-reference.com/req/202106291/images/headshots/chambwi01.jpg,1,2026-01-30 13:55:14.653318+00,99,2026-02-02 19:41:33.494+00,basketball
 2798,Shane Battier,Legend,F,Duke,https://www.basketball-reference.com/req/202106291/images/headshots/battish01.jpg,3,2026-01-30 20:41:17.439938+00,0,2026-02-02 19:41:33.494+00,basketball
-2758,Kemba Walker,Legend,G,UConn,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/6479.png,2,2026-01-30 20:40:10.977771+00,0,2026-02-02 19:41:33.494+00,basketball
+2758,Kemba Walker,Legend,G,UConn,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/6479.png,1,2026-01-30 20:40:10.977771+00,0,2026-02-02 19:41:33.494+00,basketball
 2847,Gordon Hayward,Legend,F,Butler,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/4249.png,2,2026-01-30 20:43:26.669775+00,0,2026-02-02 19:41:33.494+00,basketball
 2752,Anthony Edwards,Legend,G,Georgia,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/4594268.png,1,2026-01-30 20:36:09.345708+00,0,2026-02-02 19:41:33.494+00,basketball
 2020,Zack Martin,Legend,OL,Notre Dame,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/c9giqcqfhdypuhzgdzv4",1,2026-01-03 17:32:54.558857+00,99,2026-02-02 19:41:32.489+00,football
@@ -153,7 +153,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 2736,Julius Randle,Legend,F,Kentucky,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3064514.png,2,2026-01-30 20:35:52.903486+00,0,2026-02-01 19:41:35.04+00,basketball
 2630,Jayson Tatum,Legend,F,Duke,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/4065648.png,1,2026-01-30 13:55:14.653318+00,99,2026-02-01 19:41:35.04+00,basketball
 2631,Jaylen Brown,Legend,G,California,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3917376.png,1,2026-01-30 13:55:14.653318+00,99,2026-02-01 19:41:35.04+00,basketball
-2764,Blake Griffin,Legend,F,Oklahoma,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3989.png,2,2026-01-30 20:40:10.977771+00,0,2026-02-01 19:41:35.04+00,basketball
+2764,Blake Griffin,Legend,F,Oklahoma,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3989.png,1,2026-01-30 20:40:10.977771+00,0,2026-02-01 19:41:35.04+00,basketball
 1299,Will Levis,TEN,QB,Kentucky,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vr01ufscgtoagtuut9o4",2,2025-12-29 20:55:18.380833+00,92,2026-02-01 19:41:33.641+00,football
 267,Tre'Davious White,BAL,DB,LSU,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xlgqko9tehzohbgnou0v",3,2025-12-29 20:55:17.526136+00,75,2026-02-01 19:41:33.641+00,football
 261,Patrick Mahomes,KC,QB,Texas Tech,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/vs40h82nvqaqvyephwwu",1,2025-12-29 20:55:17.526136+00,99,2026-02-01 19:41:33.641+00,football
@@ -194,7 +194,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 117,Chris Conley,SF,WR,Georgia,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/mr4h7vx02uwpr7xlfk6y",3,2025-12-29 20:55:17.526136+00,75,2026-01-31 04:50:21.815+00,football
 1303,C.J. Stroud,HOU,QB,Ohio State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/fbk2eqpo54lawppgetjn",1,2025-12-29 20:55:18.380833+00,99,2026-01-31 04:50:21.815+00,football
 1646,Brandon Marshall,NYJ,WR,Central Florida,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/jhziqh0scfksvxen6f3s",1,2025-12-31 01:30:30.116637+00,99,2026-01-31 04:50:21.815+00,football
-2612,Pau Gasol,Legend,F,Spain,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/996.png,2,2026-01-30 13:55:14.653318+00,99,2026-01-30 16:42:07.804+00,basketball
+2612,Pau Gasol,Legend,F,Spain,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/996.png,1,2026-01-30 13:55:14.653318+00,99,2026-01-30 16:42:07.804+00,basketball
 2603,Patrick McCaw,Legend,G,UNLV,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3137730.png,3,2026-01-30 13:55:14.653318+00,99,2026-01-30 16:42:07.804+00,basketball
 2601,Nate Archibald,Legend,G,UTEP,https://upload.wikimedia.org/wikipedia/commons/thumb/7/77/Nate_Archibald_1974.jpeg/960px-Nate_Archibald_1974.jpeg,2,2026-01-30 13:55:14.653318+00,99,2026-01-30 16:42:07.804+00,basketball
 2583,Kevin McHale,Legend,F,Minnesota,https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Kevin_McHale_2012_press_conference_-_headshot.jpg/960px-Kevin_McHale_2012_press_conference_-_headshot.jpg,1,2026-01-30 13:55:14.653318+00,99,2026-01-30 16:42:07.804+00,basketball
@@ -208,7 +208,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 72,Chris Boswell,PIT,K,Rice,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/ivb854ozl9jp39lau99u",3,2025-12-29 20:55:17.526136+00,75,2026-01-29 19:49:50.33+00,football
 17,Cameron Jordan,NO,DL,California,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wxcyaqstm1qguagtp1ye",1,2025-12-29 20:55:17.526136+00,99,2026-01-29 19:49:50.33+00,football
 5,Calais Campbell,MIA,DL,Miami,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/dmgqjt7qihxkze7iuajf",1,2025-12-29 20:55:17.526136+00,99,2026-01-29 19:49:50.33+00,football
-19,Andy Dalton,CAR,QB,TCU,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/fex1enmwhsyid5jyue7t",2,2025-12-29 20:55:17.526136+00,92,2026-01-29 19:49:50.33+00,football
+19,Andy Dalton,CAR,QB,TCU,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/fex1enmwhsyid5jyue7t",1,2025-12-29 20:55:17.526136+00,92,2026-01-29 19:49:50.33+00,football
 47,Terron Armstead,MIA,OL,Arkansas-Pine Bluff,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/zjqocz6fl2qrhxqkgdbp",2,2025-12-29 20:55:17.526136+00,92,2026-01-28 19:49:49.646+00,football
 1563,Sean Taylor,Redskins,S,Miami,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/5529.png,1,2025-12-30 21:38:19.338554+00,99,2026-01-28 19:49:49.646+00,football
 286,Montravius Adams,PIT,DL,Auburn,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/weqjlnkvdzbk0usa3v7i",3,2025-12-29 20:55:17.526136+00,75,2026-01-28 19:49:49.646+00,football
@@ -292,7 +292,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 84,Jadeveon Clowney,CAR,LB,South Carolina,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/lu2evianim8sdgfyxlgh",1,2025-12-29 20:55:17.526136+00,75,2026-01-20 19:49:49.724+00,football
 2070,Christian Watson,GB,WR,North Dakota State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4248528.png&w=350&h=254,2,2026-01-05 03:14:30.934435+00,92,2026-01-20 19:49:49.724+00,football
 1654,Antonio Gates,SD,TE,Kent State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/5362.png,1,2025-12-31 01:35:34.441474+00,99,2026-01-20 19:49:49.724+00,football
-120,Tyler Lockett,SEA,WR,Kansas State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/kwcxus7rlqurps3gbbwu",1,2025-12-29 20:55:17.526136+00,99,2026-01-19 19:49:49.375+00,football
+120,Tyler Lockett,SEA,WR,Kansas State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/kwcxus7rlqurps3gbbwu",2,2025-12-29 20:55:17.526136+00,99,2026-01-19 19:49:49.375+00,football
 2015,Taylor Lewan,Legend,OL,Michigan,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/hvplm59omxfb2qp6zz7a",2,2026-01-03 17:32:49.405438+00,92,2026-01-19 19:49:49.375+00,football
 236,Matt Milano,BUF,LB,Boston College,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wic0vfbw2xj3a5yjgwf4",1,2025-12-29 20:55:17.526136+00,99,2026-01-19 19:49:49.375+00,football
 2126,J.J. McCarthy,ARI,QB,Michigan,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4433970.png,1,2026-01-05 03:20:11.951052+00,99,2026-01-19 19:49:49.375+00,football
@@ -306,7 +306,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1846,Dwight Freeney,Colts,DE,Syracuse,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/3539.png,2,2026-01-02 02:41:35.072443+00,75,2026-01-18 19:49:49.779+00,football
 270,Budda Baker,ARI,DB,Washington,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/fg0hgiihwwun2qerappu",1,2025-12-29 20:55:17.526136+00,99,2026-01-18 19:49:49.779+00,football
 44,Zach Ertz,WAS,TE,Stanford,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xktmmeumuoglbuam75iz",1,2025-12-29 20:55:17.526136+00,99,2026-01-17 19:49:49.554+00,football
-1017,Trey McBride,ARI,TE,Colorado State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hfdgljgi9gfaskomdl1h",1,2025-12-29 20:55:18.380833+00,99,2026-01-17 19:49:49.554+00,football
+1017,Trey McBride,ARI,TE,Colorado State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hfdgljgi9gfaskomdl1h",2,2025-12-29 20:55:18.380833+00,99,2026-01-17 19:49:49.554+00,football
 6,Josh Johnson,BAL,QB,San Diego,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/gbaye18gptzb1jpyswv8",3,2025-12-29 20:55:17.526136+00,75,2026-01-17 19:49:49.554+00,football
 2010,Jason Peters,Legend,OL,Arkansas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xcsyqvrlrpe6s3d0rodq",1,2026-01-03 17:32:45.985581+00,99,2026-01-17 19:49:49.554+00,football
 882,Grant Calcaterra,PHI,TE,SMU,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vxl0kathuej280k01d2r",3,2025-12-29 20:55:17.526136+00,75,2026-01-17 19:49:49.554+00,football
@@ -341,7 +341,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 2107,Pat Freiermuth,PIT,TE,Penn State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4361411.png&w=350&h=254,1,2026-01-05 03:14:37.705054+00,99,2026-01-10 19:59:14.455+00,football
 36,Demario Davis,NO,LB,Arkansas State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/todpplb6yao1c5zvofsk",1,2025-12-29 20:55:17.526136+00,99,2026-01-10 19:59:14.455+00,football
 666,Chase Young,NO,DL,Ohio State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/lyc9qh7fequeo0lwvjhh",1,2025-12-29 20:55:17.526136+00,75,2026-01-10 19:59:14.455+00,football
-91,Amari Cooper,BUF,WR,Alabama,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/zibbxjtein7gpu5zgcj4",1,2025-12-29 20:55:17.526136+00,99,2026-01-10 19:59:14.455+00,football
+91,Amari Cooper,BUF,WR,Alabama,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/zibbxjtein7gpu5zgcj4",2,2025-12-29 20:55:17.526136+00,99,2026-01-10 19:59:14.455+00,football
 26,Tashaun Gipson,SF,DB,Wyoming,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/mbniabicepxxcetygjhk",4,2025-12-29 20:55:17.526136+00,75,2026-01-09 16:04:01.269+00,football
 25,Rodney McLeod Jr.,CLE,DB,Virginia,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/ettne7rdpnkozuyhx8be",4,2025-12-29 20:55:17.526136+00,75,2026-01-09 16:04:01.269+00,football
 933,Zyon McCollum,TB,DB,Sam Houston State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/i0ztcak7qlehrpqcxhlh",4,2025-12-29 20:55:18.380833+00,75,,football
@@ -504,7 +504,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 2753,Trae Young,Legend,G,Oklahoma,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/4277905.png,1,2026-01-30 20:36:09.345708+00,0,,basketball
 2577,Tracy McGrady,Legend,G,High School,https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Tracy_McGrady_1.jpg/960px-Tracy_McGrady_1.jpg,1,2026-01-30 13:55:14.653318+00,99,,basketball
 1447,Tory Taylor,CHI,P,Iowa,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/yvhp6fgdef9x09odpmru",4,2025-12-29 20:55:18.380833+00,75,,football
-2235,Torry Holt,Legend,WR,NC State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1756.png,2,2026-01-25 20:46:11.595673+00,99,,football
+2235,Torry Holt,Legend,WR,NC State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1756.png,1,2026-01-25 20:46:11.595673+00,99,,football
 1657,Torrey Smith,BLT,WR,Maryland,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/sqvbn4ybxagyfwva3i51",2,2025-12-31 01:35:38.033337+00,92,,football
 1653,Tony Romo,DAL,QB,Eastern Illinois,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/5209.png,1,2025-12-31 01:35:33.285796+00,99,,football
 2611,Tony Parker,Legend,G,France,https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Flamme_olympique_Reims_1525799.jpg/960px-Flamme_olympique_Reims_1525799.jpg,1,2026-01-30 13:55:14.653318+00,99,,basketball
@@ -593,7 +593,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1885,Steven Jackson,SL,RB,Oregon State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/5549.png&w=350&h=254,1,2026-01-03 15:19:46.153651+00,99,,football
 2812,Steven Adams,Legend,C,Pittsburgh,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/2991235.png,3,2026-01-30 20:41:17.439938+00,0,,basketball
 2386,Steve Young,Legend,QB,BYU,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/19.png,1,2026-01-25 20:54:45.924765+00,99,,football
-2191,Steve Smith Sr.,Legend,WR,Utah,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/2622.png,2,2026-01-25 20:46:11.595673+00,99,,football
+2191,Steve Smith Sr.,Legend,WR,Utah,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/2622.png,1,2026-01-25 20:46:11.595673+00,99,,football
 1685,Steve Smith,CAR,WR,Utah,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/2622.png,4,2025-12-31 01:35:53.602611+00,75,,football
 2282,Steve Slaton,Legend,RB,West Virginia,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/11317.png,3,2026-01-25 20:52:43.411317+00,99,,football
 2563,Steve Nash,Legend,G,Santa Clara,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/592.png,1,2026-01-30 13:55:14.653318+00,99,,basketball
@@ -675,7 +675,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1594,Ryan Tannehill,TEN,QB,Texas A&M,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/pnyvz3iysmypo60kdirp",2,2025-12-31 01:30:07.036657+00,92,,football
 1000,Ryan Stonehouse,TEN,P,Colorado State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vlsrao7qxhrgpdsrjjar",4,2025-12-29 20:55:18.380833+00,75,,football
 1327,Ryan Rehkow,CIN,P,BYU,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/m4jdcgbjmflpgenglaux",4,2025-12-29 20:55:18.380833+00,75,,football
-2013,Ryan Ramczyk,Legend,OL,Wisconsin,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/oauaar0dbefdcwjksxde",3,2026-01-03 17:32:47.10907+00,92,,football
+2013,Ryan Ramczyk,Legend,OL,Wisconsin,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/oauaar0dbefdcwjksxde",1,2026-01-03 17:32:47.10907+00,92,,football
 787,Ryan Neuzil,ATL,OL,Appalachian State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/gatipnghfhvdbdxl62hg",4,2025-12-29 20:55:17.526136+00,75,,football
 1216,Ryan Miller,TB,WR,Furman,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/maywscb6waflzzuaesew",4,2025-12-29 20:55:18.380833+00,75,,football
 781,Ryan McCollum,PIT,OL,Texas A&M,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/h9ozxupr0vv0kkzgiqn9",4,2025-12-29 20:55:17.526136+00,75,,football
@@ -719,7 +719,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1995,Robert Tonyan,GB,TE,Indiana State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/z9djtrw0ncxandqumune",2,2026-01-03 15:25:38.398166+00,92,,football
 388,Robert Spillane,LV,LB,Western Michigan,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/gm97x0fcqphr9bxmjhxu",4,2025-12-29 20:55:17.526136+00,75,,football
 814,Robert Rochell,GB,DB,Central Arkansas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/oqn1nnmeqppzkymivtfe",4,2025-12-29 20:55:17.526136+00,75,,football
-2582,Robert Parish,Legend,C,Centenary,https://upload.wikimedia.org/wikipedia/commons/8/88/Robert_Parish.jpg,3,2026-01-30 13:55:14.653318+00,99,,basketball
+2582,Robert Parish,Legend,C,Centenary,https://upload.wikimedia.org/wikipedia/commons/8/88/Robert_Parish.jpg,1,2026-01-30 13:55:14.653318+00,99,,basketball
 1847,Robert Mathis,Colts,DE,Alabama A&M,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4596.png,2,2026-01-02 02:41:35.072443+00,92,,football
 741,Robert Jones,MIA,OL,Middle Tennessee,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/yiw8xqoot4xazyttx9bg",4,2025-12-29 20:55:17.526136+00,75,,football
 2137,Robert Hunt,CAR,OL,Louisiana,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/3917592.png&w=350&h=254,4,2026-01-05 03:20:15.537766+00,75,,football
@@ -737,7 +737,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 603,Rico Dowdle,DAL,RB,South Carolina,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/fe8ge4f6vvtyihou5czu",3,2025-12-29 20:55:17.526136+00,75,,football
 1540,Ricky Pearsall,SF,WR,Florida,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/akwepvt6qxwbgankljmv",2,2025-12-29 20:55:18.380833+00,92,,football
 107,Rick Lovato,PHI,LS,Old Dominion,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xbx0sf2o3zhorv6mbhl2",4,2025-12-29 20:55:17.526136+00,75,,football
-2832,Rick Fox,Legend,F,North Carolina,https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Rick_Fox_%2840679251643%29_%28cropped%29.jpg/960px-Rick_Fox_%2840679251643%29_%28cropped%29.jpg,3,2026-01-30 20:41:17.439938+00,0,,basketball
+2832,Rick Fox,Legend,F,North Carolina,https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Rick_Fox_%2840679251643%29_%28cropped%29.jpg/960px-Rick_Fox_%2840679251643%29_%28cropped%29.jpg,1,2026-01-30 20:41:17.439938+00,0,,basketball
 2589,Rick Barry,Legend,F,Miami,https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Rick_Barry.jpg/960px-Rick_Barry.jpg,1,2026-01-30 13:55:14.653318+00,99,,basketball
 838,Richie Grant,ATL,DB,UCF,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/szeswtvt6jmbu3so3phd",4,2025-12-29 20:55:17.526136+00,75,,football
 1830,Richard Sherman,Seahawks,CB,Stanford,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/14086.png,1,2026-01-02 02:41:35.072443+00,99,,football
@@ -797,7 +797,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 318,Poona Ford,LAC,DL,Texas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/x2cokuzcjrtr9acici6e",4,2025-12-29 20:55:17.526136+00,75,,football
 2273,Plaxico Burress,Legend,WR,Michigan State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/2115.png,2,2026-01-25 20:52:43.411317+00,99,,football
 2473,Pierre Garçon,Legend,WR,Mount Union,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/11394.png,3,2026-01-25 21:03:17.270771+00,99,,football
-1671,Pierre Garcon,WAS,WR,Mount Union,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/xwjogot7xrfj9qwhsgtn",2,2025-12-31 01:35:47.422362+00,92,,football
+1671,Pierre Garcon,WAS,WR,Mount Union,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/xwjogot7xrfj9qwhsgtn",1,2025-12-31 01:35:47.422362+00,92,,football
 2504,Pierre Desir,Legend,DB,Lindenwood,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/16757.png,4,2026-01-25 21:03:17.270771+00,99,,football
 1602,Phillip Lindsay,DEN,RB,Colorado,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/ulywgze6rhdk1kah9fyy",3,2025-12-31 01:30:10.876381+00,75,,football
 1592,Philip Rivers,IND,QB,North Carolina State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/adapxtphf15elrdudiix",1,2025-12-31 01:30:06.340982+00,99,,football
@@ -992,7 +992,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1262,Matthew Bergeron,ATL,OL,Syracuse,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/ytzefk5fjowuhby92ivo",4,2025-12-29 20:55:18.380833+00,75,,football
 362,Matthew Adams,NYG,LB,Houston,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/czuncqaya4qcf5guud1f",4,2025-12-29 20:55:17.526136+00,75,,football
 932,Matt Waletzko,DAL,OL,North Dakota,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wxzuw7dcmyqluqmgo6ib",4,2025-12-29 20:55:18.380833+00,75,,football
-1684,Matt Schaub,HST,QB,Virginia,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/mj2kh2nddxnw04ludcx0",2,2025-12-31 01:35:53.248505+00,92,,football
+1684,Matt Schaub,HST,QB,Virginia,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/mj2kh2nddxnw04ludcx0",1,2025-12-31 01:35:53.248505+00,92,,football
 360,Matt Pryor,CHI,OL,TCU,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/kz8cwakpz0vhxhggv37c",4,2025-12-29 20:55:17.526136+00,75,,football
 697,Matt Peart,DEN,OL,Connecticut,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xbqihj3nywpxfu2rvioo",4,2025-12-29 20:55:17.526136+00,75,,football
 10,Matt Overton,MIA,LS,Western Washington,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/yeulo5dieb6um5zajehr",4,2025-12-29 20:55:17.526136+00,75,,football
@@ -1105,8 +1105,8 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1716,Lance Moore,NO,WR,Toledo,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/bfjxc892mfkni8ywtheh",2,2025-12-31 01:36:06.115045+00,92,,football
 2295,Lance Briggs,Legend,LB,Arizona,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4528.png,2,2026-01-25 20:52:43.411317+00,99,,football
 2934,LaMelo Ball,Charlotte Hornets,G,High School,https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/LaMelo_Ball_%28cropped%29.jpg/960px-LaMelo_Ball_%28cropped%29.jpg,2,2026-01-30 20:55:43.282848+00,0,,basketball
-2763,LaMarcus Aldridge,Legend,F,Texas,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/2983.png,2,2026-01-30 20:40:10.977771+00,0,,basketball
-2834,Lamar Odom,Legend,F,Rhode Island,https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Lamar_Odom_%2837%29_%28cropped%29.jpg/960px-Lamar_Odom_%2837%29_%28cropped%29.jpg,3,2026-01-30 20:41:17.439938+00,0,,basketball
+2763,LaMarcus Aldridge,Legend,F,Texas,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/2983.png,1,2026-01-30 20:40:10.977771+00,0,,basketball
+2834,Lamar Odom,Legend,F,Rhode Island,https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Lamar_Odom_%2837%29_%28cropped%29.jpg/960px-Lamar_Odom_%2837%29_%28cropped%29.jpg,1,2026-01-30 20:41:17.439938+00,0,,basketball
 1630,Lamar Miller,HOU,RB,Miami,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/b0ggwcqngfyq7ccyksgv",4,2025-12-31 01:30:23.766374+00,75,,football
 123,Laken Tomlinson,SEA,OL,Duke,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/qcc6uev4fey0zfe8urls",4,2025-12-29 20:55:17.526136+00,75,,football
 1539,Ladd McConkey,LAC,WR,Georgia,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wcx39ialovvxxnvs2bke",2,2025-12-29 20:55:18.380833+00,92,,football
@@ -1128,7 +1128,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1054,Kyle Hamilton,BAL,DB,Notre Dame,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/cesiygq2rdbzr5ilwixy",1,2025-12-29 20:55:18.380833+00,99,,football
 627,Kyle Dugger,NE,DB,Lenoir-Rhyne,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/gckckiryskfmdmgkkgj5",4,2025-12-29 20:55:17.526136+00,75,,football
 721,Kwity Paye,IND,DL,Michigan,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/fcvpxtgqkimjwjsjcpwq",4,2025-12-29 20:55:17.526136+00,75,,football
-2226,Kurt Warner,Legend,QB,Northern Iowa,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1620.png,2,2026-01-25 20:46:11.595673+00,99,,football
+2226,Kurt Warner,Legend,QB,Northern Iowa,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1620.png,1,2026-01-25 20:46:11.595673+00,99,,football
 586,Krys Barnes,ARI,LB,UCLA,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/xgq5wwfuk5s2frsx0ha0",4,2025-12-29 20:55:17.526136+00,75,,football
 606,Kristian Welch,BAL,LB,Iowa,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/s6mtzzk3etuv34oabdqp",4,2025-12-29 20:55:17.526136+00,75,,football
 709,Kristian Fulton,LAC,DB,LSU,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/pcucmujvuzuhnyqucply",4,2025-12-29 20:55:17.526136+00,75,,football
@@ -1222,7 +1222,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 2792,Juwan Howard,Legend,F,Michigan,https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Juwan_Howard_Michigan_%28cropped%29.jpg/960px-Juwan_Howard_Michigan_%28cropped%29.jpg,2,2026-01-30 20:40:10.977771+00,0,,basketball
 2966,Jusuf Nurkic,Phoenix Suns,C,Bosnia,https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Jusuf_Nurki%C4%87_2021.jpg/960px-Jusuf_Nurki%C4%87_2021.jpg,2,2026-01-30 20:55:43.282848+00,0,,basketball
 354,Justin Watson,KC,WR,Pennsylvania,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/vr9tayyujt23takv3hv3",4,2025-12-29 20:55:17.526136+00,75,,football
-33,Justin Tucker,BAL,K,Texas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/thawkkxcbyuddwuidgb0",3,2025-12-29 20:55:17.526136+00,75,,football
+33,Justin Tucker,BAL,K,Texas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/thawkkxcbyuddwuidgb0",1,2025-12-29 20:55:17.526136+00,75,,football
 1856,Justin Tuck,Giants,DE,Notre Dame,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/8488.png,1,2026-01-02 02:41:35.072443+00,99,,football
 714,Justin Strnad,DEN,LB,Wake Forest,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/stbosgbam9spl9ig7kiq",4,2025-12-29 20:55:17.526136+00,75,,football
 448,Justin Skule,TB,OL,Vanderbilt,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/c66vrupwl8o5nkc4kbqh",4,2025-12-29 20:55:17.526136+00,75,,football
@@ -1370,7 +1370,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 550,Jerry Tillery,MIN,DL,Notre Dame,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/adiuyaw2t6yelrqt6imd",4,2025-12-29 20:55:17.526136+00,75,,football
 1560,Jerry Rice,49ers,WR,Mississippi Valley State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/g1vjcnbryx3nmg0ppsnl",1,2025-12-30 21:38:18.188358+00,99,,football
 701,Jerry Jeudy,CLE,WR,Alabama,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/szca1v9butuqkjs7ekpm",1,2025-12-29 20:55:17.526136+00,92,,football
-2232,Jerome Bettis,Legend,RB,Notre Dame,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1119.png,2,2026-01-25 20:46:11.595673+00,99,,football
+2232,Jerome Bettis,Legend,RB,Notre Dame,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1119.png,1,2026-01-25 20:46:11.595673+00,99,,football
 406,Jerome Baker,TEN,LB,Ohio State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/tkl1vjh6wf5a8zyl3aym",4,2025-12-29 20:55:17.526136+00,75,,football
 2362,Jermichael Finley,Legend,TE,Texas,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/11322.png,3,2026-01-25 20:52:43.411317+00,99,,football
 2360,Jermaine Gresham,Legend,TE,Oklahoma,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/13251.png,2,2026-01-25 20:52:43.411317+00,99,,football
@@ -1458,7 +1458,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1819,James Harrison,Steelers,LB,Kent State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4433.png,1,2026-01-02 02:41:35.072443+00,99,,football
 2565,James Harden,Legend,G,Arizona State,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3992.png,1,2026-01-30 13:55:14.653318+00,99,,basketball
 921,James Cook,BUF,RB,Georgia,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/bzdvrarxum9zate4te4b",4,2025-12-29 20:55:18.380833+00,75,,football
-1574,James Conner,ARI,RB,Pittsburgh,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/nq7mtvvxmgc2vukwwcpo",1,2025-12-31 01:29:44.476047+00,99,,football
+1574,James Conner,ARI,RB,Pittsburgh,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/nq7mtvvxmgc2vukwwcpo",2,2025-12-31 01:29:44.476047+00,99,,football
 2507,James Bradberry,Legend,DB,Samford,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/2577543.png,4,2026-01-25 21:03:17.270771+00,99,,football
 561,Jamel Dean,TB,DB,Auburn,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/s0k1zs9nyl2cqsjwf5cs",3,2025-12-29 20:55:17.526136+00,75,,football
 1603,Jameis Winston,TB,QB,Florida State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/iurpf1pdjrjfowtksptf",1,2025-12-31 01:30:11.574246+00,92,,football
@@ -1572,7 +1572,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 399,Isaac Yiadom,SF,DB,Boston College,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/kxe4pgiizgonwesgtcy2",4,2025-12-29 20:55:17.526136+00,75,,football
 173,Isaac Seumalo,PIT,OL,Oregon State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/c5dr4qxx5vsono44tj6j",2,2025-12-29 20:55:17.526136+00,92,,football
 1351,Isaac Guerendo,SF,RB,Louisville,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vi0oa4oajc6ecgzr8l08",4,2025-12-29 20:55:18.380833+00,75,,football
-2234,Isaac Bruce,Legend,WR,Memphis,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1203.png,2,2026-01-25 20:46:11.595673+00,99,,football
+2234,Isaac Bruce,Legend,WR,Memphis,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1203.png,1,2026-01-25 20:46:11.595673+00,99,,football
 441,Irv Smith,HOU,TE,Alabama,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/gvnnqr5kj0rtte3iw9mp",4,2025-12-29 20:55:17.526136+00,75,,football
 910,Ikem Ekwonu,CAR,OL,NC State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/yfz4gek4d8ztcdeouhwu",4,2025-12-29 20:55:18.380833+00,75,,football
 755,Ihmir Smith-Marsette,NYG,WR,Iowa,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/jiygo0pmglxgropuaqwg",4,2025-12-29 20:55:17.526136+00,75,,football
@@ -1630,7 +1630,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1320,George Holani,SEA,RB,Boise State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/x0f2kv9b6nw2vjloykm9",4,2025-12-29 20:55:18.380833+00,75,,football
 2585,George Gervin,Legend,G,Eastern Michigan,https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/George_Gervin_ABA.jpeg/834px-George_Gervin_ABA.jpeg,1,2026-01-30 13:55:14.653318+00,99,,basketball
 619,Geno Stone,CIN,DB,Iowa,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/redtjiud7dtro4avfgn0",4,2025-12-29 20:55:17.526136+00,75,,football
-62,Geno Smith,SEA,QB,West Virginia,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/izkm5yyxybb5uy5dkcgf",1,2025-12-29 20:55:17.526136+00,99,,football
+62,Geno Smith,SEA,QB,West Virginia,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/izkm5yyxybb5uy5dkcgf",2,2025-12-29 20:55:17.526136+00,99,,football
 1852,Geno Atkins,Bengals,DT,Georgia,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/13317.png,4,2026-01-02 02:41:35.072443+00,75,,football
 2414,Gene Upshaw,Legend,OL,Texas A&M-Kingsville,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/248.png,1,2026-01-25 20:54:45.924765+00,99,,football
 2976,Gary Trent Jr.,Milwaukee Bucks,G,Duke,https://www.basketball-reference.com/req/202106291/images/headshots/trentga02.jpg,2,2026-01-30 20:55:43.282848+00,0,,basketball
@@ -1771,7 +1771,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 3010,Devin Vassell,San Antonio Spurs,G,Florida State,https://upload.wikimedia.org/wikipedia/commons/thumb/9/99/Devin_Vassell.jpg/960px-Devin_Vassell.jpg,3,2026-01-30 20:55:43.282848+00,0,,basketball
 490,Devin Singletary,NYG,RB,Florida Atlantic,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wz8mp8xb5bdspcxosreh",2,2025-12-29 20:55:17.526136+00,92,,football
 2153,Devin Lloyd,JAX,LB,Utah,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4243256.png&w=350&h=254,3,2026-01-05 03:20:20.375184+00,92,,football
-2201,Devin Hester,Legend,WR,Miami,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/9631.png,2,2026-01-25 20:46:11.595673+00,99,,football
+2201,Devin Hester,Legend,WR,Miami,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/9631.png,1,2026-01-25 20:46:11.595673+00,99,,football
 2848,Devin Harris,Legend,G,Wisconsin,https://www.basketball-reference.com/req/202106291/images/headshots/harride01.jpg,2,2026-01-30 20:43:26.669775+00,0,,basketball
 672,Devin Duvernay,JAX,WR,Texas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wynmyjmvg7cee4y6i21n",4,2025-12-29 20:55:17.526136+00,75,,football
 972,Devin Cochran,CIN,OL,Georgia Tech,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/db66xjuxciizpr0b64vs",4,2025-12-29 20:55:18.380833+00,75,,football
@@ -1784,11 +1784,11 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 326,DeShon Elliott,PIT,DB,Texas,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vzt60vlmz7hzkbbr7f1x",3,2025-12-29 20:55:17.526136+00,75,,football
 105,DeShawn Williams,CAR,DL,Clemson,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/oomwiwcodj3uwrbd4bug",4,2025-12-29 20:55:17.526136+00,75,,football
 1591,Deshaun Watson,HOU,QB,Clemson,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/mhxyoenptb2tmz0ye3kc",1,2025-12-31 01:30:05.174576+00,99,,football
-1672,DeSean Jackson,PHI,WR,California,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/pr5m864fqvnoozihylrh",2,2025-12-31 01:35:47.778348+00,92,,football
+1672,DeSean Jackson,PHI,WR,California,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/pr5m864fqvnoozihylrh",1,2025-12-31 01:35:47.778348+00,92,,football
 403,Derwin James,LAC,DB,Florida State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/vhkbrloqr0llf08voms0",1,2025-12-29 20:55:17.526136+00,99,,football
 416,Derrick Nnadi,KC,DL,Florida State,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/fokp5h37zl5qkfsachb3",4,2025-12-29 20:55:17.526136+00,75,,football
 2974,Derrick Jones Jr.,Los Angeles Clippers,F,UNLV,https://www.basketball-reference.com/req/202106291/images/headshots/jonesde02.jpg,2,2026-01-30 20:55:43.282848+00,0,,basketball
-2298,Derrick Johnson,Legend,LB,Texas,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/8430.png,2,2026-01-25 20:52:43.411317+00,99,,football
+2298,Derrick Johnson,Legend,LB,Texas,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/8430.png,1,2026-01-25 20:52:43.411317+00,99,,football
 2797,Derrick Fisher,Legend,G,Arkansas-Little Rock,https://upload.wikimedia.org/wikipedia/commons/thumb/0/0a/Derrick_Henry_OCT2022_%28cropped%29.jpg/960px-Derrick_Henry_OCT2022_%28cropped%29.jpg,3,2026-01-30 20:41:17.439938+00,0,,basketball
 2052,Derrick Brown,CAR,DL,Auburn,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4035495.png&w=350&h=254,4,2026-01-05 03:14:27.520531+00,75,,football
 2427,Derrick Brooks,Legend,LB,Florida State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/1754.png,1,2026-01-25 20:54:45.924765+00,99,,football
@@ -1809,7 +1809,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1806,DeMarcus Ware,Cowboys,LB,Troy,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/8426.png,1,2026-01-02 02:39:45.605973+00,99,,football
 246,DeMarcus Walker,CHI,DL,Florida State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/srytj7u2ver5a0lnanpg",4,2025-12-29 20:55:17.526136+00,75,,football
 164,Demarcus Robinson,LA,WR,Florida,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/lakf0xue1qqb7ed4p6ge",4,2025-12-29 20:55:17.526136+00,75,,football
-2775,DeMarcus Cousins,Legend,C,Kentucky,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/4258.png,2,2026-01-30 20:40:10.977771+00,0,,basketball
+2775,DeMarcus Cousins,Legend,C,Kentucky,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/4258.png,1,2026-01-30 20:40:10.977771+00,0,,basketball
 1413,Demani Richardson,CAR,DB,Texas A&M,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/wplslzv6ao3yojqneq30",4,2025-12-29 20:55:18.380833+00,75,,football
 1429,Dell Pettus,NE,DB,Troy,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/eonk8d33szxyjztamufc",4,2025-12-29 20:55:18.380833+00,75,,football
 473,Del'Shawn Phillips,HOU,LB,Illinois,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/f4t6he54ihdvf5pjsqm6",4,2025-12-29 20:55:17.526136+00,75,,football
@@ -1882,7 +1882,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 96,Danielle Hunter,HOU,DL,LSU,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/hsgq2reivph5rd48rq4p",4,2025-12-29 20:55:17.526136+00,75,,football
 990,Daniel Whelan,GB,P,California-Davis,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/dup6qxxzcuydjfzjn3t7",4,2025-12-29 20:55:18.380833+00,75,,football
 661,Daniel Thomas,JAX,DB,Auburn,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/knizsywgcccuiizocjkw",4,2025-12-29 20:55:17.526136+00,75,,football
-2151,Daniel Jones,IND,QB,Duke,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/3917792.png&w=350&h=254,1,2026-01-05 03:20:19.776854+00,99,,football
+2151,Daniel Jones,IND,QB,Duke,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/3917792.png&w=350&h=254,2,2026-01-05 03:20:19.776854+00,99,,football
 1053,Daniel Hardy,CHI,DL,Montana State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/csw6mwosvqfzqsubx6zn",4,2025-12-29 20:55:18.380833+00,75,,football
 3002,Daniel Gafford,Dallas Mavericks,C,Arkansas,https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/WizardsRaptors_35_%2851589304503%29_%28cropped%29.jpg/960px-WizardsRaptors_35_%2851589304503%29_%28cropped%29.jpg,3,2026-01-30 20:55:43.282848+00,0,,basketball
 1076,Daniel Faalele,BAL,OL,Minnesota,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/gfcuhqhwrcilnwcw1hgt",4,2025-12-29 20:55:18.380833+00,75,,football
@@ -2125,7 +2125,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 2388,Bruce Smith,Legend,DL,Virginia Tech,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/31.png,1,2026-01-25 20:54:45.924765+00,99,,football
 368,Bruce Hector,NYJ,DL,South Florida,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/qdli9iqgoixoexclb8rz",4,2025-12-29 20:55:17.526136+00,75,,football
 2800,Bruce Bowen,Legend,F,Cal State Fullerton,https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Bruce_Bowen_2014_%28cropped%29.jpg/960px-Bruce_Bowen_2014_%28cropped%29.jpg,3,2026-01-30 20:41:17.439938+00,0,,basketball
-2813,Brook Lopez,Legend,C,Stanford,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3448.png,3,2026-01-30 20:41:17.439938+00,0,,basketball
+2813,Brook Lopez,Legend,C,Stanford,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3448.png,1,2026-01-30 20:41:17.439938+00,0,,basketball
 596,Broderick Washington,BAL,DL,Texas Tech,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/emh0zmsonamylgrr7hmv",4,2025-12-29 20:55:17.526136+00,75,,football
 1281,Broderick Jones,PIT,OL,Georgia,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/unrqqion7nfuug5wp5l4",3,2025-12-29 20:55:18.380833+00,75,,football
 780,Brock Wright,DET,TE,Notre Dame,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/irowew9hgqaa9vcd8fri",4,2025-12-29 20:55:17.526136+00,75,,football
@@ -2314,7 +2314,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 1665,Alfred Morris,WAS,RB,Florida Atlantic,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/igrm4hy4pishp4rdamin",4,2025-12-31 01:35:43.449045+00,75,,football
 442,Alexander Mattison,LV,RB,Boise State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/uftc0gl0wzo5povcu6ih",2,2025-12-29 20:55:17.526136+00,92,,football
 1091,Alex Ward,LA,LS,UCF,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/crfr3gemc0thaar1lhcy",4,2025-12-29 20:55:18.380833+00,75,,football
-1623,Alex Smith,KC,QB,Utah,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/dpa5d1a8jj6jdymocjkx",2,2025-12-31 01:30:20.543258+00,92,,football
+1623,Alex Smith,KC,QB,Utah,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/dpa5d1a8jj6jdymocjkx",1,2025-12-31 01:30:20.543258+00,92,,football
 2063,Alex Singleton,DEN,LB,Montana State,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/2612151.png&w=350&h=254,3,2026-01-05 03:14:29.6896+00,92,,football
 1209,Alex Palczewski,DEN,OL,Illinois,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/x1vhpswi9sw6fgykk8fb",4,2025-12-29 20:55:18.380833+00,75,,football
 1182,Alex Forsyth,DEN,OL,Oregon,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/f4wu45km6wurk18920hh",4,2025-12-29 20:55:18.380833+00,75,,football
@@ -2330,7 +2330,7 @@ id,name,team,position,college,image_url,tier,created_at,rating,last_selected,spo
 742,Alaric Jackson,LA,OL,Iowa,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/bzmde6patijvpixsqyct",4,2025-12-29 20:55:17.526136+00,75,,football
 2413,Alan Page,Legend,DL,Notre Dame,https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/334.png,1,2026-01-25 20:54:45.924765+00,99,,football
 297,Al-Quadin Muhammad,DET,DL,Miami,"https://static.www.nfl.com/image/private/f_auto,q_auto/league/qgzgezkkoycldlnaatq8",4,2025-12-29 20:55:17.526136+00,75,,football
-2819,Al Jefferson,Legend,C,High School,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3016.png,3,2026-01-30 20:41:17.439938+00,0,,basketball
+2819,Al Jefferson,Legend,C,High School,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3016.png,1,2026-01-30 20:41:17.439938+00,0,,basketball
 2776,Al Horford,Legend,C,Florida,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/3213.png,2,2026-01-30 20:40:10.977771+00,0,,basketball
 2849,Al Harrington,Legend,F,St. John's,https://a.espncdn.com/combiner/i?img=/i/headshots/nba/players/full/308.png,2,2026-01-30 20:43:26.669775+00,0,,basketball
 657,Akeem Davis-Gaither,CIN,LB,Appalachian State,"https://static.www.nfl.com/image/upload/f_auto,q_auto/league/x96f2dqigzscwplj024t",4,2025-12-29 20:55:17.526136+00,75,,football
