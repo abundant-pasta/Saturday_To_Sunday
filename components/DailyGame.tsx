@@ -176,9 +176,9 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           .single()
 
         if (profile) {
-          const lastPlayed = profile[lastPlayedColumn]
-          const freezesAvailable = profile[freezesAvailableColumn] || 0
-          const currentStreak = profile[streakColumn] || 0
+          const lastPlayed = (profile as any)[lastPlayedColumn]
+          const freezesAvailable = (profile as any)[freezesAvailableColumn] || 0
+          const currentStreak = (profile as any)[streakColumn] || 0
 
           if (lastPlayed && currentStreak > 0) {
             const now = new Date()
