@@ -9,6 +9,7 @@ import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
 import PushNotificationManager from '@/components/PushNotificationManager'
 import { createBrowserClient } from '@supabase/ssr'
+import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -29,6 +30,11 @@ function HomeContent() {
   const [footballStreak, setFootballStreak] = useState<number>(0)
   const [basketballStreak, setBasketballStreak] = useState<number>(0)
 
+  // Game Status State
+  const [footballScore, setFootballScore] = useState<number | null>(null)
+  const [basketballScore, setBasketballScore] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -48,28 +54,45 @@ function HomeContent() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 2. Fetch Streaks when User is Authenticated
+  // 2. Fetch User Data (Streaks + Daily Status)
   useEffect(() => {
-    const fetchStreaks = async () => {
+    const fetchUserData = async () => {
       if (!user) {
         setFootballStreak(0)
         setBasketballStreak(0)
+        setFootballScore(null)
+        setBasketballScore(null)
+        setLoading(false)
         return
       }
 
-      const { data } = await supabase
-        .from('profiles')
-        .select('streak_football, streak_basketball')
-        .eq('id', user.id)
-        .single()
+      const today = new Date(Date.now() - TIMEZONE_OFFSET_MS).toISOString().split('T')[0]
 
-      if (data) {
-        setFootballStreak(data.streak_football || 0)
-        setBasketballStreak(data.streak_basketball || 0)
+      // Parallel fetch: Profile (Streaks) + Daily Results (Status)
+      const [profileReq, resultsReq] = await Promise.all([
+        supabase.from('profiles').select('streak_football, streak_basketball').eq('id', user.id).single(),
+        supabase.from('daily_results').select('sport, score').eq('user_id', user.id).eq('game_date', today)
+      ])
+
+      // Handle Streaks
+      if (profileReq.data) {
+        setFootballStreak(profileReq.data.streak_football || 0)
+        setBasketballStreak(profileReq.data.streak_basketball || 0)
       }
+
+      // Handle Daily Results
+      if (resultsReq.data) {
+        const fbResult = resultsReq.data.find(r => r.sport === 'football')
+        const bbResult = resultsReq.data.find(r => r.sport === 'basketball')
+
+        if (fbResult) setFootballScore(fbResult.score)
+        if (bbResult) setBasketballScore(bbResult.score)
+      }
+
+      setLoading(false)
     }
 
-    fetchStreaks()
+    fetchUserData()
   }, [user])
 
   // 3. Auth Handlers
@@ -157,8 +180,12 @@ function HomeContent() {
                   <Star className="w-8 h-8 text-[#00ff80] fill-current" />
                 </div>
                 <div>
-                  <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-1">Play Daily</div>
-                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">Football</div>
+                  <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-1">
+                    {footballScore !== null ? 'Completed' : 'Play Daily'}
+                  </div>
+                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
+                    {footballScore !== null ? `Score: ${footballScore}` : 'Football'}
+                  </div>
                 </div>
                 {user && footballStreak > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full">
@@ -178,8 +205,12 @@ function HomeContent() {
                   <Dribbble className="w-8 h-8 text-amber-500" />
                 </div>
                 <div>
-                  <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-1">Play Daily</div>
-                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">Basketball</div>
+                  <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-1">
+                    {basketballScore !== null ? 'Completed' : 'Play Daily'}
+                  </div>
+                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
+                    {basketballScore !== null ? `Score: ${basketballScore}` : 'Basketball'}
+                  </div>
                 </div>
                 {user && basketballStreak > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full">

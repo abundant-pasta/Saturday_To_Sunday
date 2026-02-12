@@ -154,6 +154,39 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Check for existing DB result (Cross-device sync)
+  useEffect(() => {
+    const checkDbResult = async () => {
+      if (!user || gameState === 'finished') return
+
+      const today = getGameDate()
+      const { data } = await supabase
+        .from('daily_results')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('game_date', today)
+        .eq('sport', sport)
+        .single()
+
+      if (data) {
+        // Sync to local state
+        setScore(data.score)
+        setResults(data.results_json || [])
+        setGameState('finished')
+        setIsSaved(true)
+
+        // Sync to localStorage
+        localStorage.setItem(`s2s_${sport}_today_score`, data.score.toString())
+        localStorage.setItem(`s2s_${sport}_last_played_date`, today)
+        if (data.results_json) {
+          localStorage.setItem(`s2s_${sport}_daily_results`, JSON.stringify(data.results_json))
+        }
+      }
+    }
+
+    checkDbResult()
+  }, [user, sport, gameState])
+
   useEffect(() => {
     const getStreak = async () => {
       if (!user) return
