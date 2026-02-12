@@ -26,8 +26,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'Saturday to Sunday',
   description: 'Test your College Football knowledge.',
-  manifest: '/manifest.json', // <--- Links to your PWA config
-  
+  // manifest: '/manifest.json', // REMOVED: Next.js auto-generates this from app/manifest.ts
+
   appleWebApp: {
     title: 'S2S',
     statusBarStyle: 'black-translucent',
@@ -77,7 +77,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        
+
         {/* Vercel Analytics */}
         <Analytics />
       </body>

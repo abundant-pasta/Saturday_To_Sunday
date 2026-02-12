@@ -93,6 +93,30 @@ function HomeContent() {
     }
 
     fetchUserData()
+
+    // 2.5 TRACK PWA USAGE
+    const trackPWA = async () => {
+      if (!user) return
+
+      // Check if standalone
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+
+      if (isStandalone) {
+        const now = new Date().toISOString()
+        // We can blindly update. If the column doesn't exist, this might error, but the user promised to add it.
+        // Best to just update 'last_pwa_launch' and 'pwa_installed'
+        try {
+          await supabase.from('profiles').update({
+            pwa_installed: true,
+            last_pwa_launch: now
+          }).eq('id', user.id)
+        } catch (e) {
+          console.error("Failed to track PWA", e)
+        }
+      }
+    }
+    trackPWA()
+
   }, [user])
 
   // 3. Auth Handlers
@@ -266,6 +290,9 @@ function HomeContent() {
           </div>
 
         </div>
+
+        {/* --- STICKY INSTALL BANNER (Mobile Only) --- */}
+        <InstallPWA mode="banner" />
       </div>
     </div>
   )
