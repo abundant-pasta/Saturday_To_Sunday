@@ -92,7 +92,9 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
-  const [results, setResults] = useState<('correct' | 'wrong' | 'pending')[]>([])
+  // Enhanced results: can be old format (string[]) or new format (object[])
+  type ResultEntry = { player_id: number; result: 'correct' | 'wrong' | 'pending'; player_name: string } | 'correct' | 'wrong' | 'pending'
+  const [results, setResults] = useState<ResultEntry[]>([])
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
@@ -131,6 +133,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
             setIsSaved(true)
           } else {
             setResults(new Array(gameData.length).fill('pending'))
+            setGameState('intro')
             setGameState('intro')
           }
         }
@@ -206,7 +209,9 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     let currentStreakCount = 0
     // Check backwards from current index - 1
     for (let i = currentIndex - 1; i >= 0; i--) {
-      if (results[i] === 'correct') currentStreakCount++
+      const res = results[i]
+      const isCorrectResult = typeof res === 'string' ? res === 'correct' : res.result === 'correct'
+      if (isCorrectResult) currentStreakCount++
       else break
     }
     if (isCorrect) currentStreakCount++
@@ -241,7 +246,11 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     }
 
     const newResults = [...results]
-    newResults[currentIndex] = isCorrect ? 'correct' : 'wrong'
+    newResults[currentIndex] = {
+      player_id: currentQ.id,
+      result: isCorrect ? 'correct' : 'wrong',
+      player_name: currentQ.name
+    }
     setResults(newResults)
     setShowResult(true)
 
@@ -265,7 +274,10 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   }
 
   const handleShare = async () => {
-    const squares = results.map(r => r === 'correct' ? '🟩' : '🟥').join('')
+    const squares = results.map(r => {
+      const status = typeof r === 'string' ? r : r.result
+      return status === 'correct' ? '🟩' : '🟥'
+    }).join('')
     const dateObj = new Date(Date.now() - TIMEZONE_OFFSET_MS)
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const rankInfo = getRankTitle(score, sport)
