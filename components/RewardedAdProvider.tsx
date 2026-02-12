@@ -68,10 +68,8 @@ export function RewardedAdProvider({ children }: RewardedAdProviderProps) {
                 // Enable test mode for development/testing (works before Ad Manager approval)
                 googletag.pubads().setPrivacySettings({
                     restrictDataProcessing: true,
+                    nonPersonalizedAds: true
                 })
-
-                // Request non-personalized ads for testing
-                googletag.pubads().setRequestNonPersonalizedAds(1)
 
                 // Rewarded event listeners
                 googletag.pubads().addEventListener('rewardedSlotReady', (event: any) => {
