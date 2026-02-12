@@ -40,11 +40,11 @@ export default function EarnFreezeButton({
     onFreezeEarned
 }: EarnFreezeButtonProps) {
     const [isProcessing, setIsProcessing] = useState(false)
-    const { showAd, isLoadingAd, isInitialized } = useRewardedAd()
+    const { showAd, isLoadingAd, adReady } = useRewardedAd()
     const theme = THEMES[sport]
 
     const handleEarnFreeze = async () => {
-        if (!isInitialized || isProcessing) return
+        if (!adReady || isProcessing) return
 
         setIsProcessing(true)
 
@@ -133,7 +133,7 @@ export default function EarnFreezeButton({
 
             <Button
                 onClick={handleEarnFreeze}
-                disabled={isProcessing || isLoadingAd || !isInitialized}
+                disabled={isProcessing || isLoadingAd || !adReady}
                 className={`w-full ${theme.bgPrimary} text-black hover:opacity-90 font-semibold`}
             >
                 {isProcessing || isLoadingAd ? (
