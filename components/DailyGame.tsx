@@ -464,7 +464,11 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
       <div className="w-full max-w-md mx-auto pt-2 px-2 shrink-0 z-50">
         <div className={`flex items-center justify-between ${theme.cardBg} backdrop-blur-md rounded-full px-4 py-2 border border-white/5 shadow-2xl`}>
-          <Link href="/"><button className="text-neutral-400 hover:text-white"><Home className="w-4 h-4" /></button></Link>
+          {currentIndex === 0 ? (
+            <Link href="/"><button className="text-neutral-400 hover:text-white"><Home className="w-4 h-4" /></button></Link>
+          ) : (
+            <div className="w-4" />
+          )}
           <div className="flex items-center gap-2">
             <div className={`text-lg font-black ${theme.primary} tabular-nums leading-none`}>{score}</div>
           </div>
