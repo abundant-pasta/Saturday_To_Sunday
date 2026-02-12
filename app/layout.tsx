@@ -65,10 +65,17 @@ export default function RootLayout({
           `}
         </Script>
 
+        {/* --- Google Publisher Tag (GPT) for Rewarded Ads --- */}
+        <Script
+          async
+          src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"
+          strategy="afterInteractive"
+        />
+
         {/* --- Google AdSense --- */}
         <Script
           async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_PUBLISHER_ID_HERE"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1391949394286453"
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
