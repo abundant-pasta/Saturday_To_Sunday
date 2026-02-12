@@ -10,6 +10,7 @@ import InstallPWA from '@/components/InstallPWA'
 import PushNotificationManager from '@/components/PushNotificationManager'
 import { createBrowserClient } from '@supabase/ssr'
 import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
+import LiveRankDisplay from '@/components/LiveRankDisplay'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -210,6 +211,11 @@ function HomeContent() {
                   <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
                     {footballScore !== null ? `Score: ${footballScore}` : 'Football'}
                   </div>
+                  {footballScore !== null && (
+                    <div className="mt-2 flex justify-center">
+                      <LiveRankDisplay score={footballScore} sport="football" align="center" />
+                    </div>
+                  )}
                 </div>
                 {user && footballStreak > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full">
@@ -235,6 +241,11 @@ function HomeContent() {
                   <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
                     {basketballScore !== null ? `Score: ${basketballScore}` : 'Basketball'}
                   </div>
+                  {basketballScore !== null && (
+                    <div className="mt-2 flex justify-center">
+                      <LiveRankDisplay score={basketballScore} sport="basketball" align="center" />
+                    </div>
+                  )}
                 </div>
                 {user && basketballStreak > 0 && (
                   <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full">
