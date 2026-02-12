@@ -72,10 +72,10 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
 
-        {/* --- Google AdSense (Optional Display Ads) --- */}
+        {/* --- Google AdSense --- */}
         <Script
           async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_GOOGLE_AD_CLIENT || 'ca-pub-YOUR_PUBLISHER_ID_HERE'}`}
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1391949394286453"
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
