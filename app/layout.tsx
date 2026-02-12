@@ -72,13 +72,7 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
 
-        {/* --- Google AdSense --- */}
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1391949394286453"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
-        />
+        {/* --- Google AdSense Removed to prevent conflicts --- */}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

@@ -152,6 +152,32 @@ export default function EarnFreezeButton({
             <div className="mt-2 text-xs text-neutral-500 text-center">
                 {theme.icon} Limit: 1 per week • Resets Monday
             </div>
+
+            {/* DEV BYPASS BUTTON */}
+            <button
+                onClick={async () => {
+                    setIsProcessing(true)
+                    // Simulate 2s delay
+                    await new Promise(r => setTimeout(r, 2000))
+
+                    // Call API directly
+                    const response = await fetch('/api/earn-streak-freeze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId, sport })
+                    })
+
+                    if (response.ok) {
+                        onFreezeEarned?.()
+                    } else {
+                        alert('Failed to simulate earn')
+                    }
+                    setIsProcessing(false)
+                }}
+                className="w-full mt-2 py-1 text-[10px] text-neutral-600 hover:text-white border border-dashed border-neutral-800 rounded hover:bg-neutral-800 transition-colors"
+            >
+                [TEST: Simulate Ad Watch]
+            </button>
         </div>
     )
 }
