@@ -314,7 +314,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     const dateObj = new Date(Date.now() - TIMEZONE_OFFSET_MS)
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const rankInfo = getRankTitle(score, sport)
-    const text = `Saturday to Sunday (${shortDate})\n${sport === 'basketball' ? '🏀' : '🏈'} ${theme.label} Mode\nScore: ${score.toLocaleString()} (${rankInfo.title})\n\n${squares}\n\nhttps://www.playsaturdaytosunday.com`
+    const text = `Saturday to Sunday (${shortDate})\n${sport === 'basketball' ? '🏀' : '🏈'} ${theme.label} Mode\nScore: ${score.toLocaleString()} (${rankInfo.title})\n\n${squares}\n\nCan you beat my score? Play now:\nhttps://www.playsaturdaytosunday.com`
     try {
       if (navigator.share) await navigator.share({ text })
       else { await navigator.clipboard.writeText(text); alert('Copied!') }
