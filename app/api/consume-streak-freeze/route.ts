@@ -46,8 +46,8 @@ export async function POST(request: Request) {
             )
         }
 
-        const freezesAvailable = profile[freezesAvailableColumn] || 0
-        const currentStreak = profile[streakColumn] || 0
+        const freezesAvailable = (profile as any)[freezesAvailableColumn] || 0
+        const currentStreak = (profile as any)[streakColumn] || 0
 
         // Validate that user has a freeze to consume
         if (freezesAvailable === 0) {

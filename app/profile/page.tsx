@@ -261,7 +261,7 @@ export default function ProfilePage() {
           </div>
 
           {/* TROPHY ROOM LINK */}
-          <Link href="/trophy-room" className="block">
+          <Link href="/collection" className="block">
             <div className="bg-gradient-to-r from-amber-950/50 to-neutral-900 border border-amber-900/30 rounded-xl p-4 flex items-center justify-between hover:border-amber-500/50 transition-all hover:shadow-lg hover:shadow-amber-500/10">
               <div className="flex items-center gap-3">
                 <div className="bg-amber-500/10 p-3 rounded-lg">

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
             )
         }
 
-        const freezesAvailable = profile[freezesAvailableColumn] || 0
+        const freezesAvailable = (profile as any)[freezesAvailableColumn] || 0
         const freezeWeekStart = profile.freeze_week_start
 
         // Check if already has a freeze
