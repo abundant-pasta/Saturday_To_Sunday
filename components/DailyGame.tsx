@@ -365,13 +365,17 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
             </div>
 
             <div className="flex justify-center gap-1 mt-4">
-              {results.map((r, i) => (
-                <div key={i} className={`w-6 h-6 rounded-sm ${r === 'correct' ? 'bg-[#00ff80]' : r === 'wrong' ? 'bg-red-500' : 'bg-neutral-800'}`} />
-              ))}
+              {results.map((r, i) => {
+                const isCorrect = typeof r === 'string' ? r === 'correct' : r.result === 'correct'
+                const isWrong = typeof r === 'string' ? r === 'wrong' : r.result === 'wrong'
+                return (
+                  <div key={i} className={`w-6 h-6 rounded-sm ${isCorrect ? 'bg-[#00ff80]' : isWrong ? 'bg-red-500' : 'bg-neutral-800'}`} />
+                )
+              })}
             </div>
 
             <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black mt-6 hover:opacity-90 shadow-lg`}>
-              <Share2 className="mr-2 w-5 h-5" /> Share Result
+              <Share2 className="mr-2 w-5 h-5" /> Challenge Your Friends
             </Button>
 
             <div className="pt-4 w-full">
