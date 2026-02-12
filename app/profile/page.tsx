@@ -238,7 +238,7 @@ export default function ProfilePage() {
               canEarnFreeze={freezeStatus.football.canEarnFreeze}
               hoursUntilReset={freezeStatus.football.hoursUntilReset}
               onFreezeEarned={() => {
-                setFreezeStatus(prev => ({
+                setFreezeStatus((prev: any) => ({
                   ...prev,
                   football: { ...prev.football, hasFreeze: true, canEarnFreeze: false }
                 }))
@@ -252,7 +252,7 @@ export default function ProfilePage() {
               canEarnFreeze={freezeStatus.basketball.canEarnFreeze}
               hoursUntilReset={freezeStatus.basketball.hoursUntilReset}
               onFreezeEarned={() => {
-                setFreezeStatus(prev => ({
+                setFreezeStatus((prev: any) => ({
                   ...prev,
                   basketball: { ...prev.basketball, hasFreeze: true, canEarnFreeze: false }
                 }))
