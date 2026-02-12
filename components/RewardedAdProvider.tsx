@@ -65,6 +65,14 @@ export function RewardedAdProvider({ children }: RewardedAdProviderProps) {
                 // Event listener for when ad is loaded
                 slot.addService(googletag.pubads())
 
+                // Enable test mode for development/testing (works before Ad Manager approval)
+                googletag.pubads().setPrivacySettings({
+                    restrictDataProcessing: true,
+                })
+
+                // Request non-personalized ads for testing
+                googletag.pubads().setRequestNonPersonalizedAds(1)
+
                 // Rewarded event listeners
                 googletag.pubads().addEventListener('rewardedSlotReady', (event: any) => {
                     console.log('Rewarded ad ready')
