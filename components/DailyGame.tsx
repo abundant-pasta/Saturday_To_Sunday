@@ -14,8 +14,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import Leaderboard from '@/components/Leaderboard'
 import LiveRankDisplay from '@/components/LiveRankDisplay'
 import { TIMEZONE_OFFSET_MS, TIER_MULTIPLIERS, GAME_CONFIG, type Sport } from '@/lib/constants'
-import StreakFreezeModal from '@/components/StreakFreezeModal'
-import { RewardedAdProvider, useRewardedAd } from '@/components/RewardedAdProvider'
+import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 
 const THEMES = {
   football: {
@@ -108,11 +107,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const [receivedBonus, setReceivedBonus] = useState<number | null>(null)
   const [bonusReason, setBonusReason] = useState<string | null>(null)
   const [lastEarnedPoints, setLastEarnedPoints] = useState<number>(0)
-
-  // Streak freeze state
-  const [showStreakFreezeModal, setShowStreakFreezeModal] = useState(false)
-  const [streakFreezeChecked, setStreakFreezeChecked] = useState(false)
-  const { showAd } = useRewardedAd()
+  const [freezeConsumed, setFreezeConsumed] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -163,34 +158,56 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Check for streak freeze eligibility
+  // Auto-consume freeze if user missed a day
   useEffect(() => {
-    const checkStreakFreeze = async () => {
-      if (!user || streakFreezeChecked || gameState !== 'intro') return
+    const checkAndConsumeFreeze = async () => {
+      if (!user || freezeConsumed || gameState !== 'loading') return
 
       try {
-        const response = await fetch('/api/check-streak-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, sport })
-        })
+        const lastPlayedColumn = sport === 'football' ? 'last_played_football_at' : 'last_played_basketball_at'
+        const freezesAvailableColumn = sport === 'football' ? 'football_freezes_available' : 'basketball_freezes_available'
+        const streakColumn = sport === 'football' ? 'streak_football' : 'streak_basketball'
 
-        const data = await response.json()
+        // Check last played time and freeze status
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select(`${lastPlayedColumn}, ${freezesAvailableColumn}, ${streakColumn}`)
+          .eq('id', user.id)
+          .single()
 
-        if (data.canUseFreeze) {
-          setStreak(data.currentStreak)
-          setShowStreakFreezeModal(true)
+        if (profile) {
+          const lastPlayed = profile[lastPlayedColumn]
+          const freezesAvailable = profile[freezesAvailableColumn] || 0
+          const currentStreak = profile[streakColumn] || 0
+
+          if (lastPlayed && currentStreak > 0) {
+            const now = new Date()
+            const lastPlayedDate = new Date(lastPlayed)
+            const hoursInactive = (now.getTime() - lastPlayedDate.getTime()) / (1000 * 60 * 60)
+
+            // If inactive > 24h and has freeze, auto-consume it
+            if (hoursInactive > 24 && freezesAvailable > 0) {
+              const response = await fetch('/api/consume-streak-freeze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, sport })
+              })
+
+              if (response.ok) {
+                // Show success notification
+                console.log(`Streak freeze consumed! ${currentStreak}-day streak preserved.`)
+                setFreezeConsumed(true)
+              }
+            }
+          }
         }
-
-        setStreakFreezeChecked(true)
       } catch (error) {
-        console.error('Error checking streak freeze:', error)
-        setStreakFreezeChecked(true)
+        console.error('Error checking/consuming freeze:', error)
       }
     }
 
-    checkStreakFreeze()
-  }, [user, gameState, sport, streakFreezeChecked])
+    checkAndConsumeFreeze()
+  }, [user, gameState, sport, freezeConsumed, supabase])
 
   // Check for existing DB result (Cross-device sync)
   useEffect(() => {
@@ -351,37 +368,6 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     }, 1500)
   }
 
-  // Streak freeze handlers
-  const handleWatchAd = async () => {
-    try {
-      const adWatched = await showAd()
-
-      if (adWatched && user) {
-        // Update database to apply freeze
-        const response = await fetch('/api/use-streak-freeze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, sport })
-        })
-
-        if (response.ok) {
-          setShowStreakFreezeModal(false)
-          // Continue to game
-        } else {
-          console.error('Failed to apply streak freeze')
-          alert('Failed to save your streak freeze. Please try again.')
-        }
-      }
-    } catch (error) {
-      console.error('Error watching ad:', error)
-      alert('An error occurred. Please try again.')
-    }
-  }
-
-  const handleSkipStreakFreeze = () => {
-    setShowStreakFreezeModal(false)
-  }
-
   const handleShare = async () => {
     const squares = results.map(r => {
       const status = typeof r === 'string' ? r : r.result
@@ -402,13 +388,6 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   if (gameState === 'intro') return (
     <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden relative">
       <IntroScreen onStart={() => setGameState('playing')} challengerScore={challengerScore} sport={sport} />
-      <StreakFreezeModal
-        isOpen={showStreakFreezeModal}
-        sport={sport}
-        currentStreak={streak}
-        onWatchAd={handleWatchAd}
-        onSkip={handleSkipStreakFreeze}
-      />
     </div>
   )
 

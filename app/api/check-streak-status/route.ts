@@ -22,18 +22,14 @@ export async function POST(request: Request) {
 
         const supabase = await createClient()
 
-        // Get user profile data
+        const freezesAvailableColumn = sport === 'football'
+            ? 'football_freezes_available'
+            : 'basketball_freezes_available'
+
+        // Get user freeze inventory
         const { data: profile, error } = await supabase
             .from('profiles')
-            .select(
-                `last_played_football_at, 
-         last_played_basketball_at, 
-         football_freezes_used, 
-         basketball_freezes_used, 
-         freeze_week_start,
-         streak_football,
-         streak_basketball`
-            )
+            .select(`${freezesAvailableColumn}, freeze_week_start`)
             .eq('id', userId)
             .single()
 
@@ -44,62 +40,42 @@ export async function POST(request: Request) {
             )
         }
 
+        const freezesAvailable = profile[freezesAvailableColumn] || 0
+        const freezeWeekStart = profile.freeze_week_start
+
+        // Check if user can earn a new freeze (weekly limit check)
         const now = new Date()
-        const lastPlayedColumn = sport === 'football' ? 'last_played_football_at' : 'last_played_basketball_at'
-        const freezesUsedColumn = sport === 'football' ? 'football_freezes_used' : 'basketball_freezes_used'
-        const currentStreak = sport === 'football' ? profile.streak_football : profile.streak_basketball
+        const currentWeekStart = getMonday(now)
 
-        const lastPlayedAt = profile[lastPlayedColumn]
-        const freezesUsed = profile[freezesUsedColumn] || 0
+        let canEarnFreeze = false
+        let hoursUntilWeeklyReset = 0
 
-        // Check if weekly limit needs reset (every Monday)
-        let shouldResetWeeklyLimit = false
-        if (profile.freeze_week_start) {
-            const weekStart = new Date(profile.freeze_week_start)
-            const currentWeekStart = getMonday(now)
-
-            if (weekStart < currentWeekStart) {
-                shouldResetWeeklyLimit = true
-            }
+        if (!freezeWeekStart) {
+            // Never earned before, can earn if doesn't have one
+            canEarnFreeze = freezesAvailable === 0
         } else {
-            shouldResetWeeklyLimit = true
+            const weekStart = new Date(freezeWeekStart)
+            const isSameWeek = weekStart >= currentWeekStart
+
+            if (isSameWeek) {
+                // Still in same week, can only earn if don't have one
+                canEarnFreeze = freezesAvailable === 0
+
+                // Calculate hours until next Monday
+                const nextMonday = getNextMonday(now)
+                hoursUntilWeeklyReset = Math.floor((nextMonday.getTime() - now.getTime()) / (1000 * 60 * 60))
+            } else {
+                // New week, can earn again (if don't have one)
+                canEarnFreeze = freezesAvailable === 0
+            }
         }
-
-        // If we need to reset, do it now
-        if (shouldResetWeeklyLimit) {
-            await supabase
-                .from('profiles')
-                .update({
-                    football_freezes_used: 0,
-                    basketball_freezes_used: 0,
-                    freeze_week_start: getMonday(now).toISOString().split('T')[0]
-                })
-                .eq('id', userId)
-        }
-
-        // Calculate hours since last play
-        let hoursInactive = 0
-        let needsFreeze = false
-
-        if (lastPlayedAt) {
-            const lastPlayed = new Date(lastPlayedAt)
-            const diffMs = now.getTime() - lastPlayed.getTime()
-            hoursInactive = diffMs / (1000 * 60 * 60)
-
-            // Only need freeze if >24 hours AND has active streak
-            needsFreeze = hoursInactive > 24 && currentStreak > 0
-        }
-
-        // Can use freeze if: needs it, hasn't used weekly limit, and has active streak
-        const effectiveFreezesUsed = shouldResetWeeklyLimit ? 0 : freezesUsed
-        const canUseFreeze = needsFreeze && effectiveFreezesUsed < 1 && currentStreak > 0
 
         return NextResponse.json({
-            needsFreeze,
-            canUseFreeze,
-            hoursInactive: Math.floor(hoursInactive),
-            freezesUsedThisWeek: effectiveFreezesUsed,
-            currentStreak
+            hasFreeze: freezesAvailable > 0,
+            canEarnFreeze,
+            freezesAvailable,
+            hoursUntilWeeklyReset,
+            weeklyLimit: 1
         })
 
     } catch (error: any) {
@@ -115,6 +91,15 @@ export async function POST(request: Request) {
 function getMonday(date: Date): Date {
     const d = new Date(date)
     const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
     return new Date(d.setDate(diff))
+}
+
+// Helper: Get next Monday
+function getNextMonday(date: Date): Date {
+    const d = new Date(date)
+    const day = d.getDay()
+    const daysUntilMonday = day === 0 ? 1 : 8 - day
+    d.setDate(d.getDate() + daysUntilMonday)
+    return d
 }

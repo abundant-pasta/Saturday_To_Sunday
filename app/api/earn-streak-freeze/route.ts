@@ -3,14 +3,14 @@ import { createClient } from '@/utils/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-interface UseStreakFreezeRequest {
+interface EarnStreakFreezeRequest {
     userId: string
     sport: 'football' | 'basketball'
 }
 
 export async function POST(request: Request) {
     try {
-        const body: UseStreakFreezeRequest = await request.json()
+        const body: EarnStreakFreezeRequest = await request.json()
         const { userId, sport } = body
 
         if (!userId || !sport) {
@@ -22,10 +22,14 @@ export async function POST(request: Request) {
 
         const supabase = await createClient()
 
-        // Get current freeze usage
+        const freezesAvailableColumn = sport === 'football'
+            ? 'football_freezes_available'
+            : 'basketball_freezes_available'
+
+        // Get current freeze status
         const { data: profile, error: fetchError } = await supabase
             .from('profiles')
-            .select(`${sport}_freezes_used, freeze_week_start, streak_${sport}`)
+            .select(`${freezesAvailableColumn}, freeze_week_start`)
             .eq('id', userId)
             .single()
 
@@ -36,38 +40,42 @@ export async function POST(request: Request) {
             )
         }
 
-        const freezesUsedColumn = `${sport}_freezes_used` as const
-        const currentFreezesUsed = (profile as any)[freezesUsedColumn] || 0
+        const freezesAvailable = profile[freezesAvailableColumn] || 0
+        const freezeWeekStart = profile.freeze_week_start
+
+        // Check if already has a freeze
+        if (freezesAvailable >= 1) {
+            return NextResponse.json(
+                { error: 'Already have a freeze available' },
+                { status: 400 }
+            )
+        }
 
         // Check weekly limit
-        if (currentFreezesUsed >= 1) {
-            return NextResponse.json(
-                { error: 'Weekly freeze limit reached (max 1 per week)' },
-                { status: 400 }
-            )
-        }
-
-        // Check if user has an active streak
-        const streakColumn = `streak_${sport}` as const
-        const currentStreak = (profile as any)[streakColumn] || 0
-        if (currentStreak === 0) {
-            return NextResponse.json(
-                { error: 'No active streak to preserve' },
-                { status: 400 }
-            )
-        }
-
         const now = new Date()
+        const currentWeekStart = getMonday(now)
 
-        // Update profile: set last_played_at to now, increment freeze counter
-        const updateData: any = {
-            [`last_played_${sport}_at`]: now.toISOString(),
-            [freezesUsedColumn]: currentFreezesUsed + 1
+        if (freezeWeekStart) {
+            const weekStart = new Date(freezeWeekStart)
+            const isSameWeek = weekStart >= currentWeekStart
+
+            if (isSameWeek && freezesAvailable === 0) {
+                // Already earned this week (used it)
+                return NextResponse.json(
+                    { error: 'Weekly limit reached. Resets every Monday.' },
+                    { status: 400 }
+                )
+            }
         }
 
-        // Set freeze_week_start if not set
-        if (!profile.freeze_week_start) {
-            updateData.freeze_week_start = getMonday(now).toISOString().split('T')[0]
+        // Award the freeze
+        const updateData: any = {
+            [freezesAvailableColumn]: 1
+        }
+
+        // Set freeze_week_start if new week or first time
+        if (!freezeWeekStart || new Date(freezeWeekStart) < currentWeekStart) {
+            updateData.freeze_week_start = currentWeekStart.toISOString().split('T')[0]
         }
 
         const { error: updateError } = await supabase
@@ -76,22 +84,20 @@ export async function POST(request: Request) {
             .eq('id', userId)
 
         if (updateError) {
-            console.error('Error updating profile:', updateError)
             return NextResponse.json(
-                { error: 'Failed to apply streak freeze' },
+                { error: 'Failed to award freeze' },
                 { status: 500 }
             )
         }
 
         return NextResponse.json({
             success: true,
-            message: 'Streak freeze applied successfully',
-            freezesRemaining: 0, // Since we just used the one allowed per week
-            streakPreserved: currentStreak
+            message: `${sport === 'football' ? 'Football' : 'Basketball'} freeze earned!`,
+            freezesAvailable: 1
         })
 
     } catch (error: any) {
-        console.error('Use streak freeze error:', error)
+        console.error('Earn freeze error:', error)
         return NextResponse.json(
             { error: error.message || 'Internal server error' },
             { status: 500 }
