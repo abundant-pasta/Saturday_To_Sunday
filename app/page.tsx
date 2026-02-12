@@ -260,6 +260,16 @@ function HomeContent() {
             </Button>
           </Link>
 
+          {/* COLLECTION BUTTON */}
+          <Link href="/collection" className="w-full">
+            <Button
+              variant="outline"
+              className="w-full h-14 text-lg font-black tracking-widest uppercase border-amber-500/20 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 transition-all hover:border-amber-500/40"
+            >
+              <Trophy className="mr-3 w-5 h-5 text-amber-500" /> My Trophy Room
+            </Button>
+          </Link>
+
           {/* NOTIFICATION BUTTON */}
           <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden">
             <PushNotificationManager hideOnSubscribed={true} />
