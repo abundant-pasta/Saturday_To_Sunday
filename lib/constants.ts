@@ -18,7 +18,7 @@ export const TIER_MULTIPLIERS = {
   basketball: {
     1: 1.0,  // Easy
     2: 1.5,  // Medium
-    3: 1.75, // Hard (reduced from 2.0 to make max score 1350)
+    3: 1.75, // Hard
   },
 } as const
 
@@ -26,13 +26,13 @@ export const TIER_MULTIPLIERS = {
 export const GAME_CONFIG = {
   football: {
     rounds: 10,
-    maxScore: 1350,
+    maxScore: 1500,
     pointScale: 1.0,
     distribution: [5, 3, 2], // Easy, Medium, Hard
   },
   basketball: {
     rounds: 5,
-    maxScore: 1350,
+    maxScore: 1500,
     pointScale: 2.0,
     distribution: [2, 2, 1], // Easy, Medium, Hard
   },
