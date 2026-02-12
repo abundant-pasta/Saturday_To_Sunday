@@ -227,6 +227,22 @@ export default function ProfilePage() {
             </div>
           </div>
 
+          {/* TROPHY ROOM LINK */}
+          <Link href="/trophy-room" className="block mt-4 mb-4">
+            <div className="bg-gradient-to-r from-amber-950/50 to-neutral-900 border border-amber-900/30 rounded-xl p-4 flex items-center justify-between hover:border-amber-500/50 transition-all hover:shadow-lg hover:shadow-amber-500/10">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-500/10 p-3 rounded-lg">
+                  <Trophy className="w-6 h-6 text-amber-500" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-amber-400">Trophy Room</div>
+                  <div className="text-[10px] text-neutral-500 uppercase tracking-wide">View your achievements</div>
+                </div>
+              </div>
+              <ChevronLeft className="w-5 h-5 text-amber-500 rotate-180" />
+            </div>
+          </Link>
+
           {/* STREAK FREEZES SECTION */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold uppercase tracking-widest text-neutral-400 px-1">Streak Protection</h3>
