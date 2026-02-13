@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon, Rugby } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
@@ -184,7 +184,23 @@ function HomeContent() {
             <div className="bg-gradient-to-br from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-3xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
               <div className="bg-neutral-900/80 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm">
                 <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
-                  <Rugby className="w-6 h-6 text-[#00ff80] fill-current" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-6 h-6 text-[#00ff80]"
+                  >
+                    <path d="M2 15c6.667-6 13.333 0 20-6" />
+                    <path d="M9 22c6-6.667 0-13.333-6-20" />
+                    <path d="M11 8l2 2" />
+                    <path d="M12 11l2 2" />
+                    <path d="M8 11l2 2" />
+                    <path d="M14 8l2 2" />
+                  </svg>
                 </div>
                 <div>
                   <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-0.5">
