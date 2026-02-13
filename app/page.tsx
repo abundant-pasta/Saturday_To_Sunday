@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon, Rugby } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
@@ -184,11 +184,11 @@ function HomeContent() {
             <div className="bg-gradient-to-br from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-3xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
               <div className="bg-neutral-900/80 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm">
                 <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
-                  <Star className="w-6 h-6 text-[#00ff80] fill-current" />
+                  <Rugby className="w-6 h-6 text-[#00ff80] fill-current" />
                 </div>
                 <div>
                   <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-0.5">
-                    {footballScore !== null ? 'Completed' : 'Play Daily'}
+                    {footballScore !== null ? 'Football' : 'Play Daily'}
                   </div>
                   <div className="text-white font-black text-lg uppercase italic tracking-tighter leading-none whitespace-nowrap min-w-0">
                     {footballScore !== null ? `Score: ${footballScore}` : 'Football'}
@@ -218,7 +218,7 @@ function HomeContent() {
                 </div>
                 <div>
                   <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-0.5">
-                    {basketballScore !== null ? 'Completed' : 'Play Daily'}
+                    {basketballScore !== null ? 'Basketball' : 'Play Daily'}
                   </div>
                   <div className="text-white font-black text-lg uppercase italic tracking-tighter leading-none whitespace-nowrap min-w-0">
                     {basketballScore !== null ? `Score: ${basketballScore}` : 'Basketball'}
