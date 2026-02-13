@@ -168,6 +168,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Auth Handlers
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
+    })
+  }
+
   // Auto-consume freeze if user missed a day
   useEffect(() => {
     const checkAndConsumeFreeze = async () => {
@@ -447,6 +457,15 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
             </div>
 
             <div className="flex flex-col gap-3 mt-6 w-full">
+              {!user && (
+                <Button
+                  onClick={handleGoogleLogin}
+                  className="w-full h-12 text-lg font-black bg-white text-black hover:bg-neutral-200 shadow-xl border border-white transition-all active:scale-95"
+                >
+                  Sign In with Google
+                </Button>
+              )}
+
               <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black hover:opacity-90 shadow-lg`}>
                 <Share2 className="mr-2 w-5 h-5" /> Challenge Your Friends
               </Button>
