@@ -17,9 +17,10 @@ function urlBase64ToUint8Array(base64String: string) {
 
 interface PushManagerProps {
   hideOnSubscribed?: boolean
+  compact?: boolean
 }
 
-export default function PushNotificationManager({ hideOnSubscribed = false }: PushManagerProps) {
+export default function PushNotificationManager({ hideOnSubscribed = false, compact = false }: PushManagerProps) {
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -170,8 +171,6 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
             </div>
           </div>
         </div>
-
-        {/* Also render the success message or toggle behind it (optional, logic handles hide) */}
       </>
     )
   }
@@ -192,7 +191,29 @@ export default function PushNotificationManager({ hideOnSubscribed = false }: Pu
     return null
   }
 
-  // --- STATE 3: STANDARD TOGGLE (Only visible inside the App) ---
+  // --- STATE 3: COMPACT TOGGLE (New) ---
+  if (compact) {
+    return (
+      <div className="flex items-center justify-between px-4 py-2 w-full bg-neutral-900/50 hover:bg-neutral-900/80 transition-colors cursor-pointer group rounded-xl border border-neutral-800" onClick={isSubscribed ? unsubscribeFromPush : subscribeToPush}>
+        <div className="flex items-center gap-2">
+          <Bell className={`w-3.5 h-3.5 ${isSubscribed ? 'text-[#00ff80]' : 'text-neutral-500'}`} />
+          <span className={`text-[10px] font-bold uppercase tracking-widest ${isSubscribed ? 'text-white' : 'text-neutral-500 group-hover:text-neutral-400'}`}>
+            {isSubscribed ? 'Reminders On' : 'Reminders Off'}
+          </span>
+        </div>
+
+        {loading ? (
+          <Loader2 className="animate-spin w-3 h-3 text-neutral-500" />
+        ) : isSubscribed ? (
+          <div className="w-2 h-2 rounded-full bg-[#00ff80] shadow-[0_0_8px_rgba(0,255,128,0.5)]" />
+        ) : (
+          <div className="w-2 h-2 rounded-full bg-neutral-700 group-hover:bg-neutral-600" />
+        )}
+      </div>
+    )
+  }
+
+  // --- STATE 4: STANDARD TOGGLE (Only visible inside the App) ---
   return (
     <div className="flex items-center justify-between p-4 w-full bg-neutral-900/50 border border-neutral-800 rounded-xl mb-4">
       <div className="flex flex-col text-left">

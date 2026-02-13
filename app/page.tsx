@@ -147,21 +147,21 @@ function HomeContent() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 font-sans overflow-hidden relative">
+    <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-4 font-sans overflow-hidden relative">
 
       {/* --- TOP RIGHT PROFILE ICON --- */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-3 right-3 z-50">
         {user ? (
           // LOGGED IN: Go to Profile
           <Link href="/profile">
             <button
-              className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative block shadow-lg"
+              className="w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative block shadow-lg"
             >
               {user.user_metadata?.avatar_url ? (
                 <Image src={user.user_metadata.avatar_url} alt="User" fill className="object-cover" />
               ) : (
                 <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                  <UserIcon className="w-5 h-5 text-neutral-400" />
+                  <UserIcon className="w-4 h-4 text-neutral-400" />
                 </div>
               )}
             </button>
@@ -172,55 +172,55 @@ function HomeContent() {
             variant="ghost"
             size="icon"
             onClick={handleGoogleLogin}
-            className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 rounded-full w-10 h-10 transition-all"
+            className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 rounded-full w-9 h-9 transition-all"
           >
-            <UserIcon className="w-6 h-6" />
+            <UserIcon className="w-5 h-5" />
           </Button>
         )}
       </div>
 
-      <div className="w-full max-w-md flex flex-col gap-6">
+      <div className="w-full max-w-md flex flex-col gap-3 h-full justify-center">
 
         {/* LOGO AREA */}
-        <div className="text-center space-y-4 py-4">
+        <div className="text-center space-y-1 py-1 shrink-0">
           <div className="flex justify-center">
-            <Trophy className="w-16 h-16 text-yellow-400 animate-in zoom-in duration-700" />
+            <Trophy className="w-10 h-10 text-yellow-400 animate-in zoom-in duration-700" />
           </div>
           <div>
-            <h1 className="text-5xl font-black italic uppercase tracking-tighter text-white leading-tight drop-shadow-2xl">
+            <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white leading-tight drop-shadow-xl">
               Saturday To Sunday
             </h1>
-            <p className="text-neutral-400 font-bold text-sm tracking-wide mt-2 uppercase">Guess the college. Beat your friends.</p>
+            <p className="text-neutral-500 font-bold text-[10px] tracking-wide mt-0.5 uppercase">Guess the college. Beat your friends.</p>
           </div>
         </div>
 
         {/* --- DUAL GAME MODE CARDS --- */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 shrink-1 min-h-0">
 
           {/* FOOTBALL CARD */}
           <Link href="/daily" className="block group h-full">
             <div className="bg-gradient-to-br from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
-              <div className="bg-neutral-900/80 rounded-lg p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm min-h-[140px]">
-                <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
-                  <Star className="w-8 h-8 text-[#00ff80] fill-current" />
+              <div className="bg-neutral-900/80 rounded-lg p-2 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm min-h-[100px]">
+                <div className="p-2 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                  <Star className="w-5 h-5 text-[#00ff80] fill-current" />
                 </div>
                 <div>
-                  <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-1">
+                  <div className="text-[#00ff80] font-black uppercase text-[9px] tracking-widest mb-0.5">
                     {footballScore !== null ? 'Completed' : 'Play Daily'}
                   </div>
-                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
+                  <div className="text-white font-black text-lg uppercase italic tracking-tighter leading-none">
                     {footballScore !== null ? `Score: ${footballScore}` : 'Football'}
                   </div>
                   {footballScore !== null && (
-                    <div className="mt-2 flex justify-center">
+                    <div className="mt-1 flex justify-center">
                       <LiveRankDisplay score={footballScore} sport="football" align="center" />
                     </div>
                   )}
                 </div>
                 {user && footballStreak > 0 && (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full">
-                    <span className="text-orange-500 text-sm">🔥</span>
-                    <span className="text-orange-400 text-xs font-black">{footballStreak} Day{footballStreak !== 1 ? 's' : ''}</span>
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-500/20 border border-orange-500/30 rounded-full">
+                    <span className="text-orange-500 text-xs">🔥</span>
+                    <span className="text-orange-400 text-[10px] font-black">{footballStreak} Day{footballStreak !== 1 ? 's' : ''}</span>
                   </div>
                 )}
               </div>
@@ -230,27 +230,27 @@ function HomeContent() {
           {/* BASKETBALL CARD */}
           <Link href="/daily/basketball" className="block group h-full">
             <div className="bg-gradient-to-br from-neutral-900 to-amber-950 border border-amber-500/30 group-hover:border-amber-400 p-1 rounded-xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
-              <div className="bg-neutral-900/80 rounded-lg p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm min-h-[140px]">
-                <div className="p-3 bg-amber-500/10 rounded-full border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">
-                  <Dribbble className="w-8 h-8 text-amber-500" />
+              <div className="bg-neutral-900/80 rounded-lg p-2 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm min-h-[100px]">
+                <div className="p-2 bg-amber-500/10 rounded-full border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">
+                  <Dribbble className="w-5 h-5 text-amber-500" />
                 </div>
                 <div>
-                  <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-1">
+                  <div className="text-amber-500 font-black uppercase text-[9px] tracking-widest mb-0.5">
                     {basketballScore !== null ? 'Completed' : 'Play Daily'}
                   </div>
-                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
+                  <div className="text-white font-black text-lg uppercase italic tracking-tighter leading-none">
                     {basketballScore !== null ? `Score: ${basketballScore}` : 'Basketball'}
                   </div>
                   {basketballScore !== null && (
-                    <div className="mt-2 flex justify-center">
+                    <div className="mt-1 flex justify-center">
                       <LiveRankDisplay score={basketballScore} sport="basketball" align="center" />
                     </div>
                   )}
                 </div>
                 {user && basketballStreak > 0 && (
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded-full">
-                    <span className="text-orange-500 text-sm">🔥</span>
-                    <span className="text-orange-400 text-xs font-black">{basketballStreak} Day{basketballStreak !== 1 ? 's' : ''}</span>
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-500/20 border border-orange-500/30 rounded-full">
+                    <span className="text-orange-500 text-xs">🔥</span>
+                    <span className="text-orange-400 text-[10px] font-black">{basketballStreak} Day{basketballStreak !== 1 ? 's' : ''}</span>
                   </div>
                 )}
               </div>
@@ -260,54 +260,61 @@ function HomeContent() {
         </div>
 
         {/* --- SECONDARY ACTIONS --- */}
-        <div className="flex flex-col gap-4">
-          {/* LEADERBOARD BUTTON */}
-          <Link href="/leaderboard" className="w-full">
-            <Button
-              variant="outline"
-              className="w-full h-14 text-lg font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600"
-            >
-              <Trophy className="mr-3 w-5 h-5 text-yellow-500" /> View Leaderboard
-            </Button>
-          </Link>
+        <div className="flex flex-col gap-2 shrink-0">
 
-          {/* COLLECTION BUTTON */}
-          <Link href="/collection" className="w-full">
-            <Button
-              variant="outline"
-              className="w-full h-14 text-lg font-black tracking-widest uppercase border-amber-500/20 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 transition-all hover:border-amber-500/40"
-            >
-              <Trophy className="mr-3 w-5 h-5 text-amber-500" /> My Trophy Room
-            </Button>
-          </Link>
+          <div className="grid grid-cols-2 gap-2">
+            {/* LEADERBOARD BUTTON */}
+            <Link href="/leaderboard" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full h-10 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600"
+              >
+                <Trophy className="mr-2 w-3.5 h-3.5 text-yellow-500" /> Leaderboard
+              </Button>
+            </Link>
 
-          {/* NOTIFICATION BUTTON */}
-          <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden">
-            <PushNotificationManager hideOnSubscribed={true} />
+            {/* COLLECTION BUTTON */}
+            <Link href="/collection" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full h-10 text-xs font-black tracking-widest uppercase border-amber-500/20 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 transition-all hover:border-amber-500/40"
+              >
+                <Trophy className="mr-2 w-3.5 h-3.5 text-amber-500" /> Trophy Room
+              </Button>
+            </Link>
           </div>
 
-          {/* INSTALL PWA BUTTON */}
-          <InstallPWA />
+          <div className="grid grid-cols-2 gap-2">
+            {/* INSTALL PWA BUTTON (Wrapped to fit grid) */}
+            <div className="w-full">
+              <InstallPWA mode="button" />
+            </div>
 
-          {/* SHARE BUTTON */}
-          <Button
-            onClick={handleShareApp}
-            variant="outline"
-            className="w-full h-12 text-sm font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700"
-          >
-            <Share2 className="mr-2 w-4 h-4" /> Share App
-          </Button>
+            {/* SHARE BUTTON */}
+            <Button
+              onClick={handleShareApp}
+              variant="outline"
+              className="w-full h-9 text-[10px] font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700"
+            >
+              <Share2 className="mr-2 w-3 h-3" /> Share App
+            </Button>
+          </div>
+
+          {/* NOTIFICATION BUTTON */}
+          <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden max-h-[40px]">
+            <PushNotificationManager hideOnSubscribed={true} compact={true} />
+          </div>
 
           {/* --- FOOTER: ABOUT / LEGAL --- */}
-          <div className="pt-8 pb-4 flex flex-col items-center gap-3 border-t border-neutral-900 mt-4">
-            <div className="flex flex-wrap justify-center gap-4 text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+          <div className="pt-2 pb-1 flex flex-col items-center gap-1 border-t border-neutral-900 mt-1">
+            <div className="flex flex-wrap justify-center gap-3 text-[9px] font-bold text-neutral-700 uppercase tracking-widest">
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
               <span className="text-neutral-800">•</span>
               <Link href="/termsofservice" className="hover:text-white transition-colors">Terms</Link>
               <span className="text-neutral-800">•</span>
               <a href="mailto:support@playsaturdaytosunday.com" className="hover:text-white transition-colors">Support</a>
             </div>
-            <p className="text-neutral-800 text-[10px] font-black uppercase tracking-widest">v1.1.0</p>
+            <p className="text-neutral-800 text-[8px] font-black uppercase tracking-widest">v1.1.0</p>
           </div>
 
         </div>
