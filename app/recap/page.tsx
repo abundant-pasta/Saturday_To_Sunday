@@ -1,5 +1,10 @@
 'use client'
 
+/**
+ * Daily Recap Page
+ * Displays yesterday's top 3 finishers for Football and Basketball in a vertical list.
+ */
+
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { Trophy, Medal, Crown, ChevronLeft, Calendar, User as UserIcon, Loader2, Share2, Dribbble, Star, ChevronRight } from 'lucide-react'
