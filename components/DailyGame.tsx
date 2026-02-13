@@ -464,9 +464,11 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           </CardContent>
         </Card>
 
-        <div className="w-full max-w-md pb-8">
-          <Leaderboard currentUserId={user?.id} defaultSport={sport} />
-        </div>
+        {isSaved && (
+          <div className="w-full max-w-md pb-8">
+            <Leaderboard currentUserId={user?.id} defaultSport={sport} />
+          </div>
+        )}
 
         <InstallPWA mode="banner" />
       </div>
