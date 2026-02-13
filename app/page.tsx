@@ -193,13 +193,20 @@ function HomeContent() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     className="w-6 h-6 text-[#00ff80]"
+                    style={{ transform: 'rotate(-45deg)' }}
                   >
-                    <path d="M2 15c6.667-6 13.333 0 20-6" />
-                    <path d="M9 22c6-6.667 0-13.333-6-20" />
-                    <path d="M11 8l2 2" />
-                    <path d="M12 11l2 2" />
-                    <path d="M8 11l2 2" />
-                    <path d="M14 8l2 2" />
+                    {/* Football Shape (Prolate Spheroid) */}
+                    <path d="M12 3c-5 0-9 4-9 9 0 5 4 9 9 9 5 0 9-4 9-9 0-5-4-9-9-9z" style={{ display: 'none' }} />
+                    {/* Better Lemon Shape */}
+                    <path d="M5 12c0-8 8-10 15-8-1 1-1 1-1 1s2 7-6 15c-7 2-8-8-8-8z" style={{ display: 'none' }} />
+                    <path d="M12 2C6 2 2 6 2 12s4 10 10 10 10-4 10-10S18 2 12 2z" style={{ display: 'none' }} />
+
+                    {/* Vertical Football Shape (to be rotated) */}
+                    <path d="M12 2c6 0 8 5 8 10s-2 10-8 10-8-5-8-10 2-10 8-10z" />
+                    {/* Laces */}
+                    <path d="M12 7v10" />
+                    <path d="M9 10h6" />
+                    <path d="M9 14h6" />
                   </svg>
                 </div>
                 <div>
