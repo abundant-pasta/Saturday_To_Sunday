@@ -244,39 +244,60 @@ function HomeContent() {
         {/* --- SECONDARY ACTIONS - Vertical Stack --- */}
         <div className="flex flex-col gap-2 shrink-0 pb-2 custom-xs-stack">
 
-          {/* LEADERBOARD BUTTON */}
-          <Link href="/leaderboard" className="w-full">
-            <Button
-              variant="outline"
-              className="w-full h-11 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl"
-            >
-              <Trophy className="mr-3 w-4 h-4 text-yellow-500" /> Leaderboard
-            </Button>
-          </Link>
+          {/* --- RECAP & UTILITY GRID --- */}
+          <div className="space-y-2 w-full">
+            {/* DAILY RECAP BANNER */}
+            <Link href="/recap" className="w-full">
+              <div className="w-full h-14 bg-gradient-to-r from-amber-500/20 to-orange-600/20 border border-amber-500/50 rounded-xl flex items-center justify-between px-4 hover:scale-[1.02] transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] group relative overflow-hidden">
+                import {Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon} from 'lucide-react'
 
-          <Link href="/squads" className="w-full">
-            <Button
-              variant="outline"
-              className="w-full h-11 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl relative"
-            >
-              <Users className="mr-3 w-4 h-4 text-emerald-500" /> My Squads
-              {inviteCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white shadow-lg border-2 border-neutral-950 animate-in zoom-in duration-300">
-                  {inviteCount}
-                </span>
-              )}
-            </Button>
-          </Link>
+                // ...
 
-          {/* COLLECTION BUTTON */}
-          <Link href="/collection" className="w-full">
-            <Button
-              variant="outline"
-              className="w-full h-11 text-xs font-black tracking-widest uppercase border-amber-500/20 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 transition-all hover:border-amber-500/40 rounded-xl"
-            >
-              <Trophy className="mr-3 w-4 h-4 text-amber-500" /> Trophy Room
-            </Button>
-          </Link>
+                <div className="flex items-center gap-3 relative z-10">
+                  <div className="p-2 bg-amber-500/20 rounded-lg border border-amber-500/30">
+                    <HistoryIcon className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-black text-amber-100 uppercase tracking-wide leading-none">Daily Recap</span>
+                    <span className="text-[9px] text-amber-400 font-bold uppercase tracking-widest">Yesterday's Legends</span>
+                  </div>
+                </div>
+                <div className="bg-amber-500 text-black text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider shadow-lg">
+                  View
+                </div>
+              </div>
+            </Link>
+
+            {/* UTILITY ROW (3 Col) */}
+            <div className="grid grid-cols-3 gap-2">
+              {/* LEADERBOARD */}
+              <Link href="/leaderboard" className="w-full">
+                <div className="aspect-[4/3] bg-neutral-900/80 border border-neutral-800 hover:border-yellow-500/50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-neutral-800 transition-all group">
+                  <Trophy className="w-6 h-6 text-neutral-600 group-hover:text-yellow-500 transition-colors" />
+                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest group-hover:text-white">Ranks</span>
+                </div>
+              </Link>
+
+              {/* SQUADS */}
+              <Link href="/squads" className="w-full relative">
+                <div className="aspect-[4/3] bg-neutral-900/80 border border-neutral-800 hover:border-emerald-500/50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-neutral-800 transition-all group">
+                  <Users className="w-6 h-6 text-neutral-600 group-hover:text-emerald-500 transition-colors" />
+                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest group-hover:text-white">Squads</span>
+                  {inviteCount > 0 && (
+                    <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-red-600 border border-black" />
+                  )}
+                </div>
+              </Link>
+
+              {/* TROPHY ROOM */}
+              <Link href="/collection" className="w-full">
+                <div className="aspect-[4/3] bg-neutral-900/80 border border-neutral-800 hover:border-amber-500/50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-neutral-800 transition-all group">
+                  <Trophy className="w-6 h-6 text-neutral-600 group-hover:text-amber-500 transition-colors" />
+                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest group-hover:text-white">Awards</span>
+                </div>
+              </Link>
+            </div>
+          </div>
 
           {/* SHARE BUTTON */}
           <Button
