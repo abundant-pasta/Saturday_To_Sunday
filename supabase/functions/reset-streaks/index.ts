@@ -36,23 +36,38 @@ Deno.serve(async (req) => {
         // 2. Fetch all users
         const { data: profiles, error: profilesError } = await supabase
             .from('profiles')
-            .select('id, streak_football, streak_basketball, football_freezes_available, basketball_freezes_available')
-            .range(0, 999) // Pagination would be needed for production at scale
+            .select('id, streak_football, streak_basketball, football_freezes_available, basketball_freezes_available, football_daily_wins, basketball_daily_wins')
+            .range(0, 999)
 
         if (profilesError) throw profilesError
 
         // 3. Fetch ALL results for "Yesterday"
-        // Instead of querying per user (N+1), get all plays for yesterday
         const { data: results, error: resultsError } = await supabase
             .from('daily_results')
-            .select('user_id, sport')
+            .select('user_id, sport, score')
             .eq('game_date', yesterdayStr)
 
         if (resultsError) throw resultsError
 
-        // Create a Set of "Who Played What" for fast lookup
+        // Create lookups
         const playedFootball = new Set()
         const playedBasketball = new Set()
+        const footballWinners = new Set()
+        const basketballWinners = new Set()
+
+        // Identify High Scores
+        const footballResults = results.filter((r: any) => r.sport === 'football' && r.score > 0)
+        const basketballResults = results.filter((r: any) => r.sport === 'basketball' && r.score > 0)
+
+        if (footballResults.length > 0) {
+            const maxScore = Math.max(...footballResults.map((r: any) => r.score))
+            footballResults.filter((r: any) => r.score === maxScore).forEach((r: any) => footballWinners.add(r.user_id))
+        }
+
+        if (basketballResults.length > 0) {
+            const maxScore = Math.max(...basketballResults.map((r: any) => r.score))
+            basketballResults.filter((r: any) => r.score === maxScore).forEach((r: any) => basketballWinners.add(r.user_id))
+        }
 
         results.forEach((r: any) => {
             if (r.sport === 'football') playedFootball.add(r.user_id)
@@ -65,15 +80,21 @@ Deno.serve(async (req) => {
             let needsUpdate = false
             const updatePayload: any = { id: profile.id }
 
-            // --- Football Check ---
-            // If they have a streak > 0 AND didn't play yesterday
+            // --- High Score Award Logic ---
+            if (footballWinners.has(profile.id)) {
+                updatePayload.football_daily_wins = (profile.football_daily_wins || 0) + 1
+                needsUpdate = true
+            }
+            if (basketballWinners.has(profile.id)) {
+                updatePayload.basketball_daily_wins = (profile.basketball_daily_wins || 0) + 1
+                needsUpdate = true
+            }
+
+            // --- Football Streak Logic ---
             if (profile.streak_football > 0 && !playedFootball.has(profile.id)) {
-                // TRY FREEZE
                 if (profile.football_freezes_available > 0) {
                     console.log(`Frozen Football for ${profile.id}`)
                     updatePayload.football_freezes_available = profile.football_freezes_available - 1
-                    // No need to update last_played, just don't reset the streak.
-                    // Streak stays same
                     needsUpdate = true
                 } else {
                     console.log(`Reset Football for ${profile.id}`)
@@ -82,7 +103,7 @@ Deno.serve(async (req) => {
                 }
             }
 
-            // --- Basketball Check ---
+            // --- Basketball Streak Logic ---
             if (profile.streak_basketball > 0 && !playedBasketball.has(profile.id)) {
                 if (profile.basketball_freezes_available > 0) {
                     console.log(`Frozen Basketball for ${profile.id}`)
