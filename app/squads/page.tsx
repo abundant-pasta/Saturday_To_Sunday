@@ -11,8 +11,9 @@ export const dynamic = 'force-dynamic'
 export default async function SquadsPage({
     searchParams,
 }: {
-    searchParams: { [key: string]: string | string[] | undefined }
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+    const resolvedSearchParams = await searchParams
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -22,11 +23,7 @@ export default async function SquadsPage({
 
     const squads = await getMySquads()
 
-    // Handle selected squad from URL or default to first one if available?
-    // Actually, let's keep it clean: no selection = show list. selection = show list + leaderboard.
-    // Or better: Pass selected ID to Dashboard to highlight it.
-
-    const squadId = searchParams?.id as string | undefined
+    const squadId = resolvedSearchParams?.id as string | undefined
     const selectedSquad = squads.find(s => s.id === squadId)
 
     // Verify access to selected squad (if ID is provided but not in list, user might not be member)
