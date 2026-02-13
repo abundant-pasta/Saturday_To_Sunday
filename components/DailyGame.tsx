@@ -460,9 +460,9 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
               {!user && (
                 <Button
                   onClick={handleGoogleLogin}
-                  className="w-full h-12 text-lg font-black bg-white text-black hover:bg-neutral-200 shadow-xl border border-white transition-all active:scale-95"
+                  className="w-full h-12 text-md font-black bg-white text-black hover:bg-neutral-200 shadow-xl border border-white transition-all active:scale-95 px-2"
                 >
-                  Sign In with Google
+                  Sign In with Google to Save Score
                 </Button>
               )}
 
