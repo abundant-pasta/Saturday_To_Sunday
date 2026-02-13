@@ -51,32 +51,32 @@ export async function POST(request: Request) {
             )
         }
 
-        // Check weekly limit
-        const now = new Date()
-        const currentWeekStart = getMonday(now)
+        // Check weekly limit - REMOVED per user request (Inventory Cap of 1 instead)
+        // const now = new Date()
+        // const currentWeekStart = getMonday(now)
 
-        if (freezeWeekStart) {
-            const weekStart = new Date(freezeWeekStart)
-            const isSameWeek = weekStart >= currentWeekStart
+        // if (freezeWeekStart) {
+        //     const weekStart = new Date(freezeWeekStart)
+        //     const isSameWeek = weekStart >= currentWeekStart
 
-            if (isSameWeek && freezesAvailable === 0) {
-                // Already earned this week (used it)
-                return NextResponse.json(
-                    { error: 'Weekly limit reached. Resets every Monday.' },
-                    { status: 400 }
-                )
-            }
-        }
+        //     if (isSameWeek && freezesAvailable === 0) {
+        //         // Already earned this week (used it)
+        //         return NextResponse.json(
+        //             { error: 'Weekly limit reached. Resets every Monday.' },
+        //             { status: 400 }
+        //         )
+        //     }
+        // }
 
         // Award the freeze
         const updateData: any = {
             [freezesAvailableColumn]: 1
         }
 
-        // Set freeze_week_start if new week or first time
-        if (!freezeWeekStart || new Date(freezeWeekStart) < currentWeekStart) {
-            updateData.freeze_week_start = currentWeekStart.toISOString().split('T')[0]
-        }
+        // Set freeze_week_start if new week or first time - LOGIC SIMPLIFIED (Just track last used/earned if needed, but for now we just inc)
+        // if (!freezeWeekStart || new Date(freezeWeekStart) < currentWeekStart) {
+        //     updateData.freeze_week_start = new Date().toISOString().split('T')[0]
+        // }
 
         const { error: updateError } = await supabase
             .from('profiles')

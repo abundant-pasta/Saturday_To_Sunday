@@ -98,23 +98,8 @@ export default function EarnFreezeButton({
         )
     }
 
-    if (!canEarnFreeze) {
-        return (
-            <div className={`flex items-center gap-3 p-4 rounded-xl ${theme.bg} border ${theme.border} opacity-60`}>
-                <div className="p-2 rounded-full bg-neutral-700">
-                    <Clock className="w-5 h-5 text-neutral-400" />
-                </div>
-                <div className="flex-1">
-                    <div className="text-sm font-semibold text-neutral-300">
-                        Weekly Limit Reached
-                    </div>
-                    <div className="text-xs text-neutral-400">
-                        Resets in {hoursUntilReset}h
-                    </div>
-                </div>
-            </div>
-        )
-    }
+    // Weekly limit removed - users can always earn if they have 0
+    // if (!canEarnFreeze) { ... }
 
     // Can earn freeze - show button
     return (
@@ -150,7 +135,7 @@ export default function EarnFreezeButton({
             </Button>
 
             <div className="mt-2 text-xs text-neutral-500 text-center">
-                {theme.icon} Limit: 1 per week • Resets Monday
+                {theme.icon} Limit: Max 1 at a time
             </div>
 
             {/* DEV BYPASS BUTTON */}
