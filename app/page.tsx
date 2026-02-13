@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
@@ -249,9 +249,7 @@ function HomeContent() {
             {/* DAILY RECAP BANNER */}
             <Link href="/recap" className="w-full">
               <div className="w-full h-14 bg-gradient-to-r from-amber-500/20 to-orange-600/20 border border-amber-500/50 rounded-xl flex items-center justify-between px-4 hover:scale-[1.02] transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] group relative overflow-hidden">
-                import {Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon} from 'lucide-react'
-
-                // ...
+                <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
 
                 <div className="flex items-center gap-3 relative z-10">
                   <div className="p-2 bg-amber-500/20 rounded-lg border border-amber-500/30">
