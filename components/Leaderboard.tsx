@@ -46,9 +46,10 @@ const THEMES = {
 interface LeaderboardProps {
     currentUserId?: string
     defaultSport?: 'football' | 'basketball'
+    squadId?: string
 }
 
-export default function Leaderboard({ currentUserId, defaultSport = 'football' }: LeaderboardProps) {
+export default function Leaderboard({ currentUserId, defaultSport = 'football', squadId }: LeaderboardProps) {
     const [scores, setScores] = useState<LeaderboardEntry[]>([])
     const [totalCount, setTotalCount] = useState(0)
     const [loading, setLoading] = useState(true)
@@ -81,6 +82,23 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
             const now = new Date()
             const msPerDay = 24 * 60 * 60 * 1000
 
+            // SQUAD PRE-FILTER
+            let squadMemberIds: string[] | null = null
+            if (squadId) {
+                const { data: members } = await supabase
+                    .from('squad_members')
+                    .select('user_id')
+                    .eq('squad_id', squadId)
+
+                if (!members || members.length === 0) {
+                    setScores([])
+                    setTotalCount(0)
+                    setLoading(false)
+                    return
+                }
+                squadMemberIds = members.map(m => m.user_id)
+            }
+
             if (view === 'daily') {
                 const gameTimestamp = now.getTime() - TIMEZONE_OFFSET_MS - (dateOffset * msPerDay)
                 const targetDateObj = new Date(gameTimestamp)
@@ -100,6 +118,12 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
                     .eq('sport', sport)
                     .order('score', { ascending: false })
                     .limit(50)
+
+                // Apply Squad Filter
+                if (squadMemberIds) {
+                    query = query.in('user_id', squadMemberIds)
+                }
+
                 //redeploy
                 if (!showGuests) {
                     query = query.not('user_id', 'is', null)
@@ -124,6 +148,10 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
                     .select('*', { count: 'exact', head: true })
                     .eq('game_date', targetDateStr)
                     .eq('sport', sport)
+
+                if (squadMemberIds) {
+                    countQuery = countQuery.in('user_id', squadMemberIds)
+                }
 
                 if (!showGuests) {
                     countQuery = countQuery.not('user_id', 'is', null)
@@ -157,6 +185,10 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
                     .eq('sport', sport)
                     .not('user_id', 'is', null)
 
+                if (squadMemberIds) {
+                    query = query.in('user_id', squadMemberIds)
+                }
+
                 const { data } = await query
 
                 if (data) {
@@ -187,7 +219,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
         }
 
         fetchLeaderboard()
-    }, [currentUserId, view, showGuests, dateOffset, sport])
+    }, [currentUserId, view, showGuests, dateOffset, sport, squadId])
 
     const getDisplayName = (entry: LeaderboardEntry) => {
         if (entry.profiles?.username) return entry.profiles.username
@@ -219,7 +251,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
 
                 <div className="flex items-center justify-between">
                     <h3 className="font-bold text-neutral-200 uppercase tracking-widest text-xs flex items-center gap-2">
-                        <Trophy className="w-4 h-4 text-yellow-500" /> Leaderboard
+                        <Trophy className="w-4 h-4 text-yellow-500" /> {squadId ? 'Squad Leaderboard' : 'Leaderboard'}
                     </h3>
 
                     <div className="flex items-center gap-2">
@@ -340,8 +372,8 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football' }
                             >
                                 {/* Rank */}
                                 <div className={`w-8 font-mono font-black ${rank === 1 ? 'text-yellow-400' :
-                                        rank === 2 ? 'text-neutral-300' :
-                                            rank === 3 ? 'text-amber-700' : 'text-neutral-600'
+                                    rank === 2 ? 'text-neutral-300' :
+                                        rank === 3 ? 'text-amber-700' : 'text-neutral-600'
                                     }`}>
                                     {rank}
                                 </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
@@ -270,6 +270,16 @@ function HomeContent() {
               className="w-full h-12 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl"
             >
               <Trophy className="mr-3 w-4 h-4 text-yellow-500" /> Leaderboard
+            </Button>
+          </Link>
+
+          {/* SQUADS BUTTON */}
+          <Link href="/squads" className="w-full">
+            <Button
+              variant="outline"
+              className="w-full h-12 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl"
+            >
+              <Users className="mr-3 w-4 h-4 text-indigo-500" /> My Squads
             </Button>
           </Link>
 
