@@ -267,59 +267,57 @@ function HomeContent() {
             </Link>
 
             {/* UTILITY ROW (3 Col) */}
-            <div className="grid grid-cols-3 gap-2">
-              {/* LEADERBOARD */}
+            <div className="grid grid-cols-3 gap-3 mt-4">
+              {/* LEADERBOARD - Gold/Yellow */}
               <Link href="/leaderboard" className="w-full">
-                <div className="aspect-[4/3] bg-neutral-900/80 border border-neutral-800 hover:border-yellow-500/50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-neutral-800 transition-all group">
-                  <Trophy className="w-6 h-6 text-neutral-600 group-hover:text-yellow-500 transition-colors" />
-                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest group-hover:text-white">Ranks</span>
+                <div className="aspect-[4/3] bg-gradient-to-br from-yellow-500/20 to-amber-600/20 border border-yellow-500/30 hover:border-yellow-400 group rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-yellow-500/30 transition-all relative overflow-hidden shadow-[0_0_15px_rgba(234,179,8,0.1)]">
+                  <div className="absolute inset-0 bg-yellow-400/5 group-hover:bg-yellow-400/10 transition-colors" />
+                  <Trophy className="w-7 h-7 text-yellow-500 group-hover:scale-110 transition-transform drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                  <span className="text-[10px] font-black text-yellow-200 uppercase tracking-widest relative z-10 drop-shadow-md group-hover:text-white">Ranks</span>
                 </div>
               </Link>
 
-              {/* SQUADS */}
+              {/* SQUADS - Blue/Cyan */}
               <Link href="/squads" className="w-full relative">
-                <div className="aspect-[4/3] bg-neutral-900/80 border border-neutral-800 hover:border-emerald-500/50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-neutral-800 transition-all group">
-                  <Users className="w-6 h-6 text-neutral-600 group-hover:text-emerald-500 transition-colors" />
-                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest group-hover:text-white">Squads</span>
+                <div className="aspect-[4/3] bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 hover:border-cyan-400 group rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-cyan-500/30 transition-all relative overflow-hidden shadow-[0_0_15px_rgba(6,182,212,0.1)]">
+                  <div className="absolute inset-0 bg-cyan-400/5 group-hover:bg-cyan-400/10 transition-colors" />
+                  <Users className="w-7 h-7 text-cyan-400 group-hover:scale-110 transition-transform drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                  <span className="text-[10px] font-black text-cyan-200 uppercase tracking-widest relative z-10 drop-shadow-md group-hover:text-white">Squads</span>
                   {inviteCount > 0 && (
-                    <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-red-600 border border-black" />
+                    <span className="absolute top-1 right-1 h-3 w-3 rounded-full bg-red-600 border border-black shadow-lg animate-pulse" />
                   )}
                 </div>
               </Link>
 
-              {/* TROPHY ROOM */}
+              {/* TROPHY ROOM - Purple/Pink */}
               <Link href="/collection" className="w-full">
-                <div className="aspect-[4/3] bg-neutral-900/80 border border-neutral-800 hover:border-amber-500/50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-neutral-800 transition-all group">
-                  <Trophy className="w-6 h-6 text-neutral-600 group-hover:text-amber-500 transition-colors" />
-                  <span className="text-[9px] font-black text-neutral-500 uppercase tracking-widest group-hover:text-white">Awards</span>
+                <div className="aspect-[4/3] bg-gradient-to-br from-purple-500/20 to-pink-600/20 border border-purple-500/30 hover:border-purple-400 group rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-purple-500/30 transition-all relative overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.1)]">
+                  <div className="absolute inset-0 bg-purple-400/5 group-hover:bg-purple-400/10 transition-colors" />
+                  <Trophy className="w-7 h-7 text-purple-400 group-hover:scale-110 transition-transform drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" />
+                  <span className="text-[10px] font-black text-purple-200 uppercase tracking-widest relative z-10 drop-shadow-md group-hover:text-white">Awards</span>
                 </div>
               </Link>
             </div>
           </div>
 
-          {/* SHARE BUTTON */}
-          <Button
-            onClick={handleShareApp}
-            variant="outline"
-            className="w-full h-11 text-xs font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700 rounded-xl"
-          >
-            <Share2 className="mr-3 w-4 h-4" /> Share App
-          </Button>
+          {/* --- FOOTER ACTIONS --- */}
+          <div className="flex flex-col gap-3 mt-2 w-full">
 
-          {/* INSTALL PWA BUTTON */}
-          <div className="w-full">
+            {/* 1. HOW TO PLAY & GUIDES */}
+            <Link href="/how-to-play" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full h-12 text-xs font-black tracking-widest uppercase border-[#00ff80]/30 bg-[#00ff80]/5 text-[#00ff80] hover:bg-[#00ff80]/10 hover:text-[#00ff80] hover:border-[#00ff80] transition-all rounded-xl shadow-[0_0_10px_rgba(0,255,128,0.1)]"
+              >
+                <BookOpen className="mr-2 w-4 h-4" /> How to Play & Guides
+              </Button>
+            </Link>
+
+            {/* 2. INSTALL APP */}
             <InstallPWA mode="button" />
-          </div>
 
-          {/* NOTIFICATION BUTTON */}
-          <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors empty:hidden max-h-[44px]">
-            <PushNotificationManager hideOnSubscribed={true} compact={true} />
-          </div>
-
-          {/* GUIDES / HOW TO PLAY BUTTON */}
-          <Link href="/guides" className="w-full mt-2">
+            {/* 3. SHARE APP */}
             <Button
-              variant="outline"
               className="w-full h-11 text-xs font-black tracking-widest uppercase border-[#00ff80]/20 bg-[#00ff80]/5 text-[#00ff80] hover:bg-[#00ff80]/10 hover:text-[#00ff80] transition-all hover:border-[#00ff80]/40 rounded-xl"
             >
               <BookOpen className="mr-3 w-4 h-4 text-[#00ff80]" /> How to Play & Guides
