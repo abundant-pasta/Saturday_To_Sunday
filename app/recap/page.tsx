@@ -31,9 +31,7 @@ export default function RecapPage() {
         const fetchRecapData = async () => {
             setLoading(true)
 
-            // 1. Calculate Yesterday's Game Date
-            // Game Midnight is 06:00 UTC. 
-            // If currentTime - 6 hours results in Today, then Yesterday's game is Today-1.
+            // Game Midnight is 06:00 UTC (6 hours offset)
             const now = new Date()
             const gameTime = new Date(now.getTime() - TIMEZONE_OFFSET_MS)
             const yesterday = new Date(gameTime)
@@ -42,32 +40,32 @@ export default function RecapPage() {
             setGameDate(yesterdayStr)
 
             try {
-                // 2. Fetch Top 3 for both sports
                 const { data: results, error } = await supabase
                     .from('daily_results')
                     .select(`
-            user_id,
-            score,
-            sport,
-            profiles:user_id (
-              username,
-              user_metadata
-            )
-          `)
+                        user_id,
+                        score,
+                        sport,
+                        profiles (
+                            username,
+                            user_metadata
+                        )
+                    `)
                     .eq('game_date', yesterdayStr)
                     .gt('score', 0)
-                    .not('user_id', 'is', null)
                     .order('score', { ascending: false })
 
                 if (error) throw error
 
-                const processedResults: RecapResult[] = (results || []).map((r: any) => ({
-                    user_id: r.user_id,
-                    score: r.score,
-                    sport: r.sport,
-                    username: r.profiles?.username || 'Anonymous',
-                    avatar_url: r.profiles?.user_metadata?.avatar_url
-                }))
+                const processedResults: RecapResult[] = (results || [])
+                    .filter((r: any) => r.user_id !== null) // Only registered users
+                    .map((r: any) => ({
+                        user_id: r.user_id,
+                        score: r.score,
+                        sport: r.sport,
+                        username: r.profiles?.username || 'Player',
+                        avatar_url: r.profiles?.user_metadata?.avatar_url
+                    }))
 
                 setFootballPodium(processedResults.filter(r => r.sport === 'football').slice(0, 3))
                 setBasketballPodium(processedResults.filter(r => r.sport === 'basketball').slice(0, 3))
@@ -83,7 +81,9 @@ export default function RecapPage() {
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return ''
-        const date = new Date(dateStr)
+        // Avoid timezone shifts by manually parsing YYYY-MM-DD
+        const [year, month, day] = dateStr.split('-').map(Number)
+        const date = new Date(year, month - 1, day)
         return date.toLocaleDateString('en-US', {
             month: 'long',
             day: 'numeric',
@@ -113,13 +113,10 @@ export default function RecapPage() {
 
     const PodiumCard = ({ result, rank, color }: { result: RecapResult; rank: number; color: string }) => {
         const isFirst = rank === 1
-        const isSecond = rank === 2
-        const Icon = isFirst ? Crown : Medal
-
         return (
             <div className={`relative flex flex-col items-center p-4 rounded-2xl border transition-all duration-500 ${isFirst ? 'bg-gradient-to-b from-neutral-900 to-black scale-110 z-10 border-amber-500/30' : 'bg-neutral-950 border-neutral-800'}`}>
                 <div className={`relative mb-3 ${isFirst ? 'w-16 h-16' : 'w-12 h-12'}`}>
-                    <div className={`w-full h-full rounded-full border-2 overflow-hidden bg-neutral-900 flex items-center justify-center ${color}`}>
+                    <div className={`w-full h-full rounded-full border-2 overflow-hidden bg-neutral-900 flex items-center justify-center ${color} border-current`}>
                         {result.avatar_url ? (
                             <Image src={result.avatar_url} alt={result.username} fill className="object-cover" />
                         ) : (
@@ -140,19 +137,12 @@ export default function RecapPage() {
         )
     }
 
-    const RenderSportPodium = ({ results, sport }: { results: RecapResult[]; sport: 'football' | 'basketball' }) => {
+    const RenderSportPodium = ({ results }: { results: RecapResult[] }) => {
         if (results.length === 0) return (
             <div className="text-center py-8 bg-neutral-900/30 rounded-2xl border border-neutral-800">
                 <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">No stats for yesterday</p>
             </div>
         )
-
-        // Reorder for visual podium: [2, 1, 3]
-        const visualOrder = [
-            results[1], // 2nd
-            results[0], // 1st
-            results[2]  // 3rd
-        ].filter(Boolean)
 
         return (
             <div className="flex items-end justify-center gap-2 pt-6 pb-2">
@@ -165,7 +155,6 @@ export default function RecapPage() {
 
     return (
         <div className="min-h-screen bg-neutral-950 text-white flex flex-col font-sans">
-            {/* HEADER */}
             <div className="sticky top-0 z-50 bg-neutral-950/80 backdrop-blur-md border-b border-white/5 py-4 px-4">
                 <div className="max-w-2xl mx-auto flex items-center justify-between">
                     <Link href="/">
@@ -184,7 +173,6 @@ export default function RecapPage() {
             </div>
 
             <main className="flex-1 max-w-2xl mx-auto w-full p-6 space-y-12">
-                {/* DATE HERO */}
                 <div className="text-center space-y-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 border border-neutral-800 rounded-full text-[10px] font-black uppercase tracking-widest text-neutral-500">
                         <Calendar className="w-3 h-3" />
@@ -198,7 +186,6 @@ export default function RecapPage() {
                     </p>
                 </div>
 
-                {/* FOOTBALL SECTION */}
                 <section className="space-y-4">
                     <div className="flex items-center gap-3 pl-2">
                         <div className="bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
@@ -206,10 +193,9 @@ export default function RecapPage() {
                         </div>
                         <h3 className="text-sm font-black uppercase tracking-widest text-neutral-400">Gridiron Legends</h3>
                     </div>
-                    <RenderSportPodium results={footballPodium} sport="football" />
+                    <RenderSportPodium results={footballPodium} />
                 </section>
 
-                {/* BASKETBALL SECTION */}
                 <section className="space-y-4">
                     <div className="flex items-center gap-3 pl-2">
                         <div className="bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
@@ -217,10 +203,9 @@ export default function RecapPage() {
                         </div>
                         <h3 className="text-sm font-black uppercase tracking-widest text-neutral-400">Court Kings</h3>
                     </div>
-                    <RenderSportPodium results={basketballPodium} sport="basketball" />
+                    <RenderSportPodium results={basketballPodium} />
                 </section>
 
-                {/* FOOTER MESSAGE */}
                 <div className="pt-8 text-center bg-gradient-to-b from-transparent to-neutral-900/20 rounded-b-3xl pb-12">
                     <Trophy className="w-8 h-8 text-neutral-800 mx-auto mb-3" />
                     <p className="text-[10px] text-neutral-600 font-black uppercase tracking-[0.2em]">Become a Legend Today</p>
