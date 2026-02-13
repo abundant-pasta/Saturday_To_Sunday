@@ -56,6 +56,7 @@ export default function RecapPage() {
           `)
                     .eq('game_date', yesterdayStr)
                     .gt('score', 0)
+                    .not('user_id', 'is', null)
                     .order('score', { ascending: false })
 
                 if (error) throw error
