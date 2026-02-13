@@ -353,3 +353,65 @@ export async function getSquadMemberIds(squadId: string) {
 
     return data?.map(r => r.user_id) || []
 }
+
+export async function renameSquad(squadId: string, newName: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Not authenticated')
+
+    // Verify ownership
+    const { data: squad } = await supabase
+        .from('squads')
+        .select('owner_id')
+        .eq('id', squadId)
+        .single()
+
+    if (squad?.owner_id !== user.id) {
+        throw new Error('Only the owner can rename the squad')
+    }
+
+    const { error } = await supabase
+        .from('squads')
+        .update({ name: newName })
+        .eq('id', squadId)
+
+    if (error) {
+        console.error('Error renaming squad:', error)
+        throw new Error('Failed to rename squad')
+    }
+
+    revalidatePath('/squads')
+}
+
+export async function deleteSquad(squadId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Not authenticated')
+
+    // Verify ownership
+    const { data: squad } = await supabase
+        .from('squads')
+        .select('owner_id')
+        .eq('id', squadId)
+        .single()
+
+    if (squad?.owner_id !== user.id) {
+        throw new Error('Only the owner can delete the squad')
+    }
+
+    const { error } = await supabase
+        .from('squads')
+        .delete()
+        .eq('id', squadId)
+
+    if (error) {
+        console.error('Error deleting squad:', error)
+        throw new Error('Failed to delete squad')
+    }
+
+    revalidatePath('/squads')
+    redirect('/squads')
+}
+

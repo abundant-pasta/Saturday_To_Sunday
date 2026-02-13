@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Users, Share2, Copy, Check, LogOut, Trash2 } from 'lucide-react'
+import { Plus, Users, Share2, Copy, Check, LogOut, Trash2, Settings } from 'lucide-react'
 import { SquadDetails, leaveSquad } from '@/app/squads/actions'
 import CreateSquadModal from './CreateSquadModal'
 import JoinSquadModal from './JoinSquadModal'
 import { useRouter } from 'next/navigation'
 
 import InviteUserModal from './InviteUserModal'
+import EditSquadModal from './EditSquadModal'
 
 interface SquadDashboardProps {
     squads: SquadDetails[]
@@ -19,6 +20,7 @@ export default function SquadDashboard({ squads, onSelectSquad, selectedSquadId 
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [isJoinOpen, setIsJoinOpen] = useState(false)
     const [inviteSquad, setInviteSquad] = useState<{ id: string, name: string } | null>(null)
+    const [editSquad, setEditSquad] = useState<{ id: string, name: string } | null>(null)
     const [copiedId, setCopiedId] = useState<string | null>(null)
     const [loadingLeave, setLoadingLeave] = useState<string | null>(null)
     const router = useRouter()
@@ -93,13 +95,24 @@ export default function SquadDashboard({ squads, onSelectSquad, selectedSquadId 
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => copyCode(squad.invite_code)}
-                                    className="text-[10px] font-black uppercase tracking-widest bg-neutral-950 hover:bg-black text-neutral-500 hover:text-white px-3 py-1.5 rounded-full border border-neutral-800 transition-all flex items-center gap-2 active:scale-95 shadow-inner"
-                                >
-                                    {copiedId === squad.invite_code ? <Check className="w-3 h-3 text-[#00ff80]" /> : <Share2 className="w-3 h-3" />}
-                                    {squad.invite_code}
-                                </button>
+                                <div className="flex flex-col items-end gap-2">
+                                    <button
+                                        onClick={() => copyCode(squad.invite_code)}
+                                        className="text-[10px] font-black uppercase tracking-widest bg-neutral-950 hover:bg-black text-neutral-500 hover:text-white px-3 py-1.5 rounded-full border border-neutral-800 transition-all flex items-center gap-2 active:scale-95 shadow-inner"
+                                    >
+                                        {copiedId === squad.invite_code ? <Check className="w-3 h-3 text-[#00ff80]" /> : <Share2 className="w-3 h-3" />}
+                                        {squad.invite_code}
+                                    </button>
+
+                                    {squad.role === 'owner' && (
+                                        <button
+                                            onClick={() => setEditSquad({ id: squad.id, name: squad.name })}
+                                            className="p-1.5 text-neutral-600 hover:text-white transition-colors hover:bg-neutral-800 rounded-lg"
+                                        >
+                                            <Settings className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="flex items-center justify-between mt-5 pt-4 border-t border-neutral-800/50">
@@ -141,6 +154,14 @@ export default function SquadDashboard({ squads, onSelectSquad, selectedSquadId 
                     onClose={() => setInviteSquad(null)}
                     squadId={inviteSquad.id}
                     squadName={inviteSquad.name}
+                />
+            )}
+            {editSquad && (
+                <EditSquadModal
+                    isOpen={!!editSquad}
+                    onClose={() => setEditSquad(null)}
+                    squadId={editSquad.id}
+                    currentName={editSquad.name}
                 />
             )}
         </div>
