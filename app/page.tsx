@@ -195,7 +195,7 @@ function HomeContent() {
         </div>
 
         {/* --- DUAL GAME MODE CARDS - Grow to fill space --- */}
-        <div className="grid grid-cols-1 gap-3 grow min-h-0">
+        <div className="grid grid-cols-2 gap-3 grow min-h-0">
 
           {/* FOOTBALL CARD */}
           <Link href="/daily" className="block group h-full">
@@ -208,7 +208,7 @@ function HomeContent() {
                   <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-0.5">
                     {footballScore !== null ? 'Completed' : 'Play Daily'}
                   </div>
-                  <div className="text-white font-black text-2xl uppercase italic tracking-tighter leading-none">
+                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
                     {footballScore !== null ? `Score: ${footballScore}` : 'Football'}
                   </div>
                   {footballScore !== null && (
@@ -238,7 +238,7 @@ function HomeContent() {
                   <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-0.5">
                     {basketballScore !== null ? 'Completed' : 'Play Daily'}
                   </div>
-                  <div className="text-white font-black text-2xl uppercase italic tracking-tighter leading-none">
+                  <div className="text-white font-black text-xl uppercase italic tracking-tighter leading-none">
                     {basketballScore !== null ? `Score: ${basketballScore}` : 'Basketball'}
                   </div>
                   {basketballScore !== null && (
