@@ -44,7 +44,7 @@ export default function SquadDashboard({ squads, onSelectSquad, selectedSquadId 
     }
 
     return (
-        <div className="w-full space-y-4">
+        <div className="w-full space-y-4 font-sans">
             {/* ACTION BUTTONS */}
             <div className="grid grid-cols-2 gap-3">
                 <button

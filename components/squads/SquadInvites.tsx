@@ -29,7 +29,7 @@ export default function SquadInvites({ invites }: SquadInvitesProps) {
     if (invites.length === 0) return null
 
     return (
-        <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-700">
+        <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-700 font-sans">
             <div className="flex items-center gap-2 px-1">
                 <Users className="w-3.5 h-3.5 text-emerald-500" />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">PENDING INVITES ({invites.length})</span>
