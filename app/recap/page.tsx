@@ -48,7 +48,7 @@ export default function RecapPage() {
                         sport,
                         profiles (
                             username,
-                            user_metadata
+                            avatar_url
                         )
                     `)
                     .eq('game_date', yesterdayStr)
@@ -58,13 +58,13 @@ export default function RecapPage() {
                 if (error) throw error
 
                 const processedResults: RecapResult[] = (results || [])
-                    .filter((r: any) => r.user_id !== null) // Only registered users
+                    .filter((r: any) => r.user_id !== null && r.profiles) // Ensure profile exists
                     .map((r: any) => ({
                         user_id: r.user_id,
                         score: r.score,
                         sport: r.sport,
                         username: r.profiles?.username || 'Player',
-                        avatar_url: r.profiles?.user_metadata?.avatar_url
+                        avatar_url: r.profiles?.avatar_url
                     }))
 
                 setFootballPodium(processedResults.filter(r => r.sport === 'football').slice(0, 3))
