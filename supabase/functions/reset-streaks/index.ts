@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
         // 2. Fetch all users
         const { data: profiles, error: profilesError } = await supabase
             .from('profiles')
-            .select('id, streak_football, streak_basketball, football_freezes_available, basketball_freezes_available, football_daily_wins, basketball_daily_wins')
+            .select('id, streak_football, streak_basketball, football_freezes_available, basketball_freezes_available, football_daily_wins, basketball_daily_wins, football_podium_finishes, basketball_podium_finishes, football_top_10_finishes, basketball_top_10_finishes')
             .range(0, 999)
 
         if (profilesError) throw profilesError
@@ -54,19 +54,32 @@ Deno.serve(async (req) => {
         const playedBasketball = new Set()
         const footballWinners = new Set()
         const basketballWinners = new Set()
+        const footballPodium = new Set()
+        const basketballPodium = new Set()
+        const footballTop10 = new Set()
+        const basketballTop10 = new Set()
 
-        // Identify High Scores
-        const footballResults = results.filter((r: any) => r.sport === 'football' && r.score > 0)
-        const basketballResults = results.filter((r: any) => r.sport === 'basketball' && r.score > 0)
+        // Identify Rankings
+        const footballResults = results
+            .filter((r: any) => r.sport === 'football' && r.score > 0)
+            .sort((a: any, b: any) => b.score - a.score)
+
+        const basketballResults = results
+            .filter((r: any) => r.sport === 'basketball' && r.score > 0)
+            .sort((a: any, b: any) => b.score - a.score)
 
         if (footballResults.length > 0) {
-            const maxScore = Math.max(...footballResults.map((r: any) => r.score))
+            const maxScore = footballResults[0].score
             footballResults.filter((r: any) => r.score === maxScore).forEach((r: any) => footballWinners.add(r.user_id))
+            footballResults.slice(0, 3).forEach((r: any) => footballPodium.add(r.user_id))
+            footballResults.slice(0, 10).forEach((r: any) => footballTop10.add(r.user_id))
         }
 
         if (basketballResults.length > 0) {
-            const maxScore = Math.max(...basketballResults.map((r: any) => r.score))
+            const maxScore = basketballResults[0].score
             basketballResults.filter((r: any) => r.score === maxScore).forEach((r: any) => basketballWinners.add(r.user_id))
+            basketballResults.slice(0, 3).forEach((r: any) => basketballPodium.add(r.user_id))
+            basketballResults.slice(0, 10).forEach((r: any) => basketballTop10.add(r.user_id))
         }
 
         results.forEach((r: any) => {
@@ -87,6 +100,26 @@ Deno.serve(async (req) => {
             }
             if (basketballWinners.has(profile.id)) {
                 updatePayload.basketball_daily_wins = (profile.basketball_daily_wins || 0) + 1
+                needsUpdate = true
+            }
+
+            // Podium
+            if (footballPodium.has(profile.id)) {
+                updatePayload.football_podium_finishes = (profile.football_podium_finishes || 0) + 1
+                needsUpdate = true
+            }
+            if (basketballPodium.has(profile.id)) {
+                updatePayload.basketball_podium_finishes = (profile.basketball_podium_finishes || 0) + 1
+                needsUpdate = true
+            }
+
+            // Top 10
+            if (footballTop10.has(profile.id)) {
+                updatePayload.football_top_10_finishes = (profile.football_top_10_finishes || 0) + 1
+                needsUpdate = true
+            }
+            if (basketballTop10.has(profile.id)) {
+                updatePayload.basketball_top_10_finishes = (profile.basketball_top_10_finishes || 0) + 1
                 needsUpdate = true
             }
 

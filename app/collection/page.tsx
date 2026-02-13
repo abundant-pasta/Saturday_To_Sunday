@@ -70,7 +70,14 @@ export default function CollectionPage() {
 
     // Derived state for badges
     const [teamBadges, setTeamBadges] = useState<TeamBadge[]>([])
-    const [dailyWins, setDailyWins] = useState({ football: 0, basketball: 0 })
+    const [dailyWins, setDailyWins] = useState({
+        football: 0,
+        basketball: 0,
+        fb_podium: 0,
+        bk_podium: 0,
+        fb_top10: 0,
+        bk_top10: 0
+    })
 
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -191,14 +198,18 @@ export default function CollectionPage() {
                 // 5. Daily Wins from Profile
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('football_daily_wins, basketball_daily_wins')
+                    .select('football_daily_wins, basketball_daily_wins, football_podium_finishes, basketball_podium_finishes, football_top_10_finishes, basketball_top_10_finishes')
                     .eq('id', session.user.id)
                     .single()
 
                 if (profile) {
                     setDailyWins({
                         football: profile.football_daily_wins || 0,
-                        basketball: profile.basketball_daily_wins || 0
+                        basketball: profile.basketball_daily_wins || 0,
+                        fb_podium: profile.football_podium_finishes || 0,
+                        bk_podium: profile.basketball_podium_finishes || 0,
+                        fb_top10: profile.football_top_10_finishes || 0,
+                        bk_top10: profile.basketball_top_10_finishes || 0
                     })
                 }
             } catch (err) {
@@ -212,7 +223,9 @@ export default function CollectionPage() {
 
     // Global Stats
     const totalCollected = players.length + legacyCount
-    const totalDailyWins = (dailyWins.football > 0 ? 1 : 0) + (dailyWins.basketball > 0 ? 1 : 0)
+    const totalDailyWins = (dailyWins.football > 0 ? 1 : 0) + (dailyWins.basketball > 0 ? 1 : 0) +
+        (dailyWins.fb_podium > 0 ? 1 : 0) + (dailyWins.bk_podium > 0 ? 1 : 0) +
+        (dailyWins.fb_top10 > 0 ? 1 : 0) + (dailyWins.bk_top10 > 0 ? 1 : 0)
     const totalBadges = CAREER_MILESTONES.filter(m => totalCollected >= m.target).length +
         STREAK_MILESTONES.filter(m => maxStreak >= m.target).length +
         teamBadges.filter(b => b.unlocked).length + totalDailyWins
@@ -397,45 +410,117 @@ export default function CollectionPage() {
                         )}
 
                         {/* --- DAILY WINNER BADGES --- */}
-                        {(view === 'earned' ? (dailyWins.football > 0 || dailyWins.basketball > 0) : (dailyWins.football === 0 || dailyWins.basketball === 0)) && (
+                        {(view === 'earned' ? totalDailyWins > 0 : totalDailyWins < 6) && (
                             <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
                                 <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Daily Dominance</h2>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {/* Football Daily Winner */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {/* Football Rank 1 */}
                                     {(view === 'earned' ? dailyWins.football > 0 : dailyWins.football === 0) && (
                                         <div className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-3 ${dailyWins.football > 0 ? 'bg-gradient-to-br from-emerald-950/30 to-neutral-900 border-emerald-500/30 shadow-lg shadow-emerald-500/5' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
-                                            <div className={`relative w-14 h-14 rounded-full flex items-center justify-center border-2 ${dailyWins.football > 0 ? 'bg-neutral-800 text-[#00ff80] border-[#00ff80] shadow-[0_0_15px_rgba(0,255,128,0.2)]' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
-                                                {dailyWins.football > 0 ? <Crown className="w-7 h-7" /> : <Lock className="w-5 h-5" />}
+                                            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 ${dailyWins.football > 0 ? 'bg-neutral-800 text-[#00ff80] border-[#00ff80] shadow-[0_0_15px_rgba(0,255,128,0.2)]' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                {dailyWins.football > 0 ? <Crown className="w-6 h-6" /> : <Lock className="w-4 h-4" />}
                                                 {dailyWins.football > 1 && (
-                                                    <div className="absolute -top-1 -right-1 bg-[#00ff80] text-black text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
+                                                    <div className="absolute -top-1 -right-1 bg-[#00ff80] text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
                                                         {dailyWins.football}
                                                     </div>
                                                 )}
                                             </div>
                                             <div>
-                                                <h3 className={`text-xs font-black uppercase tracking-tight ${dailyWins.football > 0 ? 'text-white' : 'text-neutral-500'}`}>Gridiron GOAT</h3>
-                                                <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">Highest Score of the Day (Football)</p>
+                                                <h3 className={`text-[10px] font-black uppercase tracking-tight ${dailyWins.football > 0 ? 'text-white' : 'text-neutral-500'}`}>Gridiron GOAT</h3>
+                                                <p className="text-[8px] text-neutral-400 font-medium leading-tight mt-1">#1 Finish (Football)</p>
                                             </div>
                                             {dailyWins.football > 0 && <div className="absolute inset-0 border-2 border-[#00ff80]/5 rounded-xl pointer-events-none" />}
                                         </div>
                                     )}
 
-                                    {/* Basketball Daily Winner */}
+                                    {/* Football Podium */}
+                                    {(view === 'earned' ? dailyWins.fb_podium > 0 : dailyWins.fb_podium === 0) && (
+                                        <div className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-3 ${dailyWins.fb_podium > 0 ? 'bg-gradient-to-br from-neutral-900/50 to-neutral-900 border-neutral-400/30 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
+                                            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 ${dailyWins.fb_podium > 0 ? 'bg-neutral-800 text-neutral-300 border-neutral-300' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                {dailyWins.fb_podium > 0 ? <Medal className="w-6 h-6" /> : <Lock className="w-4 h-4" />}
+                                                {dailyWins.fb_podium > 1 && (
+                                                    <div className="absolute -top-1 -right-1 bg-neutral-300 text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
+                                                        {dailyWins.fb_podium}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className={`text-[10px] font-black uppercase tracking-tight ${dailyWins.fb_podium > 0 ? 'text-white' : 'text-neutral-500'}`}>Podium Pro</h3>
+                                                <p className="text-[8px] text-neutral-400 font-medium leading-tight mt-1">Top 3 Finish (Football)</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Football Top 10 */}
+                                    {(view === 'earned' ? dailyWins.fb_top10 > 0 : dailyWins.fb_top10 === 0) && (
+                                        <div className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-3 ${dailyWins.fb_top10 > 0 ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
+                                            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 ${dailyWins.fb_top10 > 0 ? 'bg-neutral-800 text-blue-400 border-blue-400' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                {dailyWins.fb_top10 > 0 ? <Shield className="w-6 h-6" /> : <Lock className="w-4 h-4" />}
+                                                {dailyWins.fb_top10 > 1 && (
+                                                    <div className="absolute -top-1 -right-1 bg-blue-400 text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
+                                                        {dailyWins.fb_top10}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className={`text-[10px] font-black uppercase tracking-tight ${dailyWins.fb_top10 > 0 ? 'text-white' : 'text-neutral-500'}`}>Elite Recruit</h3>
+                                                <p className="text-[8px] text-neutral-400 font-medium leading-tight mt-1">Top 10 Finish (Football)</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Basketball Rank 1 */}
                                     {(view === 'earned' ? dailyWins.basketball > 0 : dailyWins.basketball === 0) && (
                                         <div className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-3 ${dailyWins.basketball > 0 ? 'bg-gradient-to-br from-amber-950/30 to-neutral-900 border-amber-500/30 shadow-lg shadow-amber-500/5' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
-                                            <div className={`relative w-14 h-14 rounded-full flex items-center justify-center border-2 ${dailyWins.basketball > 0 ? 'bg-neutral-800 text-amber-500 border-amber-500 shadow-[0_0_15px_rgba(251,191,36,0.2)]' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
-                                                {dailyWins.basketball > 0 ? <Crown className="w-7 h-7" /> : <Lock className="w-5 h-5" />}
+                                            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 ${dailyWins.basketball > 0 ? 'bg-neutral-800 text-amber-500 border-amber-500 shadow-[0_0_15px_rgba(251,191,36,0.2)]' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                {dailyWins.basketball > 0 ? <Crown className="w-6 h-6" /> : <Lock className="w-4 h-4" />}
                                                 {dailyWins.basketball > 1 && (
-                                                    <div className="absolute -top-1 -right-1 bg-amber-500 text-black text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
+                                                    <div className="absolute -top-1 -right-1 bg-amber-500 text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
                                                         {dailyWins.basketball}
                                                     </div>
                                                 )}
                                             </div>
                                             <div>
-                                                <h3 className={`text-xs font-black uppercase tracking-tight ${dailyWins.basketball > 0 ? 'text-white' : 'text-neutral-500'}`}>King of the Court</h3>
-                                                <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">Highest Score of the Day (Basketball)</p>
+                                                <h3 className={`text-[10px] font-black uppercase tracking-tight ${dailyWins.basketball > 0 ? 'text-white' : 'text-neutral-500'}`}>King of the Court</h3>
+                                                <p className="text-[8px] text-neutral-400 font-medium leading-tight mt-1">#1 Finish (Basketball)</p>
                                             </div>
                                             {dailyWins.basketball > 0 && <div className="absolute inset-0 border-2 border-amber-500/5 rounded-xl pointer-events-none" />}
+                                        </div>
+                                    )}
+
+                                    {/* Basketball Podium */}
+                                    {(view === 'earned' ? dailyWins.bk_podium > 0 : dailyWins.bk_podium === 0) && (
+                                        <div className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-3 ${dailyWins.bk_podium > 0 ? 'bg-gradient-to-br from-neutral-900/50 to-neutral-900 border-neutral-400/30 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
+                                            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 ${dailyWins.bk_podium > 0 ? 'bg-neutral-800 text-orange-300 border-orange-300' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                {dailyWins.bk_podium > 0 ? <Medal className="w-6 h-6" /> : <Lock className="w-4 h-4" />}
+                                                {dailyWins.bk_podium > 1 && (
+                                                    <div className="absolute -top-1 -right-1 bg-orange-300 text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
+                                                        {dailyWins.bk_podium}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className={`text-[10px] font-black uppercase tracking-tight ${dailyWins.bk_podium > 0 ? 'text-white' : 'text-neutral-500'}`}>Hoops Star</h3>
+                                                <p className="text-[8px] text-neutral-400 font-medium leading-tight mt-1">Top 3 Finish (Basketball)</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Basketball Top 10 */}
+                                    {(view === 'earned' ? dailyWins.bk_top10 > 0 : dailyWins.bk_top10 === 0) && (
+                                        <div className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-3 ${dailyWins.bk_top10 > 0 ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
+                                            <div className={`relative w-12 h-12 rounded-full flex items-center justify-center border-2 ${dailyWins.bk_top10 > 0 ? 'bg-neutral-800 text-indigo-400 border-indigo-400' : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                {dailyWins.bk_top10 > 0 ? <Shield className="w-6 h-6" /> : <Lock className="w-4 h-4" />}
+                                                {dailyWins.bk_top10 > 1 && (
+                                                    <div className="absolute -top-1 -right-1 bg-indigo-400 text-black text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-neutral-900 shadow-lg">
+                                                        {dailyWins.bk_top10}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className={`text-[10px] font-black uppercase tracking-tight ${dailyWins.bk_top10 > 0 ? 'text-white' : 'text-neutral-500'}`}>Court Elite</h3>
+                                                <p className="text-[8px] text-neutral-400 font-medium leading-tight mt-1">Top 10 Finish (Basketball)</p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
