@@ -113,17 +113,7 @@ function HomeContent() {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
 
       if (isStandalone) {
-        const now = new Date().toISOString()
-        // We can blindly update. If the column doesn't exist, this might error, but the user promised to add it.
-        // Best to just update 'last_pwa_launch' and 'pwa_installed'
-        try {
-          await supabase.from('profiles').update({
-            pwa_installed: true,
-            last_pwa_launch: now
-          }).eq('id', user.id)
-        } catch (e) {
-          console.error("Failed to track PWA", e)
-        }
+        console.log("PWA launched standalone")
       }
     }
     trackPWA()
@@ -172,6 +162,17 @@ function HomeContent() {
             </h1>
             <p className="text-neutral-500 font-bold text-xs tracking-wide mt-1 uppercase">Guess the college. Beat your friends.</p>
           </div>
+
+          {!user && (
+            <div className="pt-2">
+              <Button
+                onClick={handleGoogleLogin}
+                className="w-full h-12 bg-white text-black font-black uppercase tracking-tight rounded-xl hover:bg-neutral-200 transition-all shadow-lg active:scale-95"
+              >
+                Sign In with Google
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* --- DUAL GAME MODE CARDS --- */}

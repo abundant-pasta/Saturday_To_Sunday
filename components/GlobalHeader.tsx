@@ -62,11 +62,17 @@ export default function GlobalHeader() {
                         </button>
                     </Link>
                 ) : (
-                    <Link href="/profile">
-                        <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-[#00ff80] hover:bg-neutral-800/50 rounded-full w-10 h-10 backdrop-blur-sm bg-black/10 transition-all border border-white/5">
-                            <UserIcon className="w-5 h-5" />
-                        </Button>
-                    </Link>
+                    <Button
+                        onClick={() => supabase.auth.signInWithOAuth({
+                            provider: 'google',
+                            options: { redirectTo: `${window.location.origin}/auth/callback` }
+                        })}
+                        variant="ghost"
+                        size="icon"
+                        className="text-neutral-400 hover:text-[#00ff80] hover:bg-neutral-800/50 rounded-full w-10 h-10 backdrop-blur-sm bg-black/10 transition-all border border-white/5"
+                    >
+                        <UserIcon className="w-5 h-5" />
+                    </Button>
                 )}
             </div>
         </header>
