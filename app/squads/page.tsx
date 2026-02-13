@@ -38,7 +38,7 @@ export default async function SquadsPage({
     const showLeaderboard = !!selectedSquad
 
     return (
-        <main className="min-h-screen bg-black text-white pb-20">
+        <main className="min-h-screen bg-black text-white pb-20 font-sans">
             {/* HEADER */}
             <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-neutral-900 px-4 py-4 flex items-center gap-4">
                 <Link href="/" className="p-2 -ml-2 hover:bg-neutral-900 rounded-xl transition-colors text-neutral-500 hover:text-white">
