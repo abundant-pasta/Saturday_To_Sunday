@@ -241,12 +241,34 @@ export async function sendInvite(squadId: string, inviteeId: string) {
     }
 }
 
+export async function getPendingInviteCount() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return 0
+
+    const { count, error } = await supabase
+        .from('squad_invites')
+        .select('*', { count: 'exact', head: true })
+        .eq('invitee_id', user.id)
+        .eq('status', 'pending')
+
+    if (error) {
+        console.error('Error fetching invite count:', error)
+        return 0
+    }
+
+    return count || 0
+}
+
 export async function getPendingInvites() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return []
 
+    // Try a simpler selection first. 
+    // If the Join to profiles is failing due to FK naming, this might be why it's returning []
     const { data, error } = await supabase
         .from('squad_invites')
         .select(`
@@ -255,10 +277,7 @@ export async function getPendingInvites() {
                 id,
                 name
             ),
-            inviter:profiles!squad_invites_inviter_id_fkey (
-                username,
-                full_name
-            )
+            inviter_id
         `)
         .eq('invitee_id', user.id)
         .eq('status', 'pending')
@@ -268,7 +287,19 @@ export async function getPendingInvites() {
         return []
     }
 
-    return data
+    if (!data || data.length === 0) return []
+
+    // Manually fetch inviter profiles to avoid join issues
+    const inviterIds = data.map(i => i.inviter_id)
+    const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, full_name')
+        .in('id', inviterIds)
+
+    return data.map(invite => ({
+        ...invite,
+        inviter: profiles?.find(p => p.id === invite.inviter_id) || { username: 'Someone' }
+    }))
 }
 
 export async function respondToInvite(inviteId: string, action: 'accept' | 'decline') {

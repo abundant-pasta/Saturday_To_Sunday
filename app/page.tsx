@@ -36,6 +36,8 @@ function HomeContent() {
   const [basketballScore, setBasketballScore] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const [inviteCount, setInviteCount] = useState(0)
+
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -91,6 +93,14 @@ function HomeContent() {
       }
 
       setLoading(false)
+
+      // Fetch Pending Invites Count
+      const { count } = await supabase
+        .from('squad_invites')
+        .select('*', { count: 'exact', head: true })
+        .eq('invitee_id', user.id)
+        .eq('status', 'pending')
+      setInviteCount(count || 0)
     }
 
     fetchUserData()
@@ -273,13 +283,17 @@ function HomeContent() {
             </Button>
           </Link>
 
-          {/* SQUADS BUTTON */}
           <Link href="/squads" className="w-full">
             <Button
               variant="outline"
-              className="w-full h-12 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl"
+              className="w-full h-12 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl relative"
             >
-              <Users className="mr-3 w-4 h-4 text-indigo-500" /> My Squads
+              <Users className="mr-3 w-4 h-4 text-emerald-500" /> My Squads
+              {inviteCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white shadow-lg border-2 border-neutral-950 animate-in zoom-in duration-300">
+                  {inviteCount}
+                </span>
+              )}
             </Button>
           </Link>
 
