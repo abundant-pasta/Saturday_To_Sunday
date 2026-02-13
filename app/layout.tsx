@@ -40,6 +40,9 @@ export const metadata: Metadata = {
   },
 }
 
+import { UIProvider } from '@/context/UIContext'
+import GlobalHeader from '@/components/GlobalHeader'
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -72,12 +75,21 @@ export default function RootLayout({
           strategy="afterInteractive"
         />
 
-        {/* --- Google AdSense Removed to prevent conflicts --- */}
+        {/* --- Google AdSense --- */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1391949394286453"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <UIProvider>
+          <GlobalHeader />
+          {children}
+        </UIProvider>
 
         {/* Vercel Analytics */}
         <Analytics />

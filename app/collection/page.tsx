@@ -218,17 +218,11 @@ export default function CollectionPage() {
         <div className="min-h-screen bg-neutral-950 text-white flex flex-col font-sans">
             {/* HEADER */}
             <div className="sticky top-0 z-50 bg-neutral-950/80 backdrop-blur-md border-b border-white/5 py-4 px-4">
-                <div className="max-w-2xl mx-auto flex items-center justify-between">
-                    <Link href="/">
-                        <Button variant="ghost" size="icon" className="rounded-full text-neutral-400 hover:text-white">
-                            <Home className="w-5 h-5" />
-                        </Button>
-                    </Link>
+                <div className="max-w-2xl mx-auto flex items-center justify-center">
                     <h1 className="text-xl font-black uppercase italic tracking-tighter flex items-center gap-2">
                         <Trophy className="w-5 h-5 text-amber-500" />
                         Trophy Room
                     </h1>
-                    <div className="w-9" />
                 </div>
             </div>
 

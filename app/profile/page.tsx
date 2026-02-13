@@ -154,17 +154,7 @@ export default function ProfilePage() {
 
   return (
     <RewardedAdProvider>
-      <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans p-4 pb-12">
-
-        {/* HEADER */}
-        <div className="max-w-md mx-auto flex items-center mb-6 pt-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-white hover:bg-neutral-800">
-              <ChevronLeft className="w-6 h-6" />
-            </Button>
-          </Link>
-          <h1 className="text-xl font-black uppercase tracking-widest ml-4">My Career</h1>
-        </div>
+      <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans p-4 pb-12 pt-16">
 
         <div className="max-w-md mx-auto flex flex-col gap-6">
 

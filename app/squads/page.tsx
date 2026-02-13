@@ -41,9 +41,7 @@ export default async function SquadsPage({
         <main className="min-h-screen bg-black text-white pb-20 font-sans">
             {/* HEADER */}
             <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-neutral-900 px-4 py-4 flex items-center gap-4">
-                <Link href="/" className="p-2 -ml-2 hover:bg-neutral-900 rounded-xl transition-colors text-neutral-500 hover:text-white">
-                    <ChevronLeft className="w-6 h-6" />
-                </Link>
+                <ChevronLeft className="w-6 h-6 text-neutral-700" />
                 <h1 className="text-2xl font-black italic uppercase tracking-tighter">My Squads</h1>
             </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
+import { useUI } from '@/context/UIContext'
 import { useSearchParams } from 'next/navigation'
 import { getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
@@ -86,6 +87,7 @@ export default function DailyGameWrapper({ sport = 'football' }: { sport?: 'foot
 }
 
 function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
+  const { setHeaderHidden } = useUI()
   const searchParams = useSearchParams()
   const challengerScore = searchParams.get('s')
   const theme = THEMES[sport]
@@ -96,6 +98,13 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
   const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
+
+  // Update header visibility based on game state
+  useEffect(() => {
+    setHeaderHidden(gameState === 'playing')
+    // Reset on unmount
+    return () => setHeaderHidden(false)
+  }, [gameState, setHeaderHidden])
   // Enhanced results: can be old format (string[]) or new format (object[])
   type ResultEntry = { player_id: number; result: 'correct' | 'wrong' | 'pending'; player_name: string } | 'correct' | 'wrong' | 'pending'
   const [results, setResults] = useState<ResultEntry[]>([])

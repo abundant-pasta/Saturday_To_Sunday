@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
@@ -159,37 +159,7 @@ function HomeContent() {
   return (
     <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center p-4 font-sans relative">
 
-      {/* --- TOP RIGHT PROFILE ICON --- */}
-      <div className="absolute top-4 right-4 z-50">
-        {user ? (
-          // LOGGED IN: Go to Profile
-          <Link href="/profile">
-            <button
-              className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-800 hover:border-[#00ff80] transition-colors relative block shadow-lg"
-            >
-              {user.user_metadata?.avatar_url ? (
-                <Image src={user.user_metadata.avatar_url} alt="User" fill className="object-cover" />
-              ) : (
-                <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                  <UserIcon className="w-5 h-5 text-neutral-400" />
-                </div>
-              )}
-            </button>
-          </Link>
-        ) : (
-          // LOGGED OUT: Google Login
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleGoogleLogin}
-            className="text-neutral-500 hover:text-[#00ff80] hover:bg-neutral-800 rounded-full w-10 h-10 transition-all"
-          >
-            <UserIcon className="w-6 h-6" />
-          </Button>
-        )}
-      </div>
-
-      <div className="w-full max-w-md flex flex-col gap-4 h-full pb-safe box-border">
+      <div className="w-full max-w-md flex flex-col gap-4 h-full pb-safe box-border pt-12">
 
         {/* LOGO AREA */}
         <div className="text-center space-y-1 pt-2 pb-1 shrink-0">
@@ -326,14 +296,35 @@ function HomeContent() {
             <PushNotificationManager hideOnSubscribed={true} compact={true} />
           </div>
 
+          {/* GUIDES / HOW TO PLAY BUTTON */}
+          <Link href="/guides" className="w-full mt-2">
+            <Button
+              variant="outline"
+              className="w-full h-11 text-xs font-black tracking-widest uppercase border-[#00ff80]/20 bg-[#00ff80]/5 text-[#00ff80] hover:bg-[#00ff80]/10 hover:text-[#00ff80] transition-all hover:border-[#00ff80]/40 rounded-xl"
+            >
+              <BookOpen className="mr-3 w-4 h-4 text-[#00ff80]" /> How to Play & Guides
+            </Button>
+          </Link>
+
+          {/* --- ABOUT SECTION (SEO) --- */}
+          <div className="mt-6 p-4 bg-neutral-900/40 border border-neutral-800/50 rounded-2xl">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 mb-2">Professional Grade Trivia</h3>
+            <p className="text-xs text-neutral-400 leading-relaxed font-medium">
+              Saturday to Sunday is the ultimate daily trivia challenge for college football and basketball fans. We bridge the gap between campus icons and professional superstars. Test your knowledge, climb the ranks, and protect your streak in the world's most intense sports origin game.
+              <Link href="/guides/the-ultimate-guide" className="text-[#00ff80] ml-1 font-bold hover:underline">Learn more.</Link>
+            </p>
+          </div>
+
           {/* --- FOOTER: ABOUT / LEGAL --- */}
-          <div className="pt-2 flex flex-col items-center gap-1 mt-1">
+          <div className="pt-4 flex flex-col items-center gap-1 mt-2">
             <div className="flex flex-wrap justify-center gap-3 text-[9px] font-bold text-neutral-700 uppercase tracking-widest">
+              <Link href="/guides" className="hover:text-white transition-colors">Guides</Link>
+              <span className="text-neutral-800">•</span>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
               <span className="text-neutral-800">•</span>
               <Link href="/termsofservice" className="hover:text-white transition-colors">Terms</Link>
               <span className="text-neutral-800">•</span>
-              <a href="mailto:support@playsaturdaytosunday.com" className="hover:text-white transition-colors">Support</a>
+              <Link href="/support" className="hover:text-white transition-colors">Support</Link>
             </div>
             <p className="text-neutral-800 text-[8px] font-black uppercase tracking-widest">v1.1.0</p>
           </div>
