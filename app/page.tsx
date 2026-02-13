@@ -318,11 +318,13 @@ function HomeContent() {
 
             {/* 3. SHARE APP */}
             <Button
-              className="w-full h-11 text-xs font-black tracking-widest uppercase border-[#00ff80]/20 bg-[#00ff80]/5 text-[#00ff80] hover:bg-[#00ff80]/10 hover:text-[#00ff80] transition-all hover:border-[#00ff80]/40 rounded-xl"
+              onClick={handleShareApp}
+              variant="ghost"
+              className="w-full h-12 text-[10px] font-bold tracking-widest uppercase text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all rounded-lg"
             >
-              <BookOpen className="mr-3 w-4 h-4 text-[#00ff80]" /> How to Play & Guides
+              <Share2 className="mr-2 w-3 h-3" /> Share App
             </Button>
-          </Link>
+          </div>
 
           {/* --- ABOUT SECTION (SEO) --- */}
           <div className="mt-6 p-4 bg-neutral-900/40 border border-neutral-800/50 rounded-2xl">
