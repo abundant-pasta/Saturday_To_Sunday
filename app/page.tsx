@@ -209,7 +209,7 @@ function HomeContent() {
                   <div className="text-[#00ff80] font-black uppercase text-[10px] tracking-widest mb-0.5">
                     {footballScore !== null ? 'Completed' : 'Play Daily'}
                   </div>
-                  <div className="text-white font-black text-2xl uppercase italic tracking-tighter leading-none">
+                  <div className="text-white font-black text-lg uppercase italic tracking-tighter leading-none whitespace-nowrap min-w-0">
                     {footballScore !== null ? `Score: ${footballScore}` : 'Football'}
                   </div>
                   {footballScore !== null && (
@@ -239,7 +239,7 @@ function HomeContent() {
                   <div className="text-amber-500 font-black uppercase text-[10px] tracking-widest mb-0.5">
                     {basketballScore !== null ? 'Completed' : 'Play Daily'}
                   </div>
-                  <div className="text-white font-black text-2xl uppercase italic tracking-tighter leading-none">
+                  <div className="text-white font-black text-lg uppercase italic tracking-tighter leading-none whitespace-nowrap min-w-0">
                     {basketballScore !== null ? `Score: ${basketballScore}` : 'Basketball'}
                   </div>
                   {basketballScore !== null && (
