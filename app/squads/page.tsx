@@ -1,8 +1,9 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import SquadDashboard from '@/components/squads/SquadDashboard'
+import SquadInvites from '@/components/squads/SquadInvites'
 import Leaderboard from '@/components/Leaderboard'
-import { getMySquads } from './actions'
+import { getMySquads, getPendingInvites } from './actions'
 import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 
@@ -21,7 +22,10 @@ export default async function SquadsPage({
         redirect('/')
     }
 
-    const squads = await getMySquads()
+    const [squads, invites] = await Promise.all([
+        getMySquads(),
+        getPendingInvites()
+    ])
 
     const squadId = resolvedSearchParams?.id as string | undefined
     const selectedSquad = squads.find(s => s.id === squadId)
@@ -36,14 +40,16 @@ export default async function SquadsPage({
     return (
         <main className="min-h-screen bg-black text-white pb-20">
             {/* HEADER */}
-            <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-neutral-800 px-4 py-3 flex items-center gap-4">
-                <Link href="/" className="p-2 -ml-2 hover:bg-neutral-800 rounded-lg transition-colors">
-                    <ChevronLeft className="w-5 h-5 text-neutral-400" />
+            <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-neutral-900 px-4 py-4 flex items-center gap-4">
+                <Link href="/" className="p-2 -ml-2 hover:bg-neutral-900 rounded-xl transition-colors text-neutral-500 hover:text-white">
+                    <ChevronLeft className="w-6 h-6" />
                 </Link>
-                <h1 className="text-lg font-bold">My Squads</h1>
+                <h1 className="text-2xl font-black italic uppercase tracking-tighter">My Squads</h1>
             </div>
 
-            <div className="p-4 max-w-md mx-auto space-y-8">
+            <div className="p-4 max-w-md mx-auto space-y-10">
+
+                <SquadInvites invites={invites} />
 
                 <SquadDashboard
                     squads={squads}
@@ -55,11 +61,13 @@ export default async function SquadsPage({
                 />
 
                 {showLeaderboard && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="flex items-center gap-2 mb-2 px-1">
-                            <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">
-                                Leaderboard: <span className="text-white">{selectedSquad.name}</span>
+                    <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+                        <div className="flex items-center gap-3 mb-4 px-1">
+                            <div className="h-0.5 flex-1 bg-gradient-to-r from-transparent via-neutral-900 to-transparent"></div>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-600 whitespace-nowrap">
+                                Leaderboard : <span className="text-[#00ff80] italic">{selectedSquad.name}</span>
                             </span>
+                            <div className="h-0.5 flex-1 bg-gradient-to-r from-transparent via-neutral-900 to-transparent"></div>
                         </div>
                         <Leaderboard
                             currentUserId={user.id}

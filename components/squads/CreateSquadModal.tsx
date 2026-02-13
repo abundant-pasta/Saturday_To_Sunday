@@ -47,36 +47,36 @@ export default function CreateSquadModal({ isOpen, onClose }: CreateSquadModalPr
                     <X className="w-5 h-5" />
                 </button>
 
-                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Plus className="w-5 h-5 text-indigo-500" /> Create Squad
+                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-2 flex items-center gap-2">
+                    <Plus className="w-6 h-6 text-[#00ff80]" /> Create Squad
                 </h2>
-                <p className="text-sm text-neutral-400 mb-6">Start a new group to compete with friends.</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 mb-6">Start a new group to compete with friends.</p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold uppercase text-neutral-500 mb-1.5">
+                        <label className="block text-[10px] font-black uppercase text-neutral-500 mb-2 tracking-widest">
                             Squad Name
                         </label>
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. The Office, Family League"
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            placeholder="e.g. THE OFFICE, GRIDIRON GANG"
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#00ff80]/50 font-bold uppercase tracking-tight"
                             maxLength={30}
                         />
                     </div>
 
                     {error && (
-                        <p className="text-red-500 text-xs">{error}</p>
+                        <p className="text-red-500 text-[10px] font-bold uppercase tracking-tight">{error}</p>
                     )}
 
                     <button
                         type="submit"
                         disabled={loading || !name.trim()}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-[#00ff80] hover:bg-[#00cc66] disabled:opacity-50 disabled:cursor-not-allowed text-black font-black uppercase tracking-tighter py-3 rounded-xl transition-all shadow-lg active:scale-95"
                     >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Squad'}
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Create Squad'}
                     </button>
                 </form>
             </div>

@@ -196,6 +196,119 @@ export async function leaveSquad(squadId: string) {
     revalidatePath('/squads')
 }
 
+// --- INVITE SYSTEM ---
+
+export async function searchUsers(query: string) {
+    const supabase = await createClient()
+    const { data: { user: currentUser } } = await supabase.auth.getUser()
+
+    if (!currentUser) return []
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, avatar_url')
+        .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
+        .not('id', 'eq', currentUser.id)
+        .limit(5)
+
+    if (error) {
+        console.error('Error searching users:', error)
+        return []
+    }
+
+    return data
+}
+
+export async function sendInvite(squadId: string, inviteeId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Not authenticated')
+
+    const { error } = await supabase
+        .from('squad_invites')
+        .insert({
+            squad_id: squadId,
+            inviter_id: user.id,
+            invitee_id: inviteeId,
+            status: 'pending'
+        })
+
+    if (error) {
+        if (error.code === '23505') throw new Error('Invite already sent')
+        console.error('Error sending invite:', error)
+        throw new Error('Failed to send invite')
+    }
+}
+
+export async function getPendingInvites() {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) return []
+
+    const { data, error } = await supabase
+        .from('squad_invites')
+        .select(`
+            id,
+            squad:squads (
+                id,
+                name
+            ),
+            inviter:profiles!squad_invites_inviter_id_fkey (
+                username,
+                full_name
+            )
+        `)
+        .eq('invitee_id', user.id)
+        .eq('status', 'pending')
+
+    if (error) {
+        console.error('Error fetching invites:', error)
+        return []
+    }
+
+    return data
+}
+
+export async function respondToInvite(inviteId: string, action: 'accept' | 'decline') {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Not authenticated')
+
+    if (action === 'decline') {
+        await supabase.from('squad_invites').delete().eq('id', inviteId)
+    } else {
+        // Fetch invite details
+        const { data: invite } = await supabase
+            .from('squad_invites')
+            .select('squad_id')
+            .eq('id', inviteId)
+            .single()
+
+        if (invite) {
+            // Add to members
+            const { error: joinError } = await supabase
+                .from('squad_members')
+                .insert({
+                    squad_id: invite.squad_id,
+                    user_id: user.id,
+                    role: 'member'
+                })
+
+            if (joinError && joinError.code !== '23505') {
+                throw new Error('Failed to join squad')
+            }
+
+            // Delete invite
+            await supabase.from('squad_invites').delete().eq('id', inviteId)
+        }
+    }
+
+    revalidatePath('/squads')
+}
+
 // NOTE: getSquadLeaderboard is best handled inside the existing Leaderboard component
 // by passing a list of user_ids or handling the join there. 
 // However, we can create a helper to get the member IDs.

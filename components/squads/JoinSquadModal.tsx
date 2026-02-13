@@ -47,14 +47,14 @@ export default function JoinSquadModal({ isOpen, onClose }: JoinSquadModalProps)
                     <X className="w-5 h-5" />
                 </button>
 
-                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-indigo-500" /> Join Squad
+                <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white mb-2 flex items-center gap-2">
+                    <Users className="w-6 h-6 text-emerald-500" /> Join Squad
                 </h2>
-                <p className="text-sm text-neutral-400 mb-6">Enter an invite code to join a group.</p>
+                <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 mb-6">Enter an invite code to join a group.</p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold uppercase text-neutral-500 mb-1.5">
+                        <label className="block text-[10px] font-black uppercase text-neutral-500 mb-2 tracking-widest">
                             Invite Code
                         </label>
                         <input
@@ -62,21 +62,21 @@ export default function JoinSquadModal({ isOpen, onClose }: JoinSquadModalProps)
                             value={code}
                             onChange={(e) => setCode(e.target.value.toUpperCase())}
                             placeholder="e.g. ABCD12"
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 uppercase tracking-widest font-mono"
+                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder-neutral-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 uppercase tracking-widest font-mono font-bold"
                             maxLength={6}
                         />
                     </div>
 
                     {error && (
-                        <p className="text-red-500 text-xs">{error}</p>
+                        <p className="text-red-500 text-[10px] font-bold uppercase tracking-tight">{error}</p>
                     )}
 
                     <button
                         type="submit"
                         disabled={loading || !code.trim()}
-                        className="w-full bg-white hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        className="w-full bg-white hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed text-black font-black uppercase tracking-tighter py-3 rounded-xl transition-all shadow-lg active:scale-95"
                     >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Join Squad'}
+                        {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Join Squad'}
                     </button>
                 </form>
             </div>
