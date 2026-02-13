@@ -15,6 +15,7 @@ import Leaderboard from '@/components/Leaderboard'
 import LiveRankDisplay from '@/components/LiveRankDisplay'
 import { TIMEZONE_OFFSET_MS, TIER_MULTIPLIERS, GAME_CONFIG, type Sport } from '@/lib/constants'
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
+import InstallPWA from '@/components/InstallPWA'
 
 const THEMES = {
   football: {
@@ -440,12 +441,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
               <Share2 className="mr-2 w-5 h-5" /> Challenge Your Friends
             </Button>
 
-            <div className="pt-4 w-full">
+            <div className="pt-4 w-full space-y-3">
               <Link href={sport === 'football' ? '/daily/basketball' : '/daily'} className="w-full block">
                 <Button variant="outline" className={`w-full h-12 text-lg font-bold border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800 ${sport === 'football' ? 'text-amber-500 hover:text-amber-400 hover:border-amber-500' : 'text-[#00ff80] hover:text-[#00ff80] hover:border-[#00ff80]'} transition-all`}>
                   {sport === 'football' ? 'Play Basketball Mode 🏀' : 'Play Football Mode 🏈'}
                 </Button>
               </Link>
+
+              <div className="w-full">
+                <InstallPWA mode="button" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -453,6 +458,8 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         <div className="w-full max-w-md pb-8">
           <Leaderboard currentUserId={user?.id} defaultSport={sport} />
         </div>
+
+        <InstallPWA mode="banner" />
       </div>
     )
   }

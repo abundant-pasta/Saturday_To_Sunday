@@ -192,7 +192,7 @@ function HomeContent() {
       <div className="w-full max-w-md flex flex-col gap-4 h-full pb-safe box-border">
 
         {/* LOGO AREA */}
-        <div className="text-center space-y-2 pt-6 pb-2 shrink-0">
+        <div className="text-center space-y-1 pt-2 pb-1 shrink-0">
           <div className="flex justify-center">
             <Trophy className="w-12 h-12 text-yellow-400 animate-in zoom-in duration-700" />
           </div>
@@ -206,12 +206,12 @@ function HomeContent() {
 
         {/* --- DUAL GAME MODE CARDS --- */}
         {/* Grow slightly but prioritize being robust boxes. Using aspect-[4/5] or similar might help, or just let them expand freely but sharing space with the stack below. */}
-        <div className="grid grid-cols-2 gap-4 grow min-h-0 items-center">
+        <div className="grid grid-cols-2 gap-3 grow min-h-0 items-center">
 
           {/* FOOTBALL CARD */}
           <Link href="/daily" className="block group h-full max-h-[250px] w-full">
             <div className="bg-gradient-to-br from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-3xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
-              <div className="bg-neutral-900/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm">
+              <div className="bg-neutral-900/80 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm">
                 <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
                   <Star className="w-6 h-6 text-[#00ff80] fill-current" />
                 </div>
@@ -241,7 +241,7 @@ function HomeContent() {
           {/* BASKETBALL CARD */}
           <Link href="/daily/basketball" className="block group h-full max-h-[250px] w-full">
             <div className="bg-gradient-to-br from-neutral-900 to-amber-950 border border-amber-500/30 group-hover:border-amber-400 p-1 rounded-3xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
-              <div className="bg-neutral-900/80 rounded-2xl p-4 flex flex-col items-center justify-center gap-3 text-center flex-1 backdrop-blur-sm">
+              <div className="bg-neutral-900/80 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm">
                 <div className="p-3 bg-amber-500/10 rounded-full border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">
                   <Dribbble className="w-6 h-6 text-amber-500" />
                 </div>
@@ -271,13 +271,13 @@ function HomeContent() {
         </div>
 
         {/* --- SECONDARY ACTIONS - Vertical Stack --- */}
-        <div className="flex flex-col gap-3 shrink-0 pb-2 custom-xs-stack">
+        <div className="flex flex-col gap-2 shrink-0 pb-2 custom-xs-stack">
 
           {/* LEADERBOARD BUTTON */}
           <Link href="/leaderboard" className="w-full">
             <Button
               variant="outline"
-              className="w-full h-12 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl"
+              className="w-full h-11 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl"
             >
               <Trophy className="mr-3 w-4 h-4 text-yellow-500" /> Leaderboard
             </Button>
@@ -286,7 +286,7 @@ function HomeContent() {
           <Link href="/squads" className="w-full">
             <Button
               variant="outline"
-              className="w-full h-12 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl relative"
+              className="w-full h-11 text-xs font-black tracking-widest uppercase border-neutral-800 bg-neutral-900/50 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-600 rounded-xl relative"
             >
               <Users className="mr-3 w-4 h-4 text-emerald-500" /> My Squads
               {inviteCount > 0 && (
@@ -301,7 +301,7 @@ function HomeContent() {
           <Link href="/collection" className="w-full">
             <Button
               variant="outline"
-              className="w-full h-12 text-xs font-black tracking-widest uppercase border-amber-500/20 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 transition-all hover:border-amber-500/40 rounded-xl"
+              className="w-full h-11 text-xs font-black tracking-widest uppercase border-amber-500/20 bg-amber-500/5 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400 transition-all hover:border-amber-500/40 rounded-xl"
             >
               <Trophy className="mr-3 w-4 h-4 text-amber-500" /> Trophy Room
             </Button>
@@ -311,7 +311,7 @@ function HomeContent() {
           <Button
             onClick={handleShareApp}
             variant="outline"
-            className="w-full h-12 text-xs font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700 rounded-xl"
+            className="w-full h-11 text-xs font-bold tracking-widest uppercase border-neutral-800 bg-neutral-900/30 text-neutral-500 hover:bg-neutral-800 hover:text-white transition-all hover:border-neutral-700 rounded-xl"
           >
             <Share2 className="mr-3 w-4 h-4" /> Share App
           </Button>
@@ -340,8 +340,7 @@ function HomeContent() {
 
         </div>
 
-        {/* --- STICKY INSTALL BANNER (Mobile Only) --- */}
-        <InstallPWA mode="banner" />
+        {/* --- STICKY INSTALL BANNER REMOVED (Redundant with button) --- */}
       </div>
     </div>
   )

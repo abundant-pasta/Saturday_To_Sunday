@@ -6,6 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: 'S2S',
     description: 'Guess the college. Beat your friends.',
     start_url: '/',
+    id: '/', // Uniquely identifies the app
+    scope: '/', // Defines the navigation scope
     display: 'standalone', // <--- This tells the browser to hide UI
     background_color: '#0a0a0a',
     theme_color: '#0a0a0a',
