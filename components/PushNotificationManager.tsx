@@ -70,6 +70,16 @@ export default function PushNotificationManager({ hideOnSubscribed = false, comp
     }
   }, [])
 
+  // NEW: Auto-dismiss success message after 4s
+  useEffect(() => {
+    if (justSubscribed) {
+      const timer = setTimeout(() => {
+        setJustSubscribed(false)
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [justSubscribed])
+
   async function subscribeToPush() {
     setLoading(true)
     try {

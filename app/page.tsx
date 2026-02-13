@@ -157,7 +157,7 @@ function HomeContent() {
   }
 
   return (
-    <div className="h-[100dvh] bg-neutral-950 flex flex-col items-center p-4 font-sans overflow-hidden relative">
+    <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center p-4 font-sans relative">
 
       {/* --- TOP RIGHT PROFILE ICON --- */}
       <div className="absolute top-4 right-4 z-50">

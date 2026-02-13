@@ -437,16 +437,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
               })}
             </div>
 
-            <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black mt-6 hover:opacity-90 shadow-lg`}>
-              <Share2 className="mr-2 w-5 h-5" /> Challenge Your Friends
-            </Button>
+            <div className="flex flex-col gap-3 mt-6 w-full">
+              <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black hover:opacity-90 shadow-lg`}>
+                <Share2 className="mr-2 w-5 h-5" /> Challenge Your Friends
+              </Button>
 
-            <div className="pt-4 w-full space-y-3">
-              <Link href={sport === 'football' ? '/daily/basketball' : '/daily'} className="w-full block">
-                <Button variant="outline" className={`w-full h-12 text-lg font-bold border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800 ${sport === 'football' ? 'text-amber-500 hover:text-amber-400 hover:border-amber-500' : 'text-[#00ff80] hover:text-[#00ff80] hover:border-[#00ff80]'} transition-all`}>
+              <Button asChild variant="outline" className={`w-full h-12 text-lg font-bold border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800 ${sport === 'football' ? 'text-amber-500 hover:text-amber-400 hover:border-amber-500' : 'text-[#00ff80] hover:text-[#00ff80] hover:border-[#00ff80]'} transition-all`}>
+                <Link href={sport === 'football' ? '/daily/basketball' : '/daily'}>
                   {sport === 'football' ? 'Play Basketball Mode 🏀' : 'Play Football Mode 🏈'}
-                </Button>
-              </Link>
+                </Link>
+              </Button>
 
               <div className="w-full">
                 <InstallPWA mode="button" />
