@@ -77,7 +77,6 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
 
         const fetchLeaderboard = async () => {
             setLoading(true)
-            setScores([])
 
             const now = new Date()
             const msPerDay = 24 * 60 * 60 * 1000
@@ -99,68 +98,154 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                 squadMemberIds = members.map(m => m.user_id)
             }
 
+            let top20Part: any[] = []
+            let userWindowPart: any[] = []
+            let myRank: number | null = null
+
             if (view === 'daily') {
                 const gameTimestamp = now.getTime() - TIMEZONE_OFFSET_MS - (dateOffset * msPerDay)
                 const targetDateObj = new Date(gameTimestamp)
                 const targetDateStr = targetDateObj.toISOString().split('T')[0]
 
-                // UPDATED QUERY: Fetching streak_football and streak_basketball
-                let query = supabase
-                    .from('daily_results')
-                    .select(`
-            score, 
-            user_id,
-            guest_id,
-            results:results_json, 
-            profiles (username, full_name, avatar_url, show_avatar, streak_football, streak_basketball)
-          `)
-                    .eq('game_date', targetDateStr)
-                    .eq('sport', sport)
-                    .order('score', { ascending: false })
-                    .limit(50)
-
-                // Apply Squad Filter
-                if (squadMemberIds) {
-                    query = query.in('user_id', squadMemberIds)
-                }
-
-                //redeploy
-                if (!showGuests) {
-                    query = query.not('user_id', 'is', null)
-                }
-
-                const { data } = await query
-
-                const parsedData = data?.map((row: any) => ({
-                    ...row,
-                    correctCount: Array.isArray(row.results)
-                        ? row.results.filter((r: any) => {
-                            const status = typeof r === 'string' ? r : r?.result
-                            return status === 'correct'
-                        }).length
-                        : null
-                }))
-
-                if (parsedData) setScores(parsedData as any)
-
+                // 1. Fetch Total Count first to know ranks
                 let countQuery = supabase
                     .from('daily_results')
                     .select('*', { count: 'exact', head: true })
                     .eq('game_date', targetDateStr)
                     .eq('sport', sport)
 
-                if (squadMemberIds) {
-                    countQuery = countQuery.in('user_id', squadMemberIds)
-                }
+                if (squadMemberIds) countQuery = countQuery.in('user_id', squadMemberIds)
+                if (!showGuests) countQuery = countQuery.not('user_id', 'is', null)
 
-                if (!showGuests) {
-                    countQuery = countQuery.not('user_id', 'is', null)
-                }
                 const { count } = await countQuery
                 if (count !== null) setTotalCount(count)
 
+                // 2. Fetch Top 20
+                let topQuery = supabase
+                    .from('daily_results')
+                    .select(`
+                        score, 
+                        user_id,
+                        guest_id,
+                        results:results_json, 
+                        profiles (username, full_name, avatar_url, show_avatar, streak_football, streak_basketball)
+                    `)
+                    .eq('game_date', targetDateStr)
+                    .eq('sport', sport)
+                    .order('score', { ascending: false })
+                    .limit(20)
+
+                if (squadMemberIds) topQuery = topQuery.in('user_id', squadMemberIds)
+                if (!showGuests) topQuery = topQuery.not('user_id', 'is', null)
+
+                const { data: topData } = await topQuery
+                top20Part = topData || []
+
+                // 3. If User Logged In, and we have > 20 players, find user rank
+                if (currentUserId && (count || 0) > 20) {
+                    // Find my score/rank
+                    // For massive tables, a dedicated rpc('get_rank', { user_id }) is better.
+                    // For now, with < 10k users, we can fetch my score and count how many are above it.
+
+                    const { data: myData } = await supabase
+                        .from('daily_results')
+                        .select('score')
+                        .eq('game_date', targetDateStr)
+                        .eq('sport', sport)
+                        .eq('user_id', currentUserId)
+                        .single()
+
+                    if (myData) {
+                        // Count users with score > myScore
+                        const { count: rankCount } = await supabase
+                            .from('daily_results')
+                            .select('*', { count: 'exact', head: true })
+                            .eq('game_date', targetDateStr)
+                            .eq('sport', sport)
+                            .gt('score', myData.score)
+
+                        // Handle tie-breakers? For simplicity, rank = count + 1
+                        myRank = (rankCount || 0) + 1
+
+                        // If rank > 20 (meaning not in top list), fetch window
+                        if (myRank > 20) {
+                            // Fetch window: myRank - 3 to myRank + 3
+                            // The offset would be myRank - 4 (since 0-indexed and we want 3 above)
+                            // But range is slightly tricky with ties. 
+                            // Easier: Fetch range based on offset
+                            const startRange = Math.max(0, myRank - 4)
+                            const endRange = myRank + 2
+
+                            let windowQuery = supabase
+                                .from('daily_results')
+                                .select(`
+                                    score, 
+                                    user_id,
+                                    guest_id,
+                                    results:results_json, 
+                                    profiles (username, full_name, avatar_url, show_avatar, streak_football, streak_basketball)
+                                `)
+                                .eq('game_date', targetDateStr)
+                                .eq('sport', sport)
+                                .order('score', { ascending: false })
+                                .range(startRange, endRange)
+
+                            if (squadMemberIds) windowQuery = windowQuery.in('user_id', squadMemberIds)
+                            if (!showGuests) windowQuery = windowQuery.not('user_id', 'is', null)
+
+                            const { data: windowData } = await windowQuery
+                            userWindowPart = windowData || []
+                        }
+                    }
+                }
+
+                // MERGE LISTS
+                // If userWindowPart is empty or overlaps with Top 20, just use Top 20.
+                // If userWindowPart exists separately, add divider.
+
+                // Add explicit Rank property to objects since we map them later
+                const finalScores = top20Part.map((item, idx) => ({ ...item, rank: idx + 1 }))
+
+                if (userWindowPart.length > 0) {
+                    // Check for overlap or gap
+                    const lastTopRank = 20
+                    const firstWindowRank = myRank ? Math.max(1, myRank - 3) : 99999
+
+                    if (firstWindowRank > lastTopRank + 1) {
+                        // Add Spacer
+                        finalScores.push({ isDivider: true, rank: 0 } as any)
+                    }
+
+                    // Append window, avoiding duplicates if any overlap occurred (unlikely due to if check but safe)
+                    userWindowPart.forEach((item, idx) => {
+                        const actualRank = (myRank ? myRank - 3 : 0) + idx
+                        if (actualRank > 20) { // Only add if not in top 20
+                            finalScores.push({ ...item, rank: actualRank })
+                        }
+                    })
+                }
+
+                const parsedData = finalScores.map((row: any) => {
+                    if (row.isDivider) return row
+                    return {
+                        ...row,
+                        correctCount: Array.isArray(row.results)
+                            ? row.results.filter((r: any) => {
+                                const status = typeof r === 'string' ? r : r?.result
+                                return status === 'correct'
+                            }).length
+                            : null
+                    }
+                })
+
+                setScores(parsedData)
+
             } else {
-                // WEEKLY VIEW
+                // WEEKLY VIEW (Simplified: Show Top 50 still for now, or apply same logic if needed)
+                // For MVP, applying this only to Daily as requested "where you were located".
+                // Logic for Weekly requires aggregation which is harder to range-query efficiently without a materialized view.
+                // Keeping Weekly as Top 50.
+
                 const currentDay = now.getDay()
                 const diffToMon = currentDay === 0 ? -6 : 1 - currentDay
 
@@ -172,14 +257,13 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                 sunday.setDate(monday.getDate() + 6)
                 const sundayStr = sunday.toISOString().split('T')[0]
 
-                // UPDATED QUERY: Fetching streak_football and streak_basketball
                 let query = supabase
                     .from('daily_results')
                     .select(`
-             score, 
-             user_id, 
-             profiles!inner (username, full_name, avatar_url, show_avatar, streak_football, streak_basketball)
-          `)
+                        score, 
+                        user_id, 
+                        profiles!inner (username, full_name, avatar_url, show_avatar, streak_football, streak_basketball)
+                    `)
                     .gte('game_date', mondayStr)
                     .lte('game_date', sundayStr)
                     .eq('sport', sport)
@@ -210,7 +294,10 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                     })
 
                     const sortedWeekly = Object.values(userTotals).sort((a, b) => b.score - a.score)
-                    setScores(sortedWeekly)
+                    // Add Map Ranks
+                    const rankedWeekly = sortedWeekly.slice(0, 50).map((item, idx) => ({ ...item, rank: idx + 1 }))
+
+                    setScores(rankedWeekly)
                     setTotalCount(sortedWeekly.length)
                 }
             }
@@ -346,12 +433,25 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                         No scores found.
                     </div>
                 ) : (
-                    scores.map((entry, index) => {
+                    scores.map((entry: any, index) => {
+                        if (entry.isDivider) {
+                            return (
+                                <div key={`divider-${index}`} className="flex items-center justify-center py-2">
+                                    <div className="flex flex-col items-center gap-1">
+                                        <div className="h-4 w-0.5 bg-neutral-800 rounded-full"></div>
+                                        <div className="h-1 w-1 bg-neutral-700 rounded-full"></div>
+                                        <div className="h-1 w-1 bg-neutral-700 rounded-full"></div>
+                                        <div className="h-1 w-1 bg-neutral-700 rounded-full"></div>
+                                        <div className="h-4 w-0.5 bg-neutral-800 rounded-full"></div>
+                                    </div>
+                                </div>
+                            )
+                        }
 
                         const isMe = (currentUserId && entry.user_id === currentUserId) ||
                             (currentGuestId && entry.guest_id === currentGuestId)
 
-                        const rank = index + 1
+                        const rank = entry.rank // Use pre-calculated rank
                         const displayName = getDisplayName(entry)
                         const showPhoto = entry.profiles?.show_avatar !== false
                         const avatarUrl = entry.profiles?.avatar_url
