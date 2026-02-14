@@ -11,6 +11,8 @@ import PushNotificationManager from '@/components/PushNotificationManager'
 import { createBrowserClient } from '@supabase/ssr'
 import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 import LiveRankDisplay from '@/components/LiveRankDisplay'
+import { checkYesterdayPodium, type PodiumResult } from '@/app/actions/podium'
+import PodiumCelebration from '@/components/PodiumCelebration'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -146,8 +148,73 @@ function HomeContent() {
     }
   }
 
+  // 5. Podium Celebration Logic
+  const [celebrationData, setCelebrationData] = useState<PodiumResult | null>(null)
+
+  useEffect(() => {
+    const checkPodium = async () => {
+      if (!user) return
+
+      // Check if already celebrated today (for yesterday's results)
+      const now = new Date()
+      // Approximate yesterday string for the key. 
+      // Actually, we store the date of the RESULT we celebrated.
+      // So if "2023-10-27" results were celebrated, we store "2023-10-27".
+
+      const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000) - TIMEZONE_OFFSET_MS)
+      const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+      const lastCelebrated = localStorage.getItem('s2s_last_podium_date')
+
+      if (lastCelebrated === yesterdayStr) {
+        return // Already celebrated this date
+      }
+
+      // Check both sports
+      const [fbResult, bbResult] = await Promise.all([
+        checkYesterdayPodium('football'),
+        checkYesterdayPodium('basketball')
+      ])
+
+      // Prioritize Champion > RunnerUp > Third
+      // If both same rank, prioritize Football (default)
+      let bestResult = null
+      if (fbResult && bbResult) {
+        bestResult = fbResult.rank <= bbResult.rank ? fbResult : bbResult
+      } else if (fbResult) {
+        bestResult = fbResult
+      } else if (bbResult) {
+        bestResult = bbResult
+      }
+
+      if (bestResult) {
+        setCelebrationData(bestResult)
+      }
+    }
+
+    checkPodium()
+  }, [user])
+
+  const closeCelebration = () => {
+    setCelebrationData(null)
+    const now = new Date()
+    const yesterday = new Date(now.getTime() - (24 * 60 * 60 * 1000) - TIMEZONE_OFFSET_MS)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    localStorage.setItem('s2s_last_podium_date', yesterdayStr)
+  }
+
   return (
     <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center p-4 font-sans relative">
+
+      {/* Celebration Overlay */}
+      {celebrationData && (
+        <PodiumCelebration
+          rank={celebrationData.rank}
+          score={celebrationData.score}
+          sport={celebrationData.sport}
+          onClose={closeCelebration}
+        />
+      )}
 
       <div className="w-full max-w-md flex flex-col gap-4 h-full pb-safe box-border pt-12">
 
