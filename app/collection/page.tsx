@@ -302,116 +302,9 @@ export default function CollectionPage() {
                     </div>
                 ) : (
                     <>
-                        {/* --- CAREER MILESTONES --- */}
-                        {displayedCareerBadges.length > 0 && (
-                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Career Milestones</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {displayedCareerBadges.map((m) => {
-                                        const unlocked = totalCollected >= m.target
-                                        const progress = Math.min(100, Math.round((totalCollected / m.target) * 100))
-
-                                        return (
-                                            <div key={m.id} className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-2 ${unlocked ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${unlocked ? `bg-neutral-800 ${m.color} border-current` : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
-                                                    {unlocked ? <m.icon className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
-                                                </div>
-                                                <div className="flex-1 flex flex-col justify-center">
-                                                    <h3 className={`text-xs font-black uppercase tracking-tight ${unlocked ? 'text-white' : 'text-neutral-500'}`}>{m.name}</h3>
-                                                    <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">{m.description}</p>
-                                                </div>
-                                                {/* Progress Bar */}
-                                                <div className="w-full mt-2 space-y-1">
-                                                    <div className="flex justify-between text-[8px] font-black uppercase text-neutral-500 tracking-wider">
-                                                        <span>{totalCollected} / {m.target}</span>
-                                                    </div>
-                                                    <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full transition-all duration-1000 ${unlocked ? 'bg-[#00ff80]' : 'bg-neutral-700'}`} style={{ width: `${progress}%` }} />
-                                                    </div>
-                                                </div>
-                                                {unlocked && <div className="absolute inset-0 border-2 border-[#00ff80]/10 rounded-xl pointer-events-none" />}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* --- STREAK MILESTONES --- */}
-                        {displayedStreakBadges.length > 0 && (
-                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
-                                <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Streak Milestones</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    {displayedStreakBadges.map((m) => {
-                                        const unlocked = maxStreak >= m.target
-                                        const progress = Math.min(100, Math.round((maxStreak / m.target) * 100))
-
-                                        return (
-                                            <div key={m.id} className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-2 ${unlocked ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${unlocked ? `bg-neutral-800 ${m.color} border-current` : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
-                                                    {unlocked ? <m.icon className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
-                                                </div>
-                                                <div className="flex-1 flex flex-col justify-center">
-                                                    <h3 className={`text-xs font-black uppercase tracking-tight ${unlocked ? 'text-white' : 'text-neutral-500'}`}>{m.name}</h3>
-                                                    <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">{m.description}</p>
-                                                </div>
-                                                {/* Progress Bar */}
-                                                <div className="w-full mt-2 space-y-1">
-                                                    <div className="flex justify-between text-[8px] font-black uppercase text-neutral-500 tracking-wider">
-                                                        <span>{maxStreak} / {m.target}</span>
-                                                    </div>
-                                                    <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full transition-all duration-1000 ${unlocked ? 'bg-white' : 'bg-neutral-700'}`} style={{ width: `${progress}%` }} />
-                                                    </div>
-                                                </div>
-                                                {unlocked && <div className="absolute inset-0 border-2 border-white/10 rounded-xl pointer-events-none" />}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* --- TEAM BADGES --- */}
-                        {displayedTeamBadges.length > 0 && (
-                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
-                                <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Team Loyalty</h2>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {displayedTeamBadges.map((badge) => {
-                                        const percent = Math.min(100, Math.round((badge.current / badge.target) * 100))
-
-                                        return (
-                                            <div key={badge.id} className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-2 ${badge.unlocked ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-80'}`}>
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${badge.unlocked ? `bg-neutral-800 text-white border-white` : 'bg-neutral-900 text-neutral-600 border-neutral-800'}`}>
-                                                    {badge.unlocked ? <badge.icon className="w-5 h-5 fill-current" /> : <Lock className="w-4 h-4" />}
-                                                </div>
-
-                                                <div className="flex-1 flex flex-col justify-center">
-                                                    <h3 className={`text-xs font-black uppercase tracking-tight ${badge.unlocked ? 'text-white' : 'text-neutral-500'}`}>{badge.name}</h3>
-                                                    <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">{badge.description}</p>
-                                                </div>
-
-                                                {/* Progress Bar */}
-                                                <div className="w-full mt-2 space-y-1">
-                                                    <div className="flex justify-between text-[8px] font-black uppercase text-neutral-500 tracking-wider">
-                                                        <span>{badge.current} / {badge.target}</span>
-                                                    </div>
-                                                    <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full transition-all duration-1000 ${badge.unlocked ? 'bg-white' : 'bg-neutral-700'}`} style={{ width: `${percent}%` }} />
-                                                    </div>
-                                                </div>
-
-                                                {badge.unlocked && <div className="absolute inset-0 border-2 border-white/10 rounded-xl pointer-events-none" />}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </section>
-                        )}
-
                         {/* --- DAILY WINNER BADGES --- */}
                         {(view === 'earned' ? totalDailyWins > 0 : totalDailyWins < 6) && (
-                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-300">
+                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Daily Dominance</h2>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                     {/* Football Rank 1 */}
@@ -526,6 +419,115 @@ export default function CollectionPage() {
                                 </div>
                             </section>
                         )}
+
+                        {/* --- STREAK MILESTONES --- */}
+                        {displayedStreakBadges.length > 0 && (
+                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100">
+                                <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Streak Milestones</h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    {displayedStreakBadges.map((m) => {
+                                        const unlocked = maxStreak >= m.target
+                                        const progress = Math.min(100, Math.round((maxStreak / m.target) * 100))
+
+                                        return (
+                                            <div key={m.id} className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-2 ${unlocked ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${unlocked ? `bg-neutral-800 ${m.color} border-current` : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                    {unlocked ? <m.icon className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
+                                                </div>
+                                                <div className="flex-1 flex flex-col justify-center">
+                                                    <h3 className={`text-xs font-black uppercase tracking-tight ${unlocked ? 'text-white' : 'text-neutral-500'}`}>{m.name}</h3>
+                                                    <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">{m.description}</p>
+                                                </div>
+                                                {/* Progress Bar */}
+                                                <div className="w-full mt-2 space-y-1">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-neutral-500 tracking-wider">
+                                                        <span>{maxStreak} / {m.target}</span>
+                                                    </div>
+                                                    <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all duration-1000 ${unlocked ? 'bg-white' : 'bg-neutral-700'}`} style={{ width: `${progress}%` }} />
+                                                    </div>
+                                                </div>
+                                                {unlocked && <div className="absolute inset-0 border-2 border-white/10 rounded-xl pointer-events-none" />}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* --- CAREER MILESTONES --- */}
+                        {displayedCareerBadges.length > 0 && (
+                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                                <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Career Milestones</h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {displayedCareerBadges.map((m) => {
+                                        const unlocked = totalCollected >= m.target
+                                        const progress = Math.min(100, Math.round((totalCollected / m.target) * 100))
+
+                                        return (
+                                            <div key={m.id} className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-2 ${unlocked ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-60'}`}>
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${unlocked ? `bg-neutral-800 ${m.color} border-current` : 'bg-neutral-900 text-neutral-700 border-neutral-800'}`}>
+                                                    {unlocked ? <m.icon className="w-5 h-5" /> : <Lock className="w-4 h-4" />}
+                                                </div>
+                                                <div className="flex-1 flex flex-col justify-center">
+                                                    <h3 className={`text-xs font-black uppercase tracking-tight ${unlocked ? 'text-white' : 'text-neutral-500'}`}>{m.name}</h3>
+                                                    <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">{m.description}</p>
+                                                </div>
+                                                {/* Progress Bar */}
+                                                <div className="w-full mt-2 space-y-1">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-neutral-500 tracking-wider">
+                                                        <span>{totalCollected} / {m.target}</span>
+                                                    </div>
+                                                    <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all duration-1000 ${unlocked ? 'bg-[#00ff80]' : 'bg-neutral-700'}`} style={{ width: `${progress}%` }} />
+                                                    </div>
+                                                </div>
+                                                {unlocked && <div className="absolute inset-0 border-2 border-[#00ff80]/10 rounded-xl pointer-events-none" />}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </section>
+                        )}
+
+                        {/* --- TEAM BADGES --- */}
+                        {displayedTeamBadges.length > 0 && (
+                            <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                                <h2 className="text-sm font-black uppercase tracking-widest text-neutral-500 pl-1">Team Loyalty</h2>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {displayedTeamBadges.map((badge) => {
+                                        const percent = Math.min(100, Math.round((badge.current / badge.target) * 100))
+
+                                        return (
+                                            <div key={badge.id} className={`relative p-4 rounded-xl border flex flex-col items-center text-center gap-2 ${badge.unlocked ? 'bg-neutral-900 border-neutral-700 shadow-lg' : 'bg-neutral-950 border-neutral-800 opacity-80'}`}>
+                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${badge.unlocked ? `bg-neutral-800 text-white border-white` : 'bg-neutral-900 text-neutral-600 border-neutral-800'}`}>
+                                                    {badge.unlocked ? <badge.icon className="w-5 h-5 fill-current" /> : <Lock className="w-4 h-4" />}
+                                                </div>
+
+                                                <div className="flex-1 flex flex-col justify-center">
+                                                    <h3 className={`text-xs font-black uppercase tracking-tight ${badge.unlocked ? 'text-white' : 'text-neutral-500'}`}>{badge.name}</h3>
+                                                    <p className="text-[9px] text-neutral-400 font-medium leading-tight mt-1">{badge.description}</p>
+                                                </div>
+
+                                                {/* Progress Bar */}
+                                                <div className="w-full mt-2 space-y-1">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-neutral-500 tracking-wider">
+                                                        <span>{badge.current} / {badge.target}</span>
+                                                    </div>
+                                                    <div className="h-1 w-full bg-neutral-800 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full transition-all duration-1000 ${badge.unlocked ? 'bg-white' : 'bg-neutral-700'}`} style={{ width: `${percent}%` }} />
+                                                    </div>
+                                                </div>
+
+                                                {badge.unlocked && <div className="absolute inset-0 border-2 border-white/10 rounded-xl pointer-events-none" />}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </section>
+                        )}
+
+
 
                         {/* EMPTY STATE */}
                         {displayedCareerBadges.length === 0 && displayedStreakBadges.length === 0 && displayedTeamBadges.length === 0 && (
