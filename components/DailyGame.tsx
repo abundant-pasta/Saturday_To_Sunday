@@ -470,11 +470,24 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
                 <Share2 className="mr-2 w-5 h-5" /> Challenge Your Friends
               </Button>
 
-              <Button asChild variant="outline" className={`w-full h-12 text-lg font-bold border-neutral-700 bg-neutral-900/50 hover:bg-neutral-800 ${sport === 'football' ? 'text-amber-500 hover:text-amber-400 hover:border-amber-500' : 'text-[#00ff80] hover:text-[#00ff80] hover:border-[#00ff80]'} transition-all`}>
-                <Link href={sport === 'football' ? '/daily/basketball' : '/daily'}>
-                  {sport === 'football' ? 'Play Basketball Mode 🏀' : 'Play Football Mode 🏈'}
-                </Link>
-              </Button>
+              <div className="relative w-full group">
+                <div className="absolute -top-3 -right-2 z-10 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-lg transform group-hover:scale-110 transition-transform animate-pulse">
+                  New!
+                </div>
+                <Button asChild className={`w-full h-14 text-lg font-black uppercase tracking-wide shadow-xl transition-all hover:scale-[1.02] active:scale-95 border-0 ${sport === 'football' ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white' : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white'}`}>
+                  <Link href={sport === 'football' ? '/daily/basketball' : '/daily'} className="flex items-center justify-center gap-2">
+                    {sport === 'football' ? (
+                      <>
+                        <span>Play Basketball Mode</span> <Dribbble className="w-5 h-5" />
+                      </>
+                    ) : (
+                      <>
+                        <span>Play Football Mode</span> <Star className="w-5 h-5" />
+                      </>
+                    )}
+                  </Link>
+                </Button>
+              </div>
 
               <div className="w-full">
                 <InstallPWA mode="button" />
