@@ -1,7 +1,7 @@
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Loader2, Trophy, User, CalendarDays, Flame, Filter, Users, ChevronLeft, ChevronRight, Target, Star, Dribbble } from 'lucide-react'
 import Image from 'next/image'
 import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
@@ -330,6 +330,18 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
         return new Date(targetTimestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
 
+    const listRef = useRef<HTMLDivElement>(null)
+    const userRowRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!loading && userRowRef.current && listRef.current) {
+            // Wait a tick for rendering
+            setTimeout(() => {
+                userRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            }, 100)
+        }
+    }, [scores, loading, view, sport])
+
     return (
         <div className="w-full max-w-md mx-auto mt-6 bg-neutral-900 rounded-xl border border-neutral-800 overflow-hidden shadow-2xl font-sans">
 
@@ -425,7 +437,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
             </div>
 
             {/* LIST */}
-            <div className="max-h-64 overflow-y-auto divide-y divide-neutral-800/50 scrollbar-thin scrollbar-thumb-neutral-700">
+            <div className="max-h-64 overflow-y-auto divide-y divide-neutral-800/50 scrollbar-thin scrollbar-thumb-neutral-700" ref={listRef}>
                 {loading ? (
                     <div className="flex justify-center py-8"><Loader2 className="animate-spin text-neutral-600" /></div>
                 ) : scores.length === 0 ? (
@@ -468,6 +480,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                         return (
                             <div
                                 key={index}
+                                ref={isMe ? userRowRef : null}
                                 className={`flex items-center px-4 py-3 text-sm transition-colors ${isMe ? 'bg-white/5' : 'hover:bg-neutral-800/30'}`}
                             >
                                 {/* Rank */}
