@@ -471,10 +471,12 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
               </Button>
 
               <div className="relative w-full group">
-                <div className="absolute -top-3 -right-2 z-10 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-lg transform group-hover:scale-110 transition-transform animate-pulse">
-                  New!
-                </div>
-                <Button asChild className={`w-full h-14 text-lg font-black uppercase tracking-wide shadow-xl transition-all hover:scale-[1.02] active:scale-95 border-0 ${sport === 'football' ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white' : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white'}`}>
+                {sport === 'football' && (
+                  <div className="absolute -top-2 -right-1 z-10 bg-indigo-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-widest shadow-md rotate-3 group-hover:rotate-6 transition-transform">
+                    New
+                  </div>
+                )}
+                <Button asChild className={`w-full h-14 text-lg font-black uppercase tracking-wide shadow-xl transition-all hover:scale-[1.01] active:scale-95 border-0 ${sport === 'football' ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white' : 'bg-neutral-800 hover:bg-neutral-700 text-[#00ff80] border border-[#00ff80]/30'}`}>
                   <Link href={sport === 'football' ? '/daily/basketball' : '/daily'} className="flex items-center justify-center gap-2">
                     {sport === 'football' ? (
                       <>
