@@ -15,11 +15,11 @@ import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 import { hashAnswer } from '@/utils/crypto'
 
 const THEME = {
-    primary: 'text-red-500',
-    bgPrimary: 'bg-red-600',
-    borderPrimary: 'border-red-600',
+    primary: 'text-amber-400',
+    bgPrimary: 'bg-amber-600',
+    borderPrimary: 'border-amber-600',
     cardBg: 'bg-neutral-900', // More austere for survival
-    ring: 'ring-red-500',
+    ring: 'ring-amber-500',
     icon: Flame,
     label: 'The Gauntlet'
 }
@@ -99,6 +99,7 @@ function SurvivalGrid() {
     const [isSaved, setIsSaved] = useState(false)
     const [lastEarnedPoints, setLastEarnedPoints] = useState<number>(0)
     const [revealedAnswer, setRevealedAnswer] = useState<string | null>(null)
+    const [tournament, setTournament] = useState<any>(null)
 
     // Bonus states
     const [receivedBonus, setReceivedBonus] = useState<number | null>(null)
@@ -115,6 +116,15 @@ function SurvivalGrid() {
                 const gameData = await getSurvivalGame()
                 if (gameData && gameData.length > 0) {
                     setQuestions(gameData)
+
+                    // Also fetch tournament data for start date
+                    const { data: tourney } = await supabase
+                        .from('survival_tournaments')
+                        .select('*')
+                        .eq('is_active', true)
+                        .single()
+                    setTournament(tourney)
+
                     const savedScore = localStorage.getItem('s2s_survival_today_score')
                     const savedDate = localStorage.getItem('s2s_survival_last_played_date')
                     const savedResults = localStorage.getItem('s2s_survival_daily_results')
@@ -277,45 +287,53 @@ function SurvivalGrid() {
 
     if (gameState === 'loading') return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading The Gauntlet...</div>
 
-    if (gameState === 'intro') return (
-        <div className="h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-6 space-y-6 text-center animate-in fade-in relative overflow-hidden">
-            {/* Background glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[100px] pointer-events-none" />
+    if (gameState === 'intro') {
+        const startsInFuture = tournament?.start_date && new Date(tournament.start_date).getTime() > Date.now()
 
-            <div className="space-y-2 relative z-10">
-                <Flame className="w-20 h-20 text-red-500 mx-auto animate-pulse" />
-                <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
-                    The <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">Gauntlet</span>
-                </h1>
-                <p className="text-neutral-400 max-w-sm mx-auto">
-                    10 Players. 10 Rounds. Zero Forgiveness.
-                </p>
+        return (
+            <div className="h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-6 space-y-6 text-center animate-in fade-in relative overflow-hidden">
+                {/* Background glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-600/20 rounded-full blur-[100px] pointer-events-none" />
+
+                <div className="space-y-2 relative z-10">
+                    <Flame className="w-20 h-20 text-amber-500 mx-auto animate-pulse" />
+                    <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
+                        The <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500">Gauntlet</span>
+                    </h1>
+                    <p className="text-neutral-400 max-w-sm mx-auto">
+                        10 Players. 10 Rounds. Zero Forgiveness.
+                    </p>
+                </div>
+
+                <Card className="w-full max-w-sm bg-neutral-900 border-amber-900/50 shadow-2xl relative z-10">
+                    <CardContent className="pt-6 space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm font-bold text-neutral-300">
+                            <div className="bg-black/50 p-3 rounded-lg border border-white/5">
+                                <div className="text-amber-500 mb-1">ROUNDS</div>
+                                <div className="text-2xl text-white">10</div>
+                            </div>
+                            <div className="bg-black/50 p-3 rounded-lg border border-white/5">
+                                <div className="text-amber-500 mb-1">PLAYERS</div>
+                                <div className="text-2xl text-white">CBB Stars</div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Button
+                    onClick={() => !startsInFuture && setGameState('playing')}
+                    disabled={startsInFuture}
+                    className={`w-full max-w-sm h-14 text-xl font-black bg-gradient-to-r ${startsInFuture ? 'from-neutral-700 to-neutral-800 cursor-not-allowed opacity-50' : 'from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-[0_0_30px_rgba(245,158,11,0.4)]'} text-white border-0 relative z-10 transition-all hover:scale-105 active:scale-95`}
+                >
+                    {startsInFuture ? 'STARTS THURSDAY' : 'ENTER THE GAUNTLET'}
+                </Button>
+
+                <Link href="/" className="text-neutral-500 hover:text-white text-sm font-bold tracking-widest uppercase mt-4 relative z-10">
+                    Return to Safety
+                </Link>
             </div>
-
-            <Card className="w-full max-w-sm bg-neutral-900 border-red-900/50 shadow-2xl relative z-10">
-                <CardContent className="pt-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4 text-sm font-bold text-neutral-300">
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/5">
-                            <div className="text-red-500 mb-1">ROUNDS</div>
-                            <div className="text-2xl text-white">10</div>
-                        </div>
-                        <div className="bg-black/50 p-3 rounded-lg border border-white/5">
-                            <div className="text-red-500 mb-1">PLAYERS</div>
-                            <div className="text-2xl text-white">CBB Stars</div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Button onClick={() => setGameState('playing')} className="w-full max-w-sm h-14 text-xl font-black bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-[0_0_30px_rgba(220,38,38,0.4)] border-0 relative z-10 transition-all hover:scale-105 active:scale-95">
-                ENTER THE GAUNTLET
-            </Button>
-
-            <Link href="/" className="text-neutral-500 hover:text-white text-sm font-bold tracking-widest uppercase mt-4 relative z-10">
-                Return to Safety
-            </Link>
-        </div>
-    )
+        )
+    }
 
     if (gameState === 'finished') {
         const rankInfo = getRankTitle(score)

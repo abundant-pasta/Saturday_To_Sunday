@@ -1,8 +1,8 @@
 import { createClient } from '@/utils/supabase/server'
 import SurvivalSignup from '@/components/SurvivalSignup'
-import SurvivalGridWrapper from '@/components/SurvivalGrid'
 import Link from 'next/link'
-import { Trophy, Users, Clock, Flame, Skull } from 'lucide-react'
+import { redirect } from 'next/navigation'
+import { Trophy, Users, Clock, AlertTriangle, ArrowLeft, Skull, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default async function SurvivalPage() {
@@ -17,29 +17,15 @@ export default async function SurvivalPage() {
     const tournament = tournaments && tournaments.length > 0 ? tournaments[0] : null
 
     let isJoined = false
-    let participantStatus = null
-
     if (tournament && user) {
         const { data: participant } = await supabase
             .from('survival_participants')
-            .select('id, status')
+            .select('id')
             .eq('tournament_id', tournament.id)
             .eq('user_id', user.id)
             .single()
-
-        if (participant) {
-            isJoined = true
-            participantStatus = participant.status
-        }
+        if (participant) isJoined = true
     }
-
-    // --- CONDITIONAL RENDERING ---
-    // If the user is an active participant, show the GAME GRID.
-    if (isJoined && participantStatus === 'active') {
-        return <SurvivalGridWrapper />
-    }
-
-    // Otherwise, show the Signup / Dashboard / Elimination Screen
 
     // Fetch total participant count
     let participantCount = 0

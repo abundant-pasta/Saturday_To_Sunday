@@ -55,7 +55,7 @@ export default function SurvivalSignup({ tournamentId, isJoined }: SurvivalSignu
             <Button
                 onClick={handleJoin}
                 disabled={loading}
-                className="w-full h-16 text-xl font-black italic uppercase tracking-widest bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] border-0 rounded-2xl transition-all hover:scale-[1.02] active:scale-95"
+                className="w-full h-16 text-xl font-black italic uppercase tracking-widest bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-[0_0_20px_rgba(245,158,11,0.4)] border-0 rounded-2xl transition-all hover:scale-[1.02] active:scale-95"
             >
                 {loading ? (
                     <>
@@ -65,12 +65,12 @@ export default function SurvivalSignup({ tournamentId, isJoined }: SurvivalSignu
                 ) : (
                     <>
                         <Skull className="mr-2 h-6 w-6" />
-                        Enter the Arena
+                        Reserve Your Spot
                     </>
                 )}
             </Button>
             {message && (
-                <p className={`text-xs font-bold uppercase tracking-wide ${message.includes('Success') ? 'text-emerald-400' : 'text-red-400'}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide ${message.includes('Success') ? 'text-emerald-400' : 'text-amber-400'}`}>
                     {message}
                 </p>
             )}

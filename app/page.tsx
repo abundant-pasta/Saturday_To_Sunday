@@ -278,7 +278,7 @@ function HomeContent() {
                     Survival Mode
                   </h3>
                   <span className="bg-red-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">
-                    Sign Up Now
+                    Live
                   </span>
                 </div>
                 <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
