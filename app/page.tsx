@@ -276,39 +276,6 @@ function HomeContent() {
           </div>
         </Link>
 
-        {/* --- SURVIVAL MODE BANNER --- */}
-        <Link href="/survival" className="w-full shrink-0">
-          <div className="w-full bg-gradient-to-r from-red-900/40 to-orange-900/40 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(220,38,38,0.15)] mb-3">
-            <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors animate-pulse" />
-
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="p-3 bg-red-500/20 rounded-xl border border-red-500/30 group-hover:rotate-12 transition-transform">
-                <Skull className="w-6 h-6 text-red-500" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className="text-xl font-black italic uppercase tracking-tighter text-white leading-none">
-                    Survival Mode
-                  </h3>
-                  <span className="bg-red-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">
-                    Live
-                  </span>
-                </div>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                  10 Days. One Survivor. <span className="text-red-400">Join Now.</span>
-                </p>
-              </div>
-            </div>
-
-            <div className="relative z-10">
-              <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center font-black group-hover:bg-red-500 group-hover:text-white transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </Link>
 
         {/* --- DUAL GAME MODE CARDS --- */}
         {/* Grow slightly but prioritize being robust boxes. Using aspect-[4/5] or similar might help, or just let them expand freely but sharing space with the stack below. */}
