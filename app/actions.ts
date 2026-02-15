@@ -5,6 +5,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { getSimilarDistractors } from '@/lib/conferences'
 import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
+import { hashAnswer, generateSalt } from '@/utils/crypto'
 
 // --- Helper: Generate Random Room Code ---
 
@@ -50,7 +51,7 @@ export async function getDailyGame(sport: string = 'football') {
     .limit(1)
 
   if (existingGames && existingGames.length > 0) {
-      return existingGames[0].content
+    return existingGames[0].content
   }
 
   // 3. EMERGENCY FALLBACK
@@ -58,7 +59,7 @@ export async function getDailyGame(sport: string = 'football') {
 
   const supabaseAdmin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! 
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
   // Fetch pool using Service Role & Sport Filter
@@ -68,12 +69,12 @@ export async function getDailyGame(sport: string = 'football') {
     .gt('rating', 0)
     .eq('sport', sport) // <--- Fetch only relevant players
     .limit(200)
-  
+
   if (!pool || pool.length < 10) return null
 
   // Shuffle and pick 10
   const selectedPlayers = pool.sort(() => 0.5 - Math.random()).slice(0, 10)
-  
+
   // Get colleges for distractors (Filtered by Sport)
   const { data: allCollegesData } = await supabase
     .from('players')
@@ -83,23 +84,30 @@ export async function getDailyGame(sport: string = 'football') {
 
   const collegeList = Array.from(new Set(allCollegesData?.map((c: any) => c.college) || [])) as string[]
 
-  const questions = selectedPlayers.map((p: any) => {
+  const questions = await Promise.all(selectedPlayers.map(async (p: any) => {
     const wrong = getSimilarDistractors(p.college, collegeList)
     const options = [p.college, ...wrong].sort(() => 0.5 - Math.random())
+
+    // Security: Hash the answer so it's not visible in network tab
+    const salt = generateSalt()
+    const answerHash = await hashAnswer(p.college, salt)
+
     return {
       id: p.id,
       name: p.name,
       image_url: p.image_url,
-      correct_answer: p.college,
+      // correct_answer: p.college, // REMOVED FOR SECURITY
+      answer_hash: answerHash,
+      salt: salt,
       options: options,
       tier: p.tier,
       sport: p.sport // Useful for UI
     }
-  })
+  }))
 
   // Save it immediately with the Sport tag
-  await supabaseAdmin.from('daily_games').insert({ 
-    date: today, 
+  await supabaseAdmin.from('daily_games').insert({
+    date: today,
     content: questions,
     sport: sport // <--- Save with sport tag
   })

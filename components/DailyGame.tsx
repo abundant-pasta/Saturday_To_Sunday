@@ -17,6 +17,7 @@ import LiveRankDisplay from '@/components/LiveRankDisplay'
 import { TIMEZONE_OFFSET_MS, TIER_MULTIPLIERS, GAME_CONFIG, type Sport } from '@/lib/constants'
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 import InstallPWA from '@/components/InstallPWA'
+import { hashAnswer } from '@/utils/crypto'
 
 const THEMES = {
   football: {
@@ -117,6 +118,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const [receivedBonus, setReceivedBonus] = useState<number | null>(null)
   const [bonusReason, setBonusReason] = useState<string | null>(null)
   const [lastEarnedPoints, setLastEarnedPoints] = useState<number>(0)
+  const [correctOption, setCorrectOption] = useState<string | null>(null)
   const [freezeConsumed, setFreezeConsumed] = useState(false)
 
   const supabase = createBrowserClient(
@@ -313,11 +315,41 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     return () => { clearTimeout(startTimer); if (decayInterval) clearInterval(decayInterval) }
   }, [gameState, showResult, isImageReady, currentIndex, questions, sport])
 
-  const handleGuess = (option: string) => {
+  const handleGuess = async (option: string) => {
     if (showResult) return
     setSelectedOption(option)
     const currentQ = questions[currentIndex]
-    const isCorrect = option === currentQ.correct_answer
+
+    // Verify answer
+    let isCorrect = false
+    let foundCorrectOption: string | null = null
+
+    if (currentQ.answer_hash && currentQ.salt) {
+      // Secure mode
+      const guessHash = await hashAnswer(option, currentQ.salt)
+      isCorrect = guessHash === currentQ.answer_hash
+
+      if (isCorrect) {
+        foundCorrectOption = option
+      } else {
+        // Find the correct option to show the user
+        for (const opt of currentQ.options) {
+          const h = await hashAnswer(opt, currentQ.salt)
+          if (h === currentQ.answer_hash) {
+            foundCorrectOption = opt
+            break
+          }
+        }
+      }
+    } else {
+      // Legacy mode
+      isCorrect = option === currentQ.correct_answer
+      foundCorrectOption = currentQ.correct_answer
+    }
+
+    setCorrectOption(foundCorrectOption)
+
+    // Calculate new streak (locally, before state update)
 
     // Calculate new streak (locally, before state update)
     // We only care about consecutive 'correct' up to this point + this one
@@ -379,6 +411,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         setReceivedBonus(null)
         setBonusReason(null)
         setLastEarnedPoints(0)
+        setCorrectOption(null)
       } else {
         localStorage.setItem(`s2s_${sport}_today_score`, newScore.toString())
         localStorage.setItem(`s2s_${sport}_last_played_date`, getGameDate())
@@ -537,8 +570,8 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
             <div className="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg bg-white text-black flex items-center gap-1">
               <theme.icon className="w-3 h-3 text-black" /> {theme.label}
             </div>
-            <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl transition-all flex items-center gap-2 ${showResult ? (selectedOption === q.correct_answer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black'}`}>
-              {showResult ? (selectedOption === q.correct_answer ? (
+            <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl transition-all flex items-center gap-2 ${showResult ? ((correctOption && selectedOption === correctOption) || selectedOption === q.correct_answer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black'}`}>
+              {showResult ? ((correctOption && selectedOption === correctOption) || selectedOption === q.correct_answer ? (
                 <>
                   <span>+{lastEarnedPoints}</span>
                   {receivedBonus && <span className="text-[10px] bg-black text-[#00ff80] px-1.5 rounded animate-pulse whitespace-nowrap">{bonusReason}</span>}
@@ -556,7 +589,8 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           {q.options.map((opt: string) => {
             let btnClass = `bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800`
             if (showResult) {
-              if (opt === q.correct_answer) btnClass = `bg-[#00ff80] text-black ring-2 ring-[#00ff80]`
+              const isCorrectOpt = correctOption ? opt === correctOption : opt === q.correct_answer
+              if (isCorrectOpt) btnClass = `bg-[#00ff80] text-black ring-2 ring-[#00ff80]`
               else if (opt === selectedOption) btnClass = "bg-red-500 text-white"
               else btnClass = "bg-neutral-950 text-neutral-600 opacity-30"
             }

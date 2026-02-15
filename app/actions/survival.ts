@@ -1,7 +1,88 @@
+1
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { hashAnswer, generateSalt } from '@/utils/crypto'
+
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+export async function getSurvivalGame() {
+    const supabase = await createClient()
+    const today = new Date().toISOString().split('T')[0]
+    const sport = 'survival_basketball'
+
+    // 1. Check for existing game
+    const { data: existingGames } = await supabase
+        .from('daily_games')
+        .select('content')
+        .eq('date', today)
+        .eq('sport', sport)
+        .limit(1)
+
+    if (existingGames && existingGames.length > 0) {
+        return existingGames[0].content
+    }
+
+    // 2. Generate New Game (Admin Access for Pool + Write)
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: pool } = await supabaseAdmin
+        .from('players')
+        .select('*')
+        .in('game_mode', ['survival', 'both'])
+        .limit(300)
+
+    if (!pool || pool.length < 10) return null
+
+    // Shuffle and pick 10
+    const selectedPlayers = pool.sort(() => 0.5 - Math.random()).slice(0, 10)
+
+    // Get distractors (colleges)
+    const allColleges = Array.from(new Set(pool.map(p => p.college).filter(Boolean))) as string[]
+
+    const questions = await Promise.all(selectedPlayers.map(async p => {
+        // 3 distractors
+        const otherColleges = allColleges.filter(c => c !== p.college)
+        const distractors = otherColleges
+            .sort(() => 0.5 - Math.random())
+            .slice(0, 3)
+
+        // Fallback if not enough distractors (shouldn't happen with 200 players)
+        while (distractors.length < 3) {
+            distractors.push('Unknown University')
+        }
+
+        const options = [p.college, ...distractors].sort(() => 0.5 - Math.random())
+
+        const salt = generateSalt()
+        const answerHash = await hashAnswer(p.college, salt)
+
+        return {
+            id: p.id,
+            name: p.name,
+            image_url: p.image_url,
+            // correct_answer: p.college, // REMOVED FOR SECURITY
+            answer_hash: answerHash,
+            salt: salt,
+            options,
+            tier: p.tier,
+            sport: 'basketball' // For UI styling
+        }
+    }))
+
+    // 3. Save Game
+    await supabaseAdmin.from('daily_games').insert({
+        date: today,
+        content: questions,
+        sport: sport
+    })
+
+    return questions
+}
 
 export async function joinTournament(tournamentId: string) {
     const supabase = await createClient()

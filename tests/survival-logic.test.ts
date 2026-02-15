@@ -59,15 +59,15 @@ async function runTests() {
     // Tie at score 10. We need to cut 2 of the 4 who have score 10.
     // Rule: "Prioritize earlier timestamp" -> Earlier is SAFE. Later is ELIMINATED.
 
-    const playersTie = [
-        { id: 'A', score: 10, submitted_at: 100 }, // Earliest (Safe)
-        { id: 'B', score: 10, submitted_at: 200 }, // Safe
-        { id: 'C', score: 10, submitted_at: 300 }, // Later (Elim?)
-        { id: 'D', score: 10, submitted_at: 400 }, // Latest (Elim!)
-        { id: 'E', score: 20, submitted_at: 100 },
-        { id: 'F', score: 20, submitted_at: 100 },
-        { id: 'G', score: 20, submitted_at: 100 },
-        { id: 'H', score: 20, submitted_at: 100 },
+    const playersTie: Participant[] = [
+        { id: 'A', score: 10, submitted_at: 100, status: 'active' }, // Earliest (Safe)
+        { id: 'B', score: 10, submitted_at: 200, status: 'active' }, // Safe
+        { id: 'C', score: 10, submitted_at: 300, status: 'active' }, // Later (Elim?)
+        { id: 'D', score: 10, submitted_at: 400, status: 'active' }, // Latest (Elim!)
+        { id: 'E', score: 20, submitted_at: 100, status: 'active' },
+        { id: 'F', score: 20, submitted_at: 100, status: 'active' },
+        { id: 'G', score: 20, submitted_at: 100, status: 'active' },
+        { id: 'H', score: 20, submitted_at: 100, status: 'active' },
     ]
 
     const victimsTie = eliminate(playersTie)
