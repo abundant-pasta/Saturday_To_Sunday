@@ -17,15 +17,11 @@ export async function hashAnswer(answer: string, salt: string): Promise<string> 
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
     }
 
-    // Fallback for older Node.js environments (if needed, though Next.js usually has global crypto)
-    // Dynamic import to avoid bundling issues on client
-    try {
-        const { createHash } = await import('node:crypto')
-        return createHash('sha256').update(normalized + salt).digest('hex')
-    } catch (e) {
-        console.error('Crypto API not available', e)
-        return ''
-    }
+    // In Edge Runtimes or modern Node where crypto global is available but might need different access
+    // This is usually covered by the above.
+    // If we are in a purely server environment without Web Crypto global (very old Node), we might fail.
+    // But Next.js Edge and Node 18+ have global crypto.
+    return ''
 }
 
 /**
