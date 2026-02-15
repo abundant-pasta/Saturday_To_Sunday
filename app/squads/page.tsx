@@ -38,10 +38,9 @@ export default async function SquadsPage({
     const showLeaderboard = !!selectedSquad
 
     return (
-        <main className="min-h-screen bg-black text-white pb-20 font-sans">
+        <main className="min-h-screen bg-black text-white pb-20 pt-16 font-sans">
             {/* HEADER */}
-            <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-neutral-900 px-4 py-4 flex items-center gap-4">
-                <ChevronLeft className="w-6 h-6 text-neutral-700" />
+            <div className="border-b border-neutral-900 px-4 py-4 mb-4 flex items-center justify-center">
                 <h1 className="text-2xl font-black italic uppercase tracking-tighter">My Squads</h1>
             </div>
 

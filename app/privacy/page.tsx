@@ -5,12 +5,9 @@ export default function PrivacyPolicy() {
   return (
     <div className="min-h-[100dvh] bg-neutral-950 text-neutral-200 font-sans p-6 md:p-12">
       <div className="max-w-3xl mx-auto space-y-8">
-        
+
         {/* Header */}
         <div className="space-y-4 border-b border-neutral-800 pb-8">
-          <Link href="/" className="inline-flex items-center text-[#00ff80] hover:text-[#00ff80]/80 font-bold uppercase tracking-widest text-xs mb-4">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Game
-          </Link>
           <h1 className="text-4xl md:text-5xl font-black italic text-white uppercase tracking-tighter">
             Privacy <span className="text-[#00ff80]">Policy</span>
           </h1>
@@ -27,7 +24,7 @@ export default function PrivacyPolicy() {
 
           <section className="space-y-4">
             <h2 className="text-2xl font-bold text-white uppercase tracking-tight">1. Information We Collect</h2>
-            
+
             <h3 className="text-lg font-bold text-[#00ff80] uppercase tracking-wide">A. Information You Provide</h3>
             <p>When you sign in using Google, we collect the following information provided by that service:</p>
             <ul className="list-disc pl-5 space-y-2 text-neutral-400">

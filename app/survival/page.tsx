@@ -28,16 +28,7 @@ export default async function SurvivalPage() {
     }
 
     return (
-        <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans selection:bg-red-500/30">
-
-            {/* HEADER NAV */}
-            <div className="p-4">
-                <Link href="/">
-                    <Button variant="ghost" className="text-neutral-500 hover:text-white uppercase tracking-widest text-[10px] font-black">
-                        <ArrowLeft className="mr-2 w-4 h-4" /> Back to Home
-                    </Button>
-                </Link>
-            </div>
+        <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans selection:bg-red-500/30 pt-16">
 
             <div className="max-w-md mx-auto px-4 pb-12 space-y-8">
 

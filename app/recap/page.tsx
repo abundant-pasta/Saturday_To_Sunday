@@ -175,26 +175,17 @@ export default function RecapPage() {
     }
 
     return (
-        <div className="min-h-screen bg-neutral-950 text-white flex flex-col font-sans">
-            <div className="sticky top-0 z-50 bg-neutral-950/80 backdrop-blur-md border-b border-white/5 py-4 px-4">
-                <div className="max-w-xl mx-auto flex items-center justify-between">
-                    <Link href="/">
-                        <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white gap-2">
-                            <ChevronLeft className="w-4 h-4" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Back</span>
-                        </Button>
-                    </Link>
-                    <h1 className="text-sm font-black uppercase italic tracking-tighter">
-                        Daily Recap
-                    </h1>
-                    <Button onClick={handleShare} variant="ghost" size="sm" className="text-[#00ff80]">
-                        <Share2 className="w-4 h-4" />
-                    </Button>
-                </div>
-            </div>
+        <div className="min-h-screen bg-neutral-950 text-white flex flex-col font-sans pt-16">
 
             <main className="flex-1 max-w-xl mx-auto w-full p-6 space-y-12">
-                <div className="text-center space-y-2">
+                <div className="text-center space-y-2 relative">
+                    {/* Share Button (Absolute Top Right of Hero) */}
+                    <div className="absolute top-0 right-0">
+                        <Button onClick={handleShare} variant="ghost" size="sm" className="text-[#00ff80] hover:bg-[#00ff80]/10">
+                            <Share2 className="w-5 h-5" />
+                        </Button>
+                    </div>
+
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-neutral-900 border border-neutral-800 rounded-full text-[10px] font-black uppercase tracking-widest text-neutral-500">
                         <Calendar className="w-3 h-3" />
                         {formatDate(gameDate)}
