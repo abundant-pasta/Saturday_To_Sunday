@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useUI } from '@/context/UIContext'
-import { getSurvivalGame } from '@/app/actions/survival'
+import { getSurvivalGame, submitSurvivalScore } from '@/app/actions/survival'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -104,7 +104,72 @@ function SurvivalGrid() {
     const [receivedBonus, setReceivedBonus] = useState<number | null>(null)
     const [bonusReason, setBonusReason] = useState<string | null>(null)
 
-    // ... (supabase client and effects remain, jumping to handleGuess)
+    const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+
+    useEffect(() => {
+        const loadGame = async () => {
+            try {
+                const gameData = await getSurvivalGame()
+                if (gameData && gameData.length > 0) {
+                    setQuestions(gameData)
+                    const savedScore = localStorage.getItem('s2s_survival_today_score')
+                    const savedDate = localStorage.getItem('s2s_survival_last_played_date')
+                    const savedResults = localStorage.getItem('s2s_survival_daily_results')
+                    const today = getGameDate()
+
+                    if (savedScore && savedDate === today) {
+                        setScore(parseInt(savedScore))
+                        setResults(savedResults ? JSON.parse(savedResults) : [])
+                        setGameState('finished')
+                    } else {
+                        setGameState('intro')
+                    }
+                } else {
+                    console.error("No survival game found.")
+                    // Fallback cleanup
+                    setGameState('intro')
+                }
+            } catch (err) {
+                console.error(err)
+                setGameState('intro')
+            }
+        }
+        loadGame()
+    }, [])
+
+    useEffect(() => {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user) setUser(session.user)
+        }
+        checkSession()
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null)
+        })
+        return () => subscription.unsubscribe()
+    }, [])
+
+    useEffect(() => {
+        const saveScore = async () => {
+            if (gameState !== 'finished' || isSaved || score <= 0) return
+
+            // Call server action
+            const result = await submitSurvivalScore(score)
+
+            if (result?.success) {
+                setIsSaved(true)
+            } else {
+                console.error("Failed to submit score:", result?.error)
+                // Prevent infinite retries if persistent error? 
+                // For now, let's allow retry if they play again? 
+                // But gameState finishes only once.
+            }
+        }
+        saveScore()
+    }, [gameState, isSaved, score])
 
     const handleGuess = async (option: string) => {
         if (showResult) return

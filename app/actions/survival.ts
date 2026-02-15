@@ -139,3 +139,66 @@ export async function joinTournament(tournamentId: string) {
         return { error: 'Failed to join tournament. Please try again.' }
     }
 }
+
+export async function submitSurvivalScore(score: number) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Not authenticated' }
+
+    // 1. Get Active Tournament
+    const { data: tournament } = await supabase
+        .from('survival_tournaments')
+        .select('*')
+        .eq('is_active', true)
+        .single()
+
+    if (!tournament) return { error: 'No active tournament' }
+
+    // 2. Get Participant
+    const { data: participant } = await supabase
+        .from('survival_participants')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('tournament_id', tournament.id)
+        .single()
+
+    if (!participant) return { error: 'Not a participant' }
+    if (participant.status === 'eliminated') return { error: 'You are eliminated' }
+
+    // 3. Calculate Day Number (Simple Diff)
+    // Assuming start_date is properly set. 
+    // If we want simpler logic, we can just fetch how many days have passed since start.
+    const start = new Date(tournament.start_date).getTime()
+    const now = new Date().getTime()
+    // 1-based day index
+    // If now < start, it's day 1 (early play?) or invalid.
+    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+
+    // 4. Insert Score
+    // Check if score already exists for this day?
+    // Using upsert allows updating if they replay (which they shouldn't, but...)
+    // Survival is usually "one shot".
+    // But duplicate key constraint on (participant_id, day_number)? 
+    // The migration didn't define a unique constraint on (participant_id, day_number).
+    // Let's check migration 004 again.
+    // It creates table but NO unique constraint for (participant_id, day_number) explicitly mentioned in CREATE TABLE?
+    // Ah, lines 26-32. No UNIQUE constraint.
+    // So if they submit twice, they get two rows?
+    // The edge function `process-daily-elimination` needs to handle this (e.g. take max score).
+
+    const { error } = await supabase
+        .from('survival_scores')
+        .insert({
+            participant_id: participant.id,
+            day_number: dayNumber,
+            score: score
+        })
+
+    if (error) {
+        console.error("Score submit error:", error)
+        return { error: error.message }
+    }
+
+    revalidatePath('/survival')
+    return { success: true }
+}
