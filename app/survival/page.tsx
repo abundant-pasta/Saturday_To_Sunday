@@ -27,6 +27,16 @@ export default async function SurvivalPage() {
         if (participant) isJoined = true
     }
 
+    // Fetch total participant count
+    let participantCount = 0
+    if (tournament) {
+        const { count } = await supabase
+            .from('survival_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournament.id)
+        participantCount = count || 0
+    }
+
     return (
         <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans selection:bg-red-500/30 pt-16">
 
@@ -64,7 +74,7 @@ export default async function SurvivalPage() {
                                 </div>
                                 <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">{tournament.name}</h2>
                                 <p className="text-neutral-400 text-xs font-bold uppercase tracking-wide">
-                                    Starts Thursday
+                                    Starts Thursday • <span className="text-red-400">{participantCount} Survivors Joined</span>
                                 </p>
                             </div>
 

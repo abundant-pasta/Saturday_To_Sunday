@@ -39,6 +39,7 @@ function HomeContent() {
   const [loading, setLoading] = useState(true)
 
   const [inviteCount, setInviteCount] = useState(0)
+  const [survivalCount, setSurvivalCount] = useState<number | null>(null)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,6 +58,26 @@ function HomeContent() {
       setUser(session?.user ?? null)
     })
     return () => subscription.unsubscribe()
+  }, [])
+
+  // 1.5 Fetch Global Data (Survival Count)
+  useEffect(() => {
+    const fetchGlobalData = async () => {
+      const { data: activeTournament } = await supabase
+        .from('survival_tournaments')
+        .select('id')
+        .eq('is_active', true)
+        .single()
+
+      if (activeTournament) {
+        const { count } = await supabase
+          .from('survival_participants')
+          .select('*', { count: 'exact', head: true })
+          .eq('tournament_id', activeTournament.id)
+        setSurvivalCount(count)
+      }
+    }
+    fetchGlobalData()
   }, [])
 
   // 2. Fetch User Data (Streaks + Daily Status)
@@ -261,7 +282,7 @@ function HomeContent() {
                   </span>
                 </div>
                 <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                  10 Days. One Survivor. <span className="text-red-400">Join Now.</span>
+                  10 Days. <span className="text-white">{survivalCount !== null ? `${survivalCount} Survivors.` : 'One Survivor.'}</span> <span className="text-red-400">Join Now.</span>
                 </p>
               </div>
             </div>
