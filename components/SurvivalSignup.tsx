@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { joinTournament } from '@/app/actions/survival'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Loader2, Skull, Trophy } from 'lucide-react'
 
 interface SurvivalSignupProps {
     tournamentId: string
@@ -38,24 +40,37 @@ export default function SurvivalSignup({ tournamentId, isJoined }: SurvivalSignu
 
     if (joined) {
         return (
-            <div className="text-center p-6 bg-green-500/20 border border-green-500 rounded-xl">
-                <h3 className="text-2xl font-bold text-green-400 mb-2">You are registered!</h3>
-                <p className="text-gray-300">Get ready for Day 1 on Thursday.</p>
+            <div className="w-full p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-500">
+                <div className="p-3 bg-emerald-500/20 rounded-full mb-2">
+                    <Trophy className="w-8 h-8 text-emerald-400" />
+                </div>
+                <h3 className="text-2xl font-black italic uppercase tracking-tighter text-emerald-400">You Are In</h3>
+                <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest">Prepare for Day 1</p>
             </div>
         )
     }
 
     return (
-        <div className="flex flex-col items-center gap-4">
-            <button
+        <div className="flex flex-col items-center gap-4 w-full">
+            <Button
                 onClick={handleJoin}
                 disabled={loading}
-                className="w-full md:w-auto px-8 py-4 bg-orange-600 hover:bg-orange-700 text-white text-xl font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-orange-900/50"
+                className="w-full h-16 text-xl font-black italic uppercase tracking-widest bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)] border-0 rounded-2xl transition-all hover:scale-[1.02] active:scale-95"
             >
-                {loading ? 'Joining...' : 'Join Tournament'}
-            </button>
+                {loading ? (
+                    <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Joining...
+                    </>
+                ) : (
+                    <>
+                        <Skull className="mr-2 h-6 w-6" />
+                        Enter the Arena
+                    </>
+                )}
+            </Button>
             {message && (
-                <p className={`text-sm ${message.includes('Success') ? 'text-green-400' : 'text-red-400'}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide ${message.includes('Success') ? 'text-emerald-400' : 'text-red-400'}`}>
                     {message}
                 </p>
             )}
