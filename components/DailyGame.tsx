@@ -278,6 +278,28 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved || score <= 0) return
+
+      // SURVIVAL MODE HANDLING
+      if (sport.startsWith('survival')) {
+        try {
+          // Dynamic import to avoid server-action issues in client component if needed, 
+          // or just assume it's imported. I need to add the import to the top of file.
+          // For now, I'll assume I add the import in a separate step or included here.
+          // Just using the logic here.
+          const { submitSurvivalScore } = await import('@/app/actions/survival')
+          const result = await submitSurvivalScore(score)
+          if (result?.success) {
+            setIsSaved(true)
+          } else {
+            console.error("Survival save error:", result?.error)
+          }
+        } catch (e) {
+          console.error("Survival save exception:", e)
+        }
+        return
+      }
+
+      // STANDARD DAILY GAME HANDLING
       const todayISO = getGameDate()
       let upsertPayload: any = { score, game_date: todayISO, results_json: results, sport }
       let conflictTarget = user ? 'user_id,game_date,sport' : 'guest_id,game_date,sport'
@@ -290,6 +312,19 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         if (user) {
           const column = sport === 'football' ? 'last_played_football_at' : 'last_played_basketball_at'
           await supabase.from('profiles').update({ [column]: new Date().toISOString() }).eq('id', user.id)
+        }
+      } else {
+        console.error("Score save error:", error)
+        // FALLBACK: If the 3-column constraint doesn't exist, try the 2-column one
+        // This handles cases where the migration hasn't been run yet.
+        if (error.message?.includes('onConflict')) {
+          const backupTarget = user ? 'user_id,game_date' : 'guest_id,game_date'
+          const { error: retryError } = await supabase.from('daily_results').upsert(upsertPayload, { onConflict: backupTarget })
+          if (!retryError) {
+            setIsSaved(true)
+          } else {
+            console.error("Fallback score save error:", retryError)
+          }
         }
       }
     }
@@ -460,10 +495,12 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         <Card className={`w-full max-w-md ${theme.cardBg} border-neutral-800 shadow-2xl relative overflow-hidden shrink-0`}>
           <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
 
-            {/* RANK BADGE (Top Left) */}
-            <div className="absolute top-6 left-6">
-              <LiveRankDisplay key={`${sport}-${score}`} score={score} sport={sport} />
-            </div>
+            {/* RANK BADGE (Top Left) - Only show after save for rank accuracy */}
+            {isSaved && (
+              <div className="absolute top-6 left-6">
+                <LiveRankDisplay key={`${sport}-${score}`} score={score} sport={sport} />
+              </div>
+            )}
 
             {/* CENTERED SCORE AND TITLE */}
             <div className="flex flex-col items-center justify-center gap-2">

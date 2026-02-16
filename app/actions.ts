@@ -23,12 +23,60 @@ export async function deletePlayer(playerId: string) {
 
 export async function updatePlayerImage(playerId: string, imageUrl: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from('players').update({ image_url: imageUrl }).eq('id', playerId)
+
+  // Auth Check
+  const { data: { user } } = await supabase.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL
+  const isAuthorized = user && adminEmail && user.email?.toLowerCase() === adminEmail?.toLowerCase()
+
+  if (!isAuthorized) {
+    throw new Error('Unauthorized')
+  }
+
+  // Use Admin Client (Service Role) to bypass RLS
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { error } = await supabaseAdmin.from('players').update({
+    image_url: imageUrl,
+    is_image_verified: true
+  }).eq('id', playerId)
+
   if (error) {
     console.error('Error updating player image:', error)
     throw new Error('Failed to update player image')
   }
   revalidatePath('/admin')
+  revalidatePath('/admin/images')
+}
+
+export async function verifyPlayerImage(playerId: string, isVerified: boolean) {
+  const supabase = await createClient()
+
+  // Auth Check
+  const { data: { user } } = await supabase.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL
+  const isAuthorized = user && adminEmail && user.email?.toLowerCase() === adminEmail?.toLowerCase()
+
+  if (!isAuthorized) {
+    throw new Error('Unauthorized')
+  }
+
+  // Use Admin Client (Service Role) to bypass RLS
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { error } = await supabaseAdmin.from('players').update({ is_image_verified: isVerified }).eq('id', playerId)
+
+  if (error) {
+    console.error('Error verifying player image:', error)
+    throw new Error('Failed to verify player image')
+  }
+  revalidatePath('/admin/images')
 }
 
 // --- 7. DAILY GAME (MULTI-SPORT SUPPORT) ---

@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
-import { Trophy, Loader2 } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 
 interface LiveRankProps {
@@ -17,36 +17,59 @@ export default function LiveRankDisplay({ score, sport, align = 'left', classNam
   const [total, setTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = useMemo(
+    () =>
+      createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      ),
+    []
   )
 
   useEffect(() => {
     let mounted = true
+
+    const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
     async function fetchRank() {
       setLoading(true)
+
       try {
+        const MAX_ATTEMPTS = 6
+        const RETRY_DELAY_MS = 180
         const today = new Date(Date.now() - TIMEZONE_OFFSET_MS).toISOString().split('T')[0]
 
-        // Get total count for the day
-        const { count: totalCount } = await supabase
-          .from('daily_results')
-          .select('*', { count: 'exact', head: true })
-          .eq('sport', sport)
-          .eq('game_date', today)
+        const { data: { session } } = await supabase.auth.getSession()
+        const userId = session?.user?.id || null
+        const guestId = typeof window !== 'undefined' ? localStorage.getItem('s2s_guest_id') : null
 
-        // Count how many people have a better score
-        const { count: betterCount } = await supabase
-          .from('daily_results')
-          .select('*', { count: 'exact', head: true })
-          .eq('sport', sport)
-          .eq('game_date', today)
-          .gt('score', score)
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS && mounted; attempt++) {
+          const { data, count, error } = await supabase
+            .from('daily_results')
+            .select('score, user_id, guest_id', { count: 'exact' })
+            .eq('sport', sport)
+            .eq('game_date', today)
 
-        if (mounted) {
-          setRank((betterCount || 0) + 1)
-          setTotal(totalCount || 0)
+          if (error) throw error
+
+          const allRows = data || []
+          const allScores = allRows.map(d => d.score)
+          const betterCount = allScores.filter(s => s > score).length
+          const computedRank = betterCount + 1
+          const computedTotal = count ?? allRows.length
+
+          const hasOwnEntry = userId
+            ? allRows.some(r => r.user_id === userId)
+            : !!guestId && allRows.some(r => r.guest_id === guestId)
+
+          if (hasOwnEntry || attempt === MAX_ATTEMPTS) {
+            // Guard against transient reads where rank reflects local score but total has not caught up yet.
+            setRank(computedRank)
+            setTotal(Math.max(computedTotal, computedRank))
+            break
+          }
+
+          await wait(RETRY_DELAY_MS)
         }
       } catch (err) {
         console.error("Error fetching rank:", err)

@@ -1,36 +1,147 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Saturday to Sunday
 
-## Getting Started
+A multi-mode sports trivia app built with Next.js + Supabase.
 
-First, run the development server:
+Players guess the college for pro football and basketball athletes in daily timed grids, compete on leaderboards, maintain streaks, earn streak-freezes, join squads, and play tournament-style Survival mode.
+
+## Features
+
+- Daily grids for `football` and `basketball`
+- Tier-weighted scoring with timed point decay
+- Global and squad leaderboards (daily + weekly)
+- User auth (Google via Supabase)
+- Streak tracking per sport
+- Rewarded-ad streak freeze inventory
+- Push notifications for daily game drops
+- Survival tournament mode with daily eliminations
+- Admin player dashboard and image audit workflow
+- PWA install support (service worker + manifest)
+
+## Tech Stack
+
+- Next.js 16 (App Router)
+- React 19 + TypeScript
+- Supabase (Auth, Postgres, Edge Functions, RLS)
+- Tailwind CSS 4
+- `next-pwa`
+- Vercel cron jobs
+
+## Project Structure
+
+- `app/` - routes, server actions, API endpoints
+- `components/` - game UI, leaderboard, admin and squads UI
+- `lib/` - constants, conference/distractor helpers, static guides data
+- `utils/supabase/` - browser/server Supabase client helpers
+- `supabase/migrations/` - SQL schema changes
+- `supabase/functions/` - edge functions (`reset-streaks`, `process-daily-elimination`)
+- `tests/` - logic tests (currently survival elimination logic)
+- `scripts/` - data seeding and maintenance scripts
+
+## Game Modes
+
+### Daily
+
+- `/daily` -> football daily grid
+- `/daily/basketball` -> basketball daily grid
+- Date logic is based on `TIMEZONE_OFFSET_MS` in `lib/constants.ts`.
+
+### Survival
+
+- `/survival` -> tournament signup and status
+- Uses `survival_tournaments`, `survival_participants`, and `survival_scores`
+- Daily elimination logic runs in edge function: `supabase/functions/process-daily-elimination/index.ts`
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment
+
+Create `.env.local` with at least:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+ADMIN_EMAIL=...
+
+# Cron auth (production)
+CRON_SECRET=...
+
+# Web push
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:you@example.com
+
+# Rewarded ads
+NEXT_PUBLIC_GOOGLE_AD_CLIENT=ca-pub-...
+NEXT_PUBLIC_REWARDED_AD_UNIT_PATH=/network/ad-unit
+```
+
+See also `ENV_SETUP.md` and `MIGRATION_INSTRUCTIONS.md`.
+
+### 3. Run database migrations
+
+Run SQL files from `supabase/migrations/` in order in your Supabase project.
+
+### 4. Start dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
 
-## Learn More
+## Scheduled Jobs
 
-To learn more about Next.js, take a look at the following resources:
+`vercel.json` defines two cron jobs:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `GET /api/cron?action=generate` - generates upcoming daily games
+- `GET /api/cron?action=notify` - sends push notifications
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+In production, cron endpoint checks `Authorization: Bearer $CRON_SECRET`.
 
-## Deploy on Vercel
+## Core Routes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `/` - home/game hub
+- `/daily` - football game
+- `/daily/basketball` - basketball game
+- `/leaderboard` - public leaderboard
+- `/profile` - account, streaks, freezes, settings
+- `/collection` - trophy room and badge progress
+- `/squads` - squad management + squad leaderboard
+- `/survival` - survival mode
+- `/admin` - admin dashboard (restricted by `ADMIN_EMAIL`)
+- `/admin/images` - admin image audit
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Supabase Notes
+
+- Uses RLS, with service-role client for privileged admin/cron operations.
+- Some legacy SQL files may not represent current full schema; treat `supabase/migrations/` + app code as source of truth.
+
+## Testing
+
+Current test file:
+
+- `tests/survival-logic.test.ts`
+
+Run with your preferred TS test runner setup (or adapt into your existing test harness).
+
+## Deployment
+
+- Optimized for Vercel + Supabase.
+- PWA output is generated to `public/` via `next-pwa`.
+- `next.config.ts` disables Next image optimization (`images.unoptimized = true`) to reduce Vercel image transformation usage.
