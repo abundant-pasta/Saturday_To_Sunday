@@ -285,7 +285,7 @@ function HomeContent() {
           {!user && (
             <div className="pt-2">
               <Button
-                onClick={handleGoogleLogin}
+                onClick={() => handleGoogleLogin()}
                 className="w-full h-12 bg-white text-black font-black uppercase tracking-tight rounded-xl hover:bg-neutral-200 transition-all shadow-lg active:scale-95"
               >
                 Sign In with Google to Save Progress
