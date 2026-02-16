@@ -561,6 +561,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
                 </Button>
               </div>
 
+              <Button
+                asChild
+                className="w-full h-12 text-sm font-black tracking-widest uppercase bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-xl border border-red-400/30"
+              >
+                <Link href="/survival" className="flex items-center justify-center gap-2">
+                  <Skull className="w-4 h-4" />
+                  <span>Join Survival Mode</span>
+                </Link>
+              </Button>
+
               <div className="w-full">
                 <InstallPWA mode="button" />
               </div>

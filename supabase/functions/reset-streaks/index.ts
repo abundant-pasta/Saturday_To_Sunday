@@ -33,13 +33,25 @@ Deno.serve(async (req) => {
 
         console.log(`[Streak Reset] Processing for Game Date: ${yesterdayStr}`)
 
-        // 2. Fetch all users
-        const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, streak_football, streak_basketball, football_freezes_available, basketball_freezes_available, football_daily_wins, basketball_daily_wins, football_podium_finishes, basketball_podium_finishes, football_top_10_finishes, basketball_top_10_finishes')
-            .range(0, 999)
+        // 2. Fetch all users (paginated)
+        const profiles: any[] = []
+        const pageSize = 1000
+        let from = 0
 
-        if (profilesError) throw profilesError
+        while (true) {
+            const { data: page, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, streak_football, streak_basketball, football_freezes_available, basketball_freezes_available, football_daily_wins, basketball_daily_wins, football_podium_finishes, basketball_podium_finishes, football_top_10_finishes, basketball_top_10_finishes')
+                .range(from, from + pageSize - 1)
+
+            if (profilesError) throw profilesError
+            if (!page || page.length === 0) break
+
+            profiles.push(...page)
+
+            if (page.length < pageSize) break
+            from += pageSize
+        }
 
         // 3. Fetch ALL results for "Yesterday"
         const { data: results, error: resultsError } = await supabase

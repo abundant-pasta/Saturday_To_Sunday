@@ -18,16 +18,30 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 async function backfill() {
     console.log('🚀 Starting Historical Backfill for Badges...')
 
-    // 1. Fetch all daily results
-    const { data: results, error: resultsError } = await supabase
-        .from('daily_results')
-        .select('user_id, sport, score, game_date')
-        .not('user_id', 'is', null) // Only for registered users
-        .order('game_date', { ascending: true })
+    // 1. Fetch all daily results (paginated to avoid the 1,000 row default cap)
+    const results: any[] = []
+    const pageSize = 1000
+    let from = 0
 
-    if (resultsError) {
-        console.error('Error fetching results:', resultsError)
-        return
+    while (true) {
+        const { data: page, error: resultsError } = await supabase
+            .from('daily_results')
+            .select('user_id, sport, score, game_date')
+            .not('user_id', 'is', null) // Only for registered users
+            .order('game_date', { ascending: true })
+            .range(from, from + pageSize - 1)
+
+        if (resultsError) {
+            console.error('Error fetching results:', resultsError)
+            return
+        }
+
+        if (!page || page.length === 0) break
+
+        results.push(...page)
+
+        if (page.length < pageSize) break
+        from += pageSize
     }
 
     console.log(`📊 Found ${results.length} total game results.`)
