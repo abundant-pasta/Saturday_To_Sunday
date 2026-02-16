@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const next = searchParams.get('next')
   
   if (code) {
     const cookieStore = await cookies() // Await is important in Next.js 15+
@@ -30,6 +31,6 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // Redirect back to the daily game
-  return NextResponse.redirect(`${origin}/daily`)
+  const safeNext = next && next.startsWith('/') ? next : '/daily'
+  return NextResponse.redirect(`${origin}${safeNext}`)
 }

@@ -5,7 +5,12 @@ import { redirect } from 'next/navigation'
 import { Trophy, Users, Clock, AlertTriangle, ArrowLeft, Skull, Flame } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-export default async function SurvivalPage() {
+export default async function SurvivalPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+    const resolvedSearchParams = await searchParams
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -25,6 +30,22 @@ export default async function SurvivalPage() {
             .eq('user_id', user.id)
             .single()
         if (participant) isJoined = true
+    }
+
+    const shouldAutoJoin = resolvedSearchParams?.autojoin === '1'
+    if (shouldAutoJoin && tournament && user && !isJoined) {
+        const { error: joinError } = await supabase
+            .from('survival_participants')
+            .insert({
+                user_id: user.id,
+                tournament_id: tournament.id,
+                status: 'active'
+            })
+
+        // Ignore duplicate join; this can happen if user opens multiple tabs.
+        if (!joinError || joinError.code === '23505') {
+            redirect('/survival')
+        }
     }
 
     // Fetch total participant count

@@ -40,6 +40,9 @@ function HomeContent() {
 
   const [inviteCount, setInviteCount] = useState(0)
   const [survivalCount, setSurvivalCount] = useState<number | null>(null)
+  const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null)
+  const [isSurvivalStarted, setIsSurvivalStarted] = useState(false)
+  const [hasJoinedSurvival, setHasJoinedSurvival] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -65,20 +68,46 @@ function HomeContent() {
     const fetchGlobalData = async () => {
       const { data: activeTournament } = await supabase
         .from('survival_tournaments')
-        .select('id')
+        .select('id, start_date')
         .eq('is_active', true)
         .single()
 
       if (activeTournament) {
+        setActiveTournamentId(activeTournament.id)
+        setIsSurvivalStarted(new Date(activeTournament.start_date).getTime() <= Date.now())
         const { count } = await supabase
           .from('survival_participants')
           .select('*', { count: 'exact', head: true })
           .eq('tournament_id', activeTournament.id)
         setSurvivalCount(count)
+      } else {
+        setActiveTournamentId(null)
+        setIsSurvivalStarted(false)
       }
     }
     fetchGlobalData()
   }, [])
+
+  // 1.75 Fetch User Survival Join Status
+  useEffect(() => {
+    const fetchSurvivalJoinStatus = async () => {
+      if (!activeTournamentId || !user) {
+        setHasJoinedSurvival(false)
+        return
+      }
+
+      const { data: participant } = await supabase
+        .from('survival_participants')
+        .select('id')
+        .eq('tournament_id', activeTournamentId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      setHasJoinedSurvival(!!participant)
+    }
+
+    fetchSurvivalJoinStatus()
+  }, [activeTournamentId, user])
 
   // 2. Fetch User Data (Streaks + Daily Status)
   useEffect(() => {
@@ -144,11 +173,11 @@ function HomeContent() {
   }, [user])
 
   // 3. Auth Handlers
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (nextPath: string = '/daily') => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
       }
     })
   }
@@ -224,6 +253,8 @@ function HomeContent() {
     localStorage.setItem('s2s_last_podium_date', yesterdayStr)
   }
 
+  const showSurvivalJoinPulse = !!activeTournamentId && !hasJoinedSurvival
+
   return (
     <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center p-4 font-sans relative">
 
@@ -240,12 +271,12 @@ function HomeContent() {
       <div className="w-full max-w-md flex flex-col gap-4 h-full pb-safe box-border pt-12">
 
         {/* LOGO AREA */}
-        <div className="text-center space-y-1 pt-2 pb-1 shrink-0">
+        <div className="text-center space-y-0.5 pt-1 pb-0.5 shrink-0">
           <div className="flex justify-center">
             <Trophy className="w-12 h-12 text-yellow-400 animate-in zoom-in duration-700" />
           </div>
           <div>
-            <h1 className="text-4xl font-black italic uppercase tracking-tighter text-white leading-tight drop-shadow-xl">
+            <h1 className="text-3xl sm:text-4xl font-black italic uppercase tracking-tighter text-white leading-none whitespace-nowrap drop-shadow-xl">
               Saturday To Sunday
             </h1>
             <p className="text-neutral-500 font-bold text-xs tracking-wide mt-1 uppercase">Guess the college. Beat your friends.</p>
@@ -264,8 +295,20 @@ function HomeContent() {
         </div>
 
         {/* --- SURVIVAL MODE BANNER --- */}
-        <Link href="/survival" className="w-full shrink-0">
+        <Link
+          href={user ? "/survival" : "/"}
+          className="w-full shrink-0"
+          onClick={(e) => {
+            if (!user) {
+              e.preventDefault()
+              handleGoogleLogin('/survival?autojoin=1')
+            }
+          }}
+        >
           <div className="w-full bg-gradient-to-r from-red-900/40 to-orange-900/40 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(220,38,38,0.15)] mb-3">
+            {showSurvivalJoinPulse && (
+              <div className="absolute inset-0 rounded-2xl border-2 border-red-500/70 shadow-[0_0_25px_rgba(239,68,68,0.4)] animate-pulse pointer-events-none" />
+            )}
             <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors animate-pulse" />
 
             <div className="flex items-center gap-4 relative z-10">
@@ -282,7 +325,7 @@ function HomeContent() {
                   </span>
                 </div>
                 <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                  10 Days. <span className="text-white">{survivalCount !== null ? `${survivalCount} Survivors.` : 'One Survivor.'}</span> <span className="text-red-400">Join Now.</span>
+                  10 Days. <span className="text-white">{survivalCount !== null ? `${survivalCount} ${isSurvivalStarted ? 'Survivors Remaining.' : 'Registered.'}` : isSurvivalStarted ? 'One Survivor Remaining.' : 'One Registered.'}</span> <span className="text-red-400">Join Now.</span>
                 </p>
               </div>
             </div>
