@@ -644,13 +644,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
 
       {/* Off-screen Share Card */}
       <div className="fixed -left-[4000px] top-0 pointer-events-none" aria-hidden="true">
-        <ShareCard
-          ref={shareCardRef}
-          score={score}
-          rankTitle={getRankTitle(score, sport).title}
-          sport={sport}
-          gameDate={new Date(Date.now() - TIMEZONE_OFFSET_MS).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-        />
+        <ShareCard ref={shareCardRef} />
       </div>
     </div>
   )

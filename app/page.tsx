@@ -597,13 +597,7 @@ function HomeContent() {
 
           {/* Off-screen Share Card */}
           <div className="fixed -left-[4000px] top-0 pointer-events-none" aria-hidden="true">
-            <ShareCard
-              ref={shareCardRef}
-              score={Math.max(footballScore || 0, basketballScore || 0)}
-              rankTitle={getRankTitle(Math.max(footballScore || 0, basketballScore || 0), (footballScore || 0) >= (basketballScore || 0) ? 'football' : 'basketball').title}
-              sport={(footballScore || 0) >= (basketballScore || 0) ? 'football' : 'basketball'}
-              gameDate={new Date(Date.now() - TIMEZONE_OFFSET_MS).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-            />
+            <ShareCard ref={shareCardRef} />
           </div>
 
           {/* --- FOOTER: ABOUT / LEGAL --- */}
