@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useUI } from '@/context/UIContext'
 import { useSearchParams } from 'next/navigation'
 import { getDailyGame } from '@/app/actions'
@@ -18,6 +18,9 @@ import { TIMEZONE_OFFSET_MS, TIER_MULTIPLIERS, GAME_CONFIG, type Sport } from '@
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 import InstallPWA from '@/components/InstallPWA'
 import { hashAnswer } from '@/utils/crypto'
+import { getRankTitle } from '@/lib/utils'
+import ShareCard from '@/components/ShareCard'
+import { shareAsImage } from '@/lib/share'
 
 const THEMES = {
   football: {
@@ -61,21 +64,6 @@ const getGuestId = () => {
   return id
 }
 
-const getRankTitle = (score: number, sport: 'football' | 'basketball') => {
-  if (sport === 'football') {
-    if (score >= 1100) return { title: "Heisman Hopeful", icon: Trophy }
-    if (score >= 700) return { title: "All-American", icon: Medal }
-    if (score >= 300) return { title: "Varsity Starter", icon: Star }
-    if (score > 0) return { title: "Practice Squad", icon: Shield }
-    return { title: "Redshirt", icon: Skull }
-  } else {
-    if (score >= 1100) return { title: "MVP Contender", icon: Trophy }
-    if (score >= 700) return { title: "All-Star", icon: Medal }
-    if (score >= 300) return { title: "Starting 5", icon: Star }
-    if (score > 0) return { title: "6th Man", icon: Shield }
-    return { title: "G-League", icon: Skull }
-  }
-}
 
 export default function DailyGameWrapper({ sport = 'football' }: { sport?: 'football' | 'basketball' }) {
   return (
@@ -90,6 +78,7 @@ export default function DailyGameWrapper({ sport = 'football' }: { sport?: 'foot
 function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const { setHeaderHidden } = useUI()
   const searchParams = useSearchParams()
+  const shareCardRef = useRef<HTMLDivElement>(null)
   const challengerScore = searchParams.get('s')
   const theme = THEMES[sport]
   const config = GAME_CONFIG[sport]
@@ -465,10 +454,17 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const rankInfo = getRankTitle(score, sport)
     const text = `Saturday to Sunday (${shortDate})\n${sport === 'basketball' ? '🏀' : '🏈'} ${theme.label} Mode\nScore: ${score.toLocaleString()} (${rankInfo.title})\n\n${squares}\n\nCan you beat my score? Play now:\nhttps://www.playsaturdaytosunday.com`
+
     try {
-      if (navigator.share) await navigator.share({ text })
-      else { await navigator.clipboard.writeText(text); alert('Copied!') }
-    } catch (err) { await navigator.clipboard.writeText(text) }
+      if (typeof navigator !== 'undefined' && (navigator as any).share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        await shareAsImage(shareCardRef, `s2s-${sport}-${shortDate}.png`)
+      } else {
+        if ((navigator as any).share) await (navigator as any).share({ text })
+        else { await navigator.clipboard.writeText(text); alert('Copied!') }
+      }
+    } catch (err) {
+      await navigator.clipboard.writeText(text)
+    }
   }
 
   if (gameState === 'loading') return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading...</div>
@@ -645,6 +641,17 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           })}
         </div>
       </main>
+
+      {/* Off-screen Share Card */}
+      <div className="fixed -left-[4000px] top-0 pointer-events-none" aria-hidden="true">
+        <ShareCard
+          ref={shareCardRef}
+          score={score}
+          rankTitle={getRankTitle(score, sport).title}
+          sport={sport}
+          gameDate={new Date(Date.now() - TIMEZONE_OFFSET_MS).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        />
+      </div>
     </div>
   )
 }

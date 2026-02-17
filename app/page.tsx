@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon, Skull, Instagram } from 'lucide-react'
@@ -13,6 +13,9 @@ import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 import LiveRankDisplay from '@/components/LiveRankDisplay'
 import { checkYesterdayPodium, type PodiumResult } from '@/app/actions/podium'
 import PodiumCelebration from '@/components/PodiumCelebration'
+import ShareCard from '@/components/ShareCard'
+import { shareAsImage } from '@/lib/share'
+import { getRankTitle } from '@/lib/utils'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -184,6 +187,7 @@ function HomeContent() {
 
   // 4. Share Handler 
   const [showShareOptions, setShowShareOptions] = useState(false)
+  const shareCardRef = useRef<HTMLDivElement>(null)
 
   const handleShareApp = () => {
     setShowShareOptions(!showShareOptions)
@@ -216,8 +220,19 @@ function HomeContent() {
 
   const handleInstagramShare = async () => {
     try {
-      await navigator.clipboard.writeText("https://www.playsaturdaytosunday.com")
-      alert('Link copied! Paste it in your Instagram Bio or Story. 📸')
+      // Determine which score to share (highest of today)
+      const bestSport = (footballScore || 0) >= (basketballScore || 0) ? 'football' : 'basketball'
+      const bestScore = Math.max(footballScore || 0, basketballScore || 0)
+
+      if (bestScore > 0) {
+        // Share Score Card
+        const today = new Date(Date.now() - TIMEZONE_OFFSET_MS).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        await shareAsImage(shareCardRef, `saturday-to-sunday-${bestSport}-${today}.png`)
+      } else {
+        // Generic link copy if no score
+        await navigator.clipboard.writeText("https://www.playsaturdaytosunday.com")
+        alert('Link copied! Paste it in your Instagram Bio or Story. 📸')
+      }
       setShowShareOptions(false)
     } catch (err) {
       console.error("Error sharing to Instagram:", err)
@@ -578,6 +593,17 @@ function HomeContent() {
               Saturday to Sunday is the ultimate daily trivia challenge for college football and basketball fans. We bridge the gap between campus icons and professional superstars. Test your knowledge, climb the ranks, and protect your streak in the world's most intense sports origin game.
               <Link href="/guides/the-ultimate-guide" className="text-[#00ff80] ml-1 font-bold hover:underline">Learn more.</Link>
             </p>
+          </div>
+
+          {/* Off-screen Share Card */}
+          <div className="fixed -left-[4000px] top-0 pointer-events-none" aria-hidden="true">
+            <ShareCard
+              ref={shareCardRef}
+              score={Math.max(footballScore || 0, basketballScore || 0)}
+              rankTitle={getRankTitle(Math.max(footballScore || 0, basketballScore || 0), (footballScore || 0) >= (basketballScore || 0) ? 'football' : 'basketball').title}
+              sport={(footballScore || 0) >= (basketballScore || 0) ? 'football' : 'basketball'}
+              gameDate={new Date(Date.now() - TIMEZONE_OFFSET_MS).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            />
           </div>
 
           {/* --- FOOTER: ABOUT / LEGAL --- */}
