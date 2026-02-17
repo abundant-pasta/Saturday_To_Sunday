@@ -99,7 +99,35 @@ export async function getDailyGame(sport: string = 'football') {
     .limit(1)
 
   if (existingGames && existingGames.length > 0) {
-    return existingGames[0].content
+    const questions = existingGames[0].content as any[]
+
+    // Check if the first question is already secured (has answer_hash and NO plain name)
+    // Actually, check for 'correct_answer' since that's what we want to REMOVE.
+    const needsSecurity = questions.some(q => q.correct_answer || !q.answer_hash || !q.name.includes('=') && q.name.length < 50) // Basic heuristic
+
+    if (!needsSecurity) return questions
+
+    console.log(`Securing legacy ${sport} game on-the-fly...`)
+    return await Promise.all(questions.map(async (q) => {
+      const answer = q.correct_answer || q.answer // Support both legacy key names
+      const salt = q.salt || generateSalt()
+      const answerHash = q.answer_hash || await hashAnswer(answer, salt)
+
+      // Determine if name needs obfuscation (if it's plain text)
+      // A simple check: if it contains spaces, it's likely plain text
+      const name = (q.name.includes(' ') || !q.name.includes('='))
+        ? Buffer.from(q.name).toString('base64')
+        : q.name
+
+      return {
+        ...q,
+        name,
+        answer_hash: answerHash,
+        salt: salt,
+        correct_answer: undefined, // Eviscerate the plain text answer
+        answer: undefined
+      }
+    }))
   }
 
   // 3. EMERGENCY FALLBACK
@@ -142,7 +170,7 @@ export async function getDailyGame(sport: string = 'football') {
 
     return {
       id: p.id,
-      name: p.name,
+      name: Buffer.from(p.name).toString('base64'),
       image_url: p.image_url,
       // correct_answer: p.college, // REMOVED FOR SECURITY
       answer_hash: answerHash,

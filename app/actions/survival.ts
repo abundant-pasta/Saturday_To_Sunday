@@ -20,7 +20,29 @@ export async function getSurvivalGame() {
         .limit(1)
 
     if (existingGames && existingGames.length > 0) {
-        return existingGames[0].content
+        const questions = existingGames[0].content as any[]
+        const needsSecurity = questions.some(q => q.correct_answer || !q.answer_hash)
+
+        if (!needsSecurity) return questions
+
+        console.log(`Securing legacy survival game on-the-fly...`)
+        return await Promise.all(questions.map(async (q) => {
+            const answer = q.correct_answer || q.answer
+            const salt = q.salt || generateSalt()
+            const answerHash = q.answer_hash || await hashAnswer(answer, salt)
+            const name = (q.name.includes(' ') || !q.name.includes('='))
+                ? Buffer.from(q.name).toString('base64')
+                : q.name
+
+            return {
+                ...q,
+                name,
+                answer_hash: answerHash,
+                salt: salt,
+                correct_answer: undefined,
+                answer: undefined
+            }
+        }))
     }
 
     // 2. Generate New Game (Admin Access for Pool + Write)
@@ -62,7 +84,7 @@ export async function getSurvivalGame() {
 
         return {
             id: p.id,
-            name: p.name,
+            name: Buffer.from(p.name).toString('base64'),
             image_url: p.image_url,
             // correct_answer: p.college, // REMOVED FOR SECURITY
             answer_hash: answerHash,

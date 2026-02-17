@@ -431,7 +431,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     newResults[currentIndex] = {
       player_id: currentQ.id,
       result: isCorrect ? 'correct' : 'wrong',
-      player_name: currentQ.name
+      player_name: atob(currentQ.name)
     }
     setResults(newResults)
     setShowResult(true)
@@ -628,7 +628,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           </div>
           {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-            <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{q.name}</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{atob(q.name)}</h2>
           </div>
         </div>
 
