@@ -183,33 +183,39 @@ function HomeContent() {
   }
 
   // 4. Share Handler 
-  const handleShareApp = async () => {
-    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+  const [showShareOptions, setShowShareOptions] = useState(false)
 
-    try {
-      if (navigator.share) {
+  const handleShareApp = async () => {
+    // On mobile, native share is usually better than expanding
+    if (navigator.share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+      try {
         await navigator.share({ text })
-      } else {
-        await navigator.clipboard.writeText(text)
-        alert('Link copied to clipboard!')
+        return
+      } catch (err) {
+        console.error("Error sharing:", err)
       }
+    }
+
+    // Fallback or Desktop: Toggle options
+    setShowShareOptions(!showShareOptions)
+  }
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText("https://www.playsaturdaytosunday.com")
+      alert('Link copied to clipboard!')
+      setShowShareOptions(false)
     } catch (err) {
-      console.error("Error sharing:", err)
+      console.error("Error copying link:", err)
     }
   }
 
   const handleInstagramShare = async () => {
-    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
-
     try {
-      // Direct Link Copy (Most reliable for IG)
       await navigator.clipboard.writeText("https://www.playsaturdaytosunday.com")
-
-      if (navigator.share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        await navigator.share({ text })
-      } else {
-        alert('Link copied! Paste it in your Instagram Bio or Story. 📸')
-      }
+      alert('Link copied! Paste it in your Instagram Bio or Story. 📸')
+      setShowShareOptions(false)
     } catch (err) {
       console.error("Error sharing to Instagram:", err)
     }
@@ -523,21 +529,33 @@ function HomeContent() {
             <InstallPWA mode="button" />
 
             {/* 3. SHARE APP */}
-            <div className="flex gap-2 w-full">
+            <div className={`flex flex-col gap-2 w-full transition-all duration-300 ${showShareOptions ? 'bg-neutral-900/40 p-2 rounded-xl border border-neutral-800' : ''}`}>
               <Button
                 onClick={handleShareApp}
                 variant="ghost"
-                className="flex-1 h-12 text-[10px] font-bold tracking-widest uppercase text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all rounded-lg border border-neutral-800/50"
+                className={`w-full h-12 text-[10px] font-bold tracking-widest uppercase transition-all rounded-lg ${showShareOptions ? 'text-white bg-neutral-800' : 'text-neutral-500 hover:text-white hover:bg-neutral-800'}`}
               >
-                <Share2 className="mr-2 w-3 h-3" /> Share App
+                <Share2 className="mr-2 w-3 h-3" /> {showShareOptions ? 'Close Options' : 'Share App'}
               </Button>
-              <Button
-                onClick={handleInstagramShare}
-                variant="ghost"
-                className="flex-1 h-12 text-[10px] font-bold tracking-widest uppercase text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all rounded-lg border border-neutral-800/50"
-              >
-                <Instagram className="mr-2 w-3 h-3" /> Instagram
-              </Button>
+
+              {showShareOptions && (
+                <div className="flex gap-2 w-full animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Button
+                    onClick={handleCopyLink}
+                    variant="outline"
+                    className="flex-1 h-10 text-[10px] font-black uppercase border-neutral-800 bg-black/40 text-neutral-400 hover:text-white transition-all"
+                  >
+                    Copy Link
+                  </Button>
+                  <Button
+                    onClick={handleInstagramShare}
+                    variant="outline"
+                    className="flex-1 h-10 text-[10px] font-black uppercase border-neutral-800 bg-black/40 text-neutral-400 hover:text-white transition-all"
+                  >
+                    <Instagram className="mr-1.5 w-3 h-3" /> Instagram
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
