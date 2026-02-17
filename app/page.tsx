@@ -185,20 +185,23 @@ function HomeContent() {
   // 4. Share Handler 
   const [showShareOptions, setShowShareOptions] = useState(false)
 
-  const handleShareApp = async () => {
-    // On mobile, native share is usually better than expanding
-    if (navigator.share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
-      try {
-        await navigator.share({ text })
-        return
-      } catch (err) {
-        console.error("Error sharing:", err)
-      }
-    }
-
-    // Fallback or Desktop: Toggle options
+  const handleShareApp = () => {
     setShowShareOptions(!showShareOptions)
+  }
+
+  const handleSystemShare = async () => {
+    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        alert('Link copied to clipboard!')
+      }
+      setShowShareOptions(false)
+    } catch (err) {
+      console.error("Error sharing:", err)
+    }
   }
 
   const handleCopyLink = async () => {
@@ -539,20 +542,29 @@ function HomeContent() {
               </Button>
 
               {showShareOptions && (
-                <div className="flex gap-2 w-full animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex flex-col gap-2 w-full animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="flex gap-2 w-full">
+                    <Button
+                      onClick={handleCopyLink}
+                      variant="outline"
+                      className="flex-1 h-10 text-[10px] font-black uppercase border-neutral-800 bg-black/40 text-neutral-400 hover:text-white transition-all rounded-lg"
+                    >
+                      Copy Link
+                    </Button>
+                    <Button
+                      onClick={handleInstagramShare}
+                      variant="outline"
+                      className="flex-1 h-10 text-[10px] font-black uppercase border-neutral-800 bg-black/40 text-neutral-400 hover:text-white transition-all rounded-lg"
+                    >
+                      <Instagram className="mr-1.5 w-3 h-3" /> Instagram
+                    </Button>
+                  </div>
                   <Button
-                    onClick={handleCopyLink}
+                    onClick={handleSystemShare}
                     variant="outline"
-                    className="flex-1 h-10 text-[10px] font-black uppercase border-neutral-800 bg-black/40 text-neutral-400 hover:text-white transition-all"
+                    className="w-full h-10 text-[10px] font-black uppercase border-neutral-800 bg-black/40 text-neutral-400 hover:text-white transition-all rounded-lg"
                   >
-                    Copy Link
-                  </Button>
-                  <Button
-                    onClick={handleInstagramShare}
-                    variant="outline"
-                    className="flex-1 h-10 text-[10px] font-black uppercase border-neutral-800 bg-black/40 text-neutral-400 hover:text-white transition-all"
-                  >
-                    <Instagram className="mr-1.5 w-3 h-3" /> Instagram
+                    System Share (iMessage, etc.)
                   </Button>
                 </div>
               )}
