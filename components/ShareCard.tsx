@@ -30,12 +30,12 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
                     className="w-40 h-40"
                     style={{ color: '#fbbf24' }}
                 />
-                <div className="space-y-4">
+                <div className="space-y-4 px-4">
                     <h1
-                        className="text-[120px] font-black italic uppercase tracking-tighter leading-none"
+                        className="text-[100px] font-black italic uppercase tracking-tighter leading-none whitespace-nowrap"
                         style={{ color: '#ffffff' }}
                     >
-                        Saturday<br />To Sunday
+                        Saturday To Sunday
                     </h1>
                     <p className="text-3xl font-bold uppercase tracking-[0.2em]" style={{ color: '#737373' }}>
                         Guess the college. Beat your friends.
