@@ -8,8 +8,8 @@ export async function shareAsImage(elementRef: React.RefObject<HTMLDivElement | 
         console.log('Starting image generation for:', elementRef.current)
 
         const canvas = await html2canvas(elementRef.current, {
-            scale: 1, // Use 1 for maximum device compatibility
-            useCORS: true,
+            scale: 1,
+            useCORS: false,
             allowTaint: false,
             backgroundColor: '#000000',
             logging: true,
