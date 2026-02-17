@@ -16,15 +16,18 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
         >
             {/* Background Glow */}
             <div
-                className={`absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] opacity-20 blur-[150px]`}
-                style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)' }}
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] blur-[150px]"
+                style={{
+                    backgroundColor: 'rgba(234, 179, 8, 0.15)',
+                    opacity: 0.2
+                }}
             />
 
             {/* HEADER / LOGO SECTION */}
             <div className="flex flex-col items-center gap-10 mt-20 mb-20 relative z-10 text-center">
                 <Trophy
                     className="w-48 h-48"
-                    style={{ color: '#fbbf24' }} // yellow-400 equivalent
+                    style={{ color: '#fbbf24' }}
                 />
                 <div className="space-y-4">
                     <h1
@@ -51,15 +54,30 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
                     }}
                 >
                     <div className="flex items-center gap-10">
-                        <div className="p-6 rounded-3xl border-4" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)', borderColor: 'rgba(239, 68, 68, 0.3)' }}>
+                        <div
+                            className="p-6 rounded-3xl border-4"
+                            style={{
+                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                borderColor: 'rgba(239, 68, 68, 0.3)'
+                            }}
+                        >
                             <Skull className="w-16 h-16" style={{ color: '#ef4444' }} />
                         </div>
                         <div>
                             <div className="flex items-center gap-4 mb-2">
-                                <h2 className="text-6xl font-black italic uppercase tracking-tighter leading-none">Survival Mode</h2>
-                                <span className="bg-[#ef4444] text-black text-2xl font-black px-4 py-1 rounded uppercase">Live</span>
+                                <h2 className="text-6xl font-black italic uppercase tracking-tighter leading-none" style={{ color: '#ffffff' }}>
+                                    Survival Mode
+                                </h2>
+                                <span
+                                    className="text-2xl font-black px-4 py-1 rounded uppercase"
+                                    style={{ backgroundColor: '#ef4444', color: '#000000' }}
+                                >
+                                    Live
+                                </span>
                             </div>
-                            <p className="text-3xl font-bold uppercase tracking-widest text-neutral-400">10 Days. One Survivor.</p>
+                            <p className="text-3xl font-bold uppercase tracking-widest" style={{ color: '#a3a3a3' }}>
+                                10 Days. One Survivor.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -74,13 +92,26 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
                             border: '4px solid rgba(16, 185, 129, 0.3)'
                         }}
                     >
-                        <div className="rounded-[40px] p-10 flex flex-col items-center justify-center gap-6 text-center flex-1" style={{ backgroundColor: 'rgba(23, 23, 23, 0.8)' }}>
-                            <div className="p-8 rounded-full border-4" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }}>
+                        <div
+                            className="rounded-[40px] p-10 flex flex-col items-center justify-center gap-6 text-center flex-1"
+                            style={{ backgroundColor: 'rgba(23, 23, 23, 0.8)' }}
+                        >
+                            <div
+                                className="p-8 rounded-full border-4"
+                                style={{
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    borderColor: 'rgba(16, 185, 129, 0.2)'
+                                }}
+                            >
                                 <Star className="w-16 h-16" style={{ color: '#00ff80' }} />
                             </div>
                             <div>
-                                <div className="text-3xl font-black uppercase tracking-widest mb-2" style={{ color: '#00ff80' }}>Play Daily</div>
-                                <div className="text-6xl font-black italic uppercase tracking-tighter">Football</div>
+                                <div className="text-3xl font-black uppercase tracking-widest mb-2" style={{ color: '#00ff80' }}>
+                                    Play Daily
+                                </div>
+                                <div className="text-6xl font-black italic uppercase tracking-tighter" style={{ color: '#ffffff' }}>
+                                    Football
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -93,13 +124,26 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
                             border: '4px solid rgba(245, 158, 11, 0.3)'
                         }}
                     >
-                        <div className="rounded-[40px] p-10 flex flex-col items-center justify-center gap-6 text-center flex-1" style={{ backgroundColor: 'rgba(23, 23, 23, 0.8)' }}>
-                            <div className="p-8 rounded-full border-4" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.2)' }}>
+                        <div
+                            className="rounded-[40px] p-10 flex flex-col items-center justify-center gap-6 text-center flex-1"
+                            style={{ backgroundColor: 'rgba(23, 23, 23, 0.8)' }}
+                        >
+                            <div
+                                className="p-8 rounded-full border-4"
+                                style={{
+                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                    borderColor: 'rgba(245, 158, 11, 0.2)'
+                                }}
+                            >
                                 <Dribbble className="w-16 h-16" style={{ color: '#f59e0b' }} />
                             </div>
                             <div>
-                                <div className="text-3xl font-black uppercase tracking-widest mb-2" style={{ color: '#f59e0b' }}>Play Daily</div>
-                                <div className="text-6xl font-black italic uppercase tracking-tighter">Basketball</div>
+                                <div className="text-3xl font-black uppercase tracking-widest mb-2" style={{ color: '#f59e0b' }}>
+                                    Play Daily
+                                </div>
+                                <div className="text-6xl font-black italic uppercase tracking-tighter" style={{ color: '#ffffff' }}>
+                                    Basketball
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -115,7 +159,9 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
                 }}
             >
                 <div className="flex flex-col items-center gap-4">
-                    <span className="text-6xl font-black uppercase tracking-tighter text-white">Sunday starts on Saturday.</span>
+                    <span className="text-6xl font-black uppercase tracking-tighter" style={{ color: '#ffffff' }}>
+                        Sunday starts on Saturday.
+                    </span>
                     <span className="text-4xl font-bold uppercase tracking-widest" style={{ color: '#a3a3a3' }}>
                         Play now at playsaturdaytosunday.com
                     </span>
@@ -133,7 +179,7 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
                 {[...Array(8)].map((_, i) => (
                     <div
                         key={i}
-                        className={`w-6 h-6 rounded-full`}
+                        className="w-6 h-6 rounded-full"
                         style={{
                             backgroundColor: '#fbbf24',
                             opacity: (i + 1) * 0.1
