@@ -47,9 +47,10 @@ interface LeaderboardProps {
     currentUserId?: string
     defaultSport?: 'football' | 'basketball'
     squadId?: string
+    initialDateOffset?: number
 }
 
-export default function Leaderboard({ currentUserId, defaultSport = 'football', squadId }: LeaderboardProps) {
+export default function Leaderboard({ currentUserId, defaultSport = 'football', squadId, initialDateOffset = 0 }: LeaderboardProps) {
     const [scores, setScores] = useState<LeaderboardEntry[]>([])
     const [totalCount, setTotalCount] = useState(0)
     const [loading, setLoading] = useState(true)
@@ -60,7 +61,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
 
     const [showGuests, setShowGuests] = useState(false)
     const [currentGuestId, setCurrentGuestId] = useState<string | null>(null)
-    const [dateOffset, setDateOffset] = useState(0)
+    const [dateOffset, setDateOffset] = useState(initialDateOffset)
 
     const theme = THEMES[sport]
 

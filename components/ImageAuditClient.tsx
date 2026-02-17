@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { updatePlayerImage, verifyPlayerImage } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -180,6 +180,19 @@ function PlayerCard({ player, onUpdate }: { player: Player, onUpdate: (p: Player
     const [loading, setLoading] = useState(false)
     const [saved, setSaved] = useState(false)
     const [verifying, setVerifying] = useState(false)
+    const [isImageReady, setIsImageReady] = useState(false)
+    const [imageError, setImageError] = useState(false)
+
+    // Image load timeout
+    useEffect(() => {
+        if (player.image_url && !isImageReady && !imageError) {
+            const timer = setTimeout(() => {
+                console.log("Audit image load timeout hit")
+                setIsImageReady(true)
+            }, 3000)
+            return () => clearTimeout(timer)
+        }
+    }, [player.image_url, isImageReady, imageError])
 
     const handleSave = async () => {
         if (!newUrl) return
@@ -221,13 +234,25 @@ function PlayerCard({ player, onUpdate }: { player: Player, onUpdate: (p: Player
             )}
             <div className="relative aspect-square w-full bg-black">
                 {player.image_url ? (
-                    <Image
-                        src={player.image_url}
-                        alt={player.name}
-                        fill
-                        className="object-cover"
-                        unoptimized
-                    />
+                    <div className="relative w-full h-full">
+                        <Image
+                            src={player.image_url}
+                            alt={player.name}
+                            fill
+                            className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`}
+                            unoptimized
+                            onLoadingComplete={() => setIsImageReady(true)}
+                            onError={() => {
+                                setImageError(true)
+                                setIsImageReady(true)
+                            }}
+                        />
+                        {!isImageReady && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/50">
+                                <span className="animate-spin text-neutral-500">⏳</span>
+                            </div>
+                        )}
+                    </div>
                 ) : (
                     <div className="w-full h-full flex items-center justify-center text-neutral-700 font-black uppercase text-4xl">
                         ?

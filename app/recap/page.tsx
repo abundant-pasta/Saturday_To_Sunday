@@ -26,6 +26,8 @@ export default function RecapPage() {
     const [footballResults, setFootballResults] = useState<RecapResult[]>([])
     const [basketballResults, setBasketballResults] = useState<RecapResult[]>([])
     const [gameDate, setGameDate] = useState('')
+    const [footballPersonal, setFootballPersonal] = useState<{ rank: number; total: number } | null>(null)
+    const [basketballPersonal, setBasketballPersonal] = useState<{ rank: number; total: number } | null>(null)
 
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,6 +47,7 @@ export default function RecapPage() {
             setGameDate(yesterdayStr)
 
             try {
+                // 1. Fetch Global Results
                 const { data: results, error } = await supabase
                     .from('daily_results')
                     .select(`
@@ -74,6 +77,33 @@ export default function RecapPage() {
 
                 setFootballResults(processedResults.filter(r => r.sport === 'football').slice(0, 3))
                 setBasketballResults(processedResults.filter(r => r.sport === 'basketball').slice(0, 3))
+
+                // 2. Fetch Personal Stats
+                const { data: { session } } = await supabase.auth.getSession()
+                const userId = session?.user?.id
+                const guestId = typeof window !== 'undefined' ? localStorage.getItem('s2s_guest_id') : null
+
+                if (userId || guestId) {
+                    for (const s of ['football', 'basketball'] as const) {
+                        const { data: userEntries } = await supabase
+                            .from('daily_results')
+                            .select('score, user_id, guest_id')
+                            .eq('game_date', yesterdayStr)
+                            .eq('sport', s)
+                            .order('score', { ascending: false })
+
+                        const myEntry = userId
+                            ? userEntries?.find(e => e.user_id === userId)
+                            : userEntries?.find(e => e.guest_id === guestId)
+
+                        if (myEntry) {
+                            const betterCount = userEntries?.filter(e => e.score > myEntry.score).length || 0
+                            const stats = { rank: betterCount + 1, total: userEntries?.length || 0 }
+                            if (s === 'football') setFootballPersonal(stats)
+                            else setBasketballPersonal(stats)
+                        }
+                    }
+                }
             } catch (err) {
                 console.error("Error fetching recap:", err)
             } finally {
@@ -164,7 +194,7 @@ export default function RecapPage() {
                     <RankItem key={result.user_id + sport} result={result} rank={index + 1} />
                 ))}
 
-                <Link href="/leaderboard" className="block pt-2">
+                <Link href="/leaderboard?offset=-1" className="block pt-2">
                     <Button variant="ghost" className="w-full text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 hover:text-white group">
                         View Full Leaderboard
                         <ChevronRight className="w-3 h-3 ml-1 transition-transform group-hover:translate-x-1" />
@@ -205,6 +235,13 @@ export default function RecapPage() {
                         </div>
                         <h3 className="text-sm font-black uppercase tracking-widest text-neutral-400">Gridiron Legends</h3>
                     </div>
+                    {footballPersonal && (
+                        <div className="pl-14 mb-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-[#00ff80] opacity-80">
+                                You finished #{footballPersonal.rank} / {footballPersonal.total} today!
+                            </p>
+                        </div>
+                    )}
                     <RenderSportList results={footballResults} sport="football" />
                 </section>
 
@@ -215,6 +252,13 @@ export default function RecapPage() {
                         </div>
                         <h3 className="text-sm font-black uppercase tracking-widest text-neutral-400">Court Kings</h3>
                     </div>
+                    {basketballPersonal && (
+                        <div className="pl-14 mb-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 opacity-80">
+                                You finished #{basketballPersonal.rank} / {basketballPersonal.total} today!
+                            </p>
+                        </div>
+                    )}
                     <RenderSportList results={basketballResults} sport="basketball" />
                 </section>
 

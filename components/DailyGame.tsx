@@ -116,6 +116,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   )
 
   useEffect(() => {
+    if (gameState === 'playing' && !isImageReady) {
+      const timer = setTimeout(() => {
+        console.log("Image load timeout hit - forcing ready state")
+        setIsImageReady(true)
+      }, 3000) // 3 second timeout
+      return () => clearTimeout(timer)
+    }
+  }, [gameState, currentIndex, isImageReady])
+
+  useEffect(() => {
     const loadGame = async () => {
       try {
         const data = await getDailyGame(sport)

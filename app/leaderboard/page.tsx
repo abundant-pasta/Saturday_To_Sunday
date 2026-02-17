@@ -2,13 +2,15 @@
 
 import { createBrowserClient } from '@supabase/ssr'
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Home, Trophy } from 'lucide-react'
 import Leaderboard from '@/components/Leaderboard'
 import { Button } from '@/components/ui/button'
 
 export default function LeaderboardPage() {
   const [userId, setUserId] = useState<string | undefined>()
+  const searchParams = useSearchParams()
+  const initialOffset = parseInt(searchParams.get('offset') || '0')
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +37,7 @@ export default function LeaderboardPage() {
       </div>
 
       <div className="w-full max-w-md">
-        <Leaderboard currentUserId={userId} />
+        <Leaderboard currentUserId={userId} initialDateOffset={initialOffset} />
       </div>
     </div>
   )
