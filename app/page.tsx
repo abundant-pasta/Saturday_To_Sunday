@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon, Skull } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon, Skull, Instagram } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
@@ -195,6 +195,23 @@ function HomeContent() {
       }
     } catch (err) {
       console.error("Error sharing:", err)
+    }
+  }
+
+  const handleInstagramShare = async () => {
+    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+
+    try {
+      // Direct Link Copy (Most reliable for IG)
+      await navigator.clipboard.writeText("https://www.playsaturdaytosunday.com")
+
+      if (navigator.share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        await navigator.share({ text })
+      } else {
+        alert('Link copied! Paste it in your Instagram Bio or Story. 📸')
+      }
+    } catch (err) {
+      console.error("Error sharing to Instagram:", err)
     }
   }
 
@@ -506,13 +523,22 @@ function HomeContent() {
             <InstallPWA mode="button" />
 
             {/* 3. SHARE APP */}
-            <Button
-              onClick={handleShareApp}
-              variant="ghost"
-              className="w-full h-12 text-[10px] font-bold tracking-widest uppercase text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all rounded-lg"
-            >
-              <Share2 className="mr-2 w-3 h-3" /> Share App
-            </Button>
+            <div className="flex gap-2 w-full">
+              <Button
+                onClick={handleShareApp}
+                variant="ghost"
+                className="flex-1 h-12 text-[10px] font-bold tracking-widest uppercase text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all rounded-lg border border-neutral-800/50"
+              >
+                <Share2 className="mr-2 w-3 h-3" /> Share App
+              </Button>
+              <Button
+                onClick={handleInstagramShare}
+                variant="ghost"
+                className="flex-1 h-12 text-[10px] font-bold tracking-widest uppercase text-neutral-500 hover:text-white hover:bg-neutral-800 transition-all rounded-lg border border-neutral-800/50"
+              >
+                <Instagram className="mr-2 w-3 h-3" /> Instagram
+              </Button>
+            </div>
           </div>
 
           {/* --- ABOUT SECTION (SEO) --- */}
