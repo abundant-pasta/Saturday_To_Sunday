@@ -1,13 +1,13 @@
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Home, Trophy } from 'lucide-react'
+import { Home, Trophy, Loader2 } from 'lucide-react'
 import Leaderboard from '@/components/Leaderboard'
 import { Button } from '@/components/ui/button'
 
-export default function LeaderboardPage() {
+function LeaderboardContent() {
   const [userId, setUserId] = useState<string | undefined>()
   const searchParams = useSearchParams()
   const initialOffset = parseInt(searchParams.get('offset') || '0')
@@ -40,5 +40,17 @@ export default function LeaderboardPage() {
         <Leaderboard currentUserId={userId} initialDateOffset={initialOffset} />
       </div>
     </div>
+  )
+}
+
+export default function LeaderboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white">
+        <Loader2 className="animate-spin text-neutral-600" />
+      </div>
+    }>
+      <LeaderboardContent />
+    </Suspense>
   )
 }
