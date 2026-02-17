@@ -5,13 +5,19 @@ export async function shareAsImage(elementRef: React.RefObject<HTMLDivElement | 
 
     try {
         // 1. Generate Canvas
-        // Increase scale for high quality (social media ready)
+        console.log('Starting image generation for:', elementRef.current)
+
         const canvas = await html2canvas(elementRef.current, {
-            scale: 2,
+            scale: 1, // Use 1 for maximum device compatibility
             useCORS: true,
-            allowTaint: true,
+            allowTaint: false,
             backgroundColor: '#000000',
+            logging: true,
+            width: 1080,
+            height: 1920,
         } as any)
+
+        console.log('Canvas generated successfully')
 
         // 2. Convert to Blob
         const blob = await new Promise<Blob | null>((resolve) =>
@@ -41,8 +47,8 @@ export async function shareAsImage(elementRef: React.RefObject<HTMLDivElement | 
             URL.revokeObjectURL(url)
             alert('Sharing images is not supported on this browser. The image has been downloaded to your device! 📸')
         }
-    } catch (err) {
+    } catch (err: any) {
         console.error('Error in shareAsImage:', err)
-        alert('Failed to generate sharing image. Please try again.')
+        alert(`Failed to generate sharing image: ${err?.message || 'Unknown error'}. Please try again.`)
     }
 }

@@ -16,17 +16,19 @@ const ShareCard = React.forwardRef<HTMLDivElement, ShareCardProps>(({ score, ran
     return (
         <div
             ref={ref}
-            className="fixed -left-[2000px] top-0 w-[1080px] h-[1920px] bg-neutral-950 flex flex-col items-center justify-between p-20 font-sans overflow-hidden"
+            className="w-[1080px] h-[1920px] bg-black flex flex-col items-center justify-between p-20 font-sans overflow-hidden relative"
             style={{
-                backgroundImage: `radial-gradient(circle at 50% 30%, ${isFootball ? 'rgba(0, 255, 128, 0.15)' : 'rgba(245, 158, 11, 0.15)'} 0%, transparent 70%)`
+                border: `20px solid ${isFootball ? '#00ff80' : '#f59e0b'}`
             }}
         >
+            {/* Background Glow (Simpler than radial-gradient for capture) */}
+            <div className={`absolute top-0 left-0 w-full h-[800px] opacity-20 blur-[120px] ${isFootball ? 'bg-[#00ff80]' : 'bg-amber-500'}`} />
             {/* Background Texture */}
             <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.2\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} />
 
             {/* Top Logo Section */}
-            <div className="flex flex-col items-center gap-6 mt-10">
-                <Trophy className={`w-36 h-36 ${isFootball ? 'text-[#00ff80]' : 'text-amber-500'} drop-shadow-[0_0_30px_rgba(255,255,255,0.3)]`} />
+            <div className="flex flex-col items-center gap-6 mt-10 relative z-10">
+                <Trophy className={`w-36 h-36 border-none ${isFootball ? 'text-[#00ff80]' : 'text-amber-500'}`} />
                 <h1 className="text-8xl font-black italic uppercase tracking-tighter text-white text-center leading-none">
                     Saturday<br />To Sunday
                 </h1>
