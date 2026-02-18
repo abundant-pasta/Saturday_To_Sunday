@@ -62,64 +62,85 @@ export async function GET(request: Request) {
     // 3. DEFINE CONFIGS
     const sportConfigs = [
       {
-        sport: 'football' as const,
-        total: GAME_CONFIG.football.rounds,
-        distribution: GAME_CONFIG.football.distribution
+        sportKey: 'football' as const,
+        sourceSport: 'football' as const,
+        distribution: GAME_CONFIG.football.distribution,
+        mode: 'daily' as const,
       },
       {
-        sport: 'basketball' as const,
-        total: GAME_CONFIG.basketball.rounds,
-        distribution: GAME_CONFIG.basketball.distribution
-      }
+        sportKey: 'basketball' as const,
+        sourceSport: 'basketball' as const,
+        distribution: GAME_CONFIG.basketball.distribution,
+        mode: 'daily' as const,
+      },
+      {
+        sportKey: 'survival_basketball' as const,
+        sourceSport: 'basketball' as const,
+        distribution: [4, 3, 3] as const, // 10-round Survival roster
+        mode: 'survival' as const,
+      },
     ]
 
     const results = []
 
     // 4. GENERATION LOOP
     for (const config of sportConfigs) {
-      const { sport, distribution } = config
+      const { sportKey, sourceSport, distribution, mode } = config
+
+      const applyModeFilter = (query: any) => {
+        if (mode === 'survival') {
+          return query.in('game_mode', ['survival', 'both'])
+        }
+        return query
+      }
 
       // A. Check Idempotency
       const { data: existing } = await supabase
         .from('daily_games')
         .select('date')
         .eq('date', targetDate)
-        .eq('sport', sport)
+        .eq('sport', sportKey)
         .single()
 
       if (existing) {
-        results.push(`${sport}: Already exists`)
+        results.push(`${sportKey}: Already exists`)
         continue
       }
 
       // B. Fetch Pools
       const [easyRes, mediumRes, hardRes] = await Promise.all([
-        supabase.from('players').select('*')
-          .eq('sport', sport)
-          .eq('tier', 1)
-          .not('image_url', 'is', null)
-          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
-          .limit(50),
-        supabase.from('players').select('*')
-          .eq('sport', sport)
-          .eq('tier', 2)
-          .not('image_url', 'is', null)
-          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
-          .limit(30),
-        supabase.from('players').select('*')
-          .eq('sport', sport)
-          .eq('tier', 3)
-          .not('image_url', 'is', null)
-          .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
-          .limit(20)
+        applyModeFilter(
+          supabase.from('players').select('*')
+            .eq('sport', sourceSport)
+            .eq('tier', 1)
+            .not('image_url', 'is', null)
+            .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+            .limit(50)
+        ),
+        applyModeFilter(
+          supabase.from('players').select('*')
+            .eq('sport', sourceSport)
+            .eq('tier', 2)
+            .not('image_url', 'is', null)
+            .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+            .limit(30)
+        ),
+        applyModeFilter(
+          supabase.from('players').select('*')
+            .eq('sport', sourceSport)
+            .eq('tier', 3)
+            .not('image_url', 'is', null)
+            .or(`last_selected.is.null,last_selected.lt.${cutoffString}`)
+            .limit(20)
+        )
       ])
 
       // Validation
       if (!easyRes.data || easyRes.data.length < distribution[0] || 
           !mediumRes.data || mediumRes.data.length < distribution[1] || 
           !hardRes.data || hardRes.data.length < distribution[2]) {
-        console.error(`Not enough ${sport} players available (checked 45-day cooldown).`)
-        results.push(`${sport}: Failed - Not enough players`)
+        console.error(`Not enough ${sportKey} players available (checked 45-day cooldown).`)
+        results.push(`${sportKey}: Failed - Not enough players`)
         continue
       }
 
@@ -137,11 +158,13 @@ export async function GET(request: Request) {
       const orderedRoster = rosterPool; 
 
       // D. Build Content
-      const { data: allColleges } = await supabase
-        .from('players')
-        .select('college')
-        .eq('sport', sport)
-        .not('college', 'is', null)
+      const { data: allColleges } = await applyModeFilter(
+        supabase
+          .from('players')
+          .select('college')
+          .eq('sport', sourceSport)
+          .not('college', 'is', null)
+      )
 
       const collegeList = Array.from(new Set(allColleges?.map((c: any) => c.college) || [])) as string[]
 
@@ -170,11 +193,11 @@ export async function GET(request: Request) {
         .insert({ 
           date: targetDate, 
           content,
-          sport: sport 
+          sport: sportKey
         })
 
       if (error) {
-        results.push(`${sport}: DB Error - ${error.message}`)
+        results.push(`${sportKey}: DB Error - ${error.message}`)
       } else {
         // F. Update last_selected
         const playerIds = orderedRoster.map((p: any) => p.id)
@@ -183,7 +206,7 @@ export async function GET(request: Request) {
           .update({ last_selected: new Date().toISOString() })
           .in('id', playerIds)
         
-        results.push(`${sport}: Generated successfully`)
+        results.push(`${sportKey}: Generated successfully`)
       }
     }
 

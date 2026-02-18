@@ -2,7 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import SurvivalSignup from '@/components/SurvivalSignup'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Trophy, Users, Clock, AlertTriangle, ArrowLeft, Skull, Flame } from 'lucide-react'
+import { Trophy, Users, Clock, Skull, Flame, Swords } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default async function SurvivalPage({
@@ -47,6 +47,8 @@ export default async function SurvivalPage({
             redirect('/survival')
         }
     }
+
+    const hasStarted = !!(tournament && new Date(tournament.start_date).getTime() <= Date.now())
 
     // Fetch total participant count
     let participantCount = 0
@@ -100,7 +102,20 @@ export default async function SurvivalPage({
                             </div>
 
                             {user ? (
-                                <SurvivalSignup tournamentId={tournament.id} isJoined={isJoined} />
+                                isJoined && hasStarted ? (
+                                    <div className="w-full p-6 bg-red-500/10 border border-red-500/30 rounded-3xl flex flex-col items-center gap-3 animate-in fade-in zoom-in duration-500">
+                                        <div className="p-3 bg-red-500/20 rounded-full mb-1">
+                                            <Swords className="w-8 h-8 text-red-400" />
+                                        </div>
+                                        <h3 className="text-2xl font-black italic uppercase tracking-tighter text-red-400">You Are Registered</h3>
+                                        <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest mb-1">Tournament Started</p>
+                                        <Button asChild className="w-full h-12 text-sm font-black uppercase tracking-widest bg-gradient-to-r from-red-700 to-orange-600 hover:from-red-600 hover:to-orange-500 text-white border border-red-400/40">
+                                            <Link href="/survival/play">Enter The Gauntlet</Link>
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <SurvivalSignup tournamentId={tournament.id} isJoined={isJoined} />
+                                )
                             ) : (
                                 <div className="p-6 bg-black/40 rounded-2xl border border-neutral-800">
                                     <p className="mb-4 text-neutral-400 text-xs font-bold uppercase tracking-wide">Login Required</p>
