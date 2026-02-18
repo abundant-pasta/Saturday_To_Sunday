@@ -42,6 +42,7 @@ export const metadata: Metadata = {
 
 import { UIProvider } from '@/context/UIContext'
 import GlobalHeader from '@/components/GlobalHeader'
+import SurvivalLaunchPopup from '@/components/SurvivalLaunchPopup'
 
 export default function RootLayout({
   children,
@@ -88,6 +89,7 @@ export default function RootLayout({
       >
         <UIProvider>
           <GlobalHeader />
+          <SurvivalLaunchPopup />
           {children}
         </UIProvider>
 
