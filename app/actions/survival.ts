@@ -337,3 +337,75 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     revalidatePath('/survival')
     return { success: true, score: finalScore }
 }
+
+// --- LEGACY SCORE RECOVERY ---
+export async function recoverLegacySurvivalScore(score: number) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: 'Not authenticated' }
+
+    // 1. Get Active Tournament
+    const { data: tournament } = await supabase
+        .from('survival_tournaments')
+        .select('*')
+        .eq('is_active', true)
+        .single()
+
+    if (!tournament) return { error: 'No active tournament' }
+
+    // 2. Get Participant
+    const { data: participant } = await supabase
+        .from('survival_participants')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('tournament_id', tournament.id)
+        .single()
+
+    if (!participant) return { error: 'Not a participant' }
+    if (participant.status === 'eliminated') return { error: 'You are eliminated' }
+
+    // 3. Calculate Day Number
+    const start = new Date(tournament.start_date).getTime()
+    const now = new Date().getTime()
+    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+
+    // 4. Check if Score ALREADY EXISTS (Critical)
+    // We only recover if they have NO score for today.
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: existingScore } = await supabaseAdmin
+        .from('survival_scores')
+        .select('id')
+        .eq('participant_id', participant.id)
+        .eq('day_number', dayNumber)
+        .maybeSingle()
+
+    if (existingScore) {
+        // Already exists, just return success (idempotent)
+        return { success: true, recovered: false }
+    }
+
+    // 5. Insert Legacy Score
+    // Trusting client score here because it's a recovery action for a bug.
+    // Cap it reasonably just in case? (e.g. 2000 max)
+    const safeScore = Math.min(2000, Math.max(0, score))
+
+    const { error } = await supabaseAdmin
+        .from('survival_scores')
+        .insert({
+            participant_id: participant.id,
+            day_number: dayNumber,
+            score: safeScore
+        })
+
+    if (error) {
+        console.error("Recovery score submit error:", error)
+        return { error: error.message }
+    }
+
+    revalidatePath('/survival')
+    return { success: true, recovered: true }
+}

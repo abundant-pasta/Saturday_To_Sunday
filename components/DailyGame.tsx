@@ -285,8 +285,8 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           // or just assume it's imported. I need to add the import to the top of file.
           // For now, I'll assume I add the import in a separate step or included here.
           // Just using the logic here.
-          const { submitSurvivalScore } = await import('@/app/actions/survival')
-          const result = await submitSurvivalScore(score)
+          const { recoverLegacySurvivalScore } = await import('@/app/actions/survival')
+          const result = await recoverLegacySurvivalScore(score)
           if (result?.success) {
             setIsSaved(true)
           } else {
