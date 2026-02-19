@@ -2,8 +2,15 @@ import { createClient } from '@/utils/supabase/server'
 import SurvivalSignup from '@/components/SurvivalSignup'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Trophy, Users, Clock, Skull, Flame, Swords } from 'lucide-react'
+import { Trophy, Users, Clock, Skull, Flame, Swords, BarChart3, TrendingDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
+const FLOW_RATIOS = [0.625, 0.375, 0.25, 0.125] as const
+
+function getDayTarget(base: number, day: number) {
+    if (day >= 5) return 1
+    return Math.max(1, Math.ceil(base * FLOW_RATIOS[day - 1]))
+}
 
 export default async function SurvivalPage({
     searchParams,
@@ -56,8 +63,22 @@ export default async function SurvivalPage({
         const { count } = await supabase
             .from('survival_participants')
             .select('*', { count: 'exact', head: true })
-            .eq('tournament_id', tournament.id)
+        .eq('tournament_id', tournament.id)
         participantCount = count || 0
+    }
+
+    const baseFieldSize = Math.max(1, participantCount)
+    const eliminationPlan = [] as Array<{ day: number; start: number; eliminated: number; remaining: number; pct: number }>
+    let startOfDay = baseFieldSize
+    for (let day = 1; day <= 5; day++) {
+        const targetRemaining = getDayTarget(baseFieldSize, day)
+        const eliminated = day === 5
+            ? Math.max(0, startOfDay - 1)
+            : Math.max(0, Math.min(startOfDay - 1, startOfDay - targetRemaining))
+        const remaining = Math.max(1, startOfDay - eliminated)
+        const pct = startOfDay > 0 ? Math.round((eliminated / startOfDay) * 100) : 0
+        eliminationPlan.push({ day, start: startOfDay, eliminated, remaining, pct })
+        startOfDay = remaining
     }
 
     return (
@@ -101,6 +122,13 @@ export default async function SurvivalPage({
                                 </p>
                             </div>
 
+                            <Button asChild variant="outline" className="w-full h-10 text-[11px] font-black uppercase tracking-widest border-red-500/40 text-red-300 bg-red-500/5 hover:bg-red-500/10 hover:text-red-200">
+                                <Link href="/survival/leaderboard" className="flex items-center justify-center gap-2">
+                                    <BarChart3 className="w-4 h-4" />
+                                    View Survival Leaderboard
+                                </Link>
+                            </Button>
+
                             {user ? (
                                 isJoined && hasStarted ? (
                                     <div className="w-full p-6 bg-red-500/10 border border-red-500/30 rounded-3xl flex flex-col items-center gap-3 animate-in fade-in zoom-in duration-500">
@@ -130,49 +158,40 @@ export default async function SurvivalPage({
                     )}
                 </div>
 
-                {/* RULES GRID */}
-                <div className="grid grid-cols-2 gap-3">
-                    {/* Rule 1 */}
-                    <div className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 flex flex-col items-center text-center gap-2 hover:bg-neutral-900 transition-colors group">
-                        <Flame className="w-6 h-6 text-orange-500 group-hover:scale-110 transition-transform" />
-                        <div>
-                            <h3 className="text-xs font-black uppercase tracking-wider text-white mb-1">The Purge</h3>
-                            <p className="text-[10px] text-neutral-500 font-medium leading-tight">
-                                Bottom <span className="text-orange-400 font-bold">25%</span> eliminated daily at midnight.
-                            </p>
-                        </div>
+                {/* FLOW + RULES */}
+                <div className="bg-neutral-900/60 p-5 rounded-3xl border border-neutral-800 space-y-4">
+                    <div className="flex items-center justify-center gap-2">
+                        <TrendingDown className="w-5 h-5 text-red-400" />
+                        <h3 className="text-sm font-black uppercase tracking-widest text-red-300">5-Day Elimination Flow</h3>
                     </div>
 
-                    {/* Rule 2 */}
-                    <div className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 flex flex-col items-center text-center gap-2 hover:bg-neutral-900 transition-colors group">
-                        <Clock className="w-6 h-6 text-blue-500 group-hover:scale-110 transition-transform" />
-                        <div>
-                            <h3 className="text-xs font-black uppercase tracking-wider text-white mb-1">Speed Kills</h3>
-                            <p className="text-[10px] text-neutral-500 font-medium leading-tight">
-                                Ties broken by <span className="text-blue-400 font-bold">time</span>. Submit early to survive.
-                            </p>
-                        </div>
+                    <div className="space-y-2">
+                        {eliminationPlan.map((step) => (
+                            <div key={step.day} className="bg-black/40 rounded-xl border border-neutral-800 px-3 py-2 flex items-center justify-between">
+                                <div className="text-left">
+                                    <div className="text-[11px] font-black uppercase tracking-wider text-white">Day {step.day}</div>
+                                    <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                                        Start {step.start} • Remain {step.remaining}
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-sm font-black text-red-400">-{step.eliminated}</div>
+                                    <div className="text-[10px] text-red-300 font-bold uppercase tracking-widest">-{step.pct}%</div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
-                    {/* Rule 3 */}
-                    <div className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 flex flex-col items-center text-center gap-2 hover:bg-neutral-900 transition-colors group">
-                        <Users className="w-6 h-6 text-purple-500 group-hover:scale-110 transition-transform" />
-                        <div>
-                            <h3 className="text-xs font-black uppercase tracking-wider text-white mb-1">The Gauntlet</h3>
-                            <p className="text-[10px] text-neutral-500 font-medium leading-tight">
-                                Lasts <span className="text-purple-400 font-bold">5 Days</span>. Field shrinks nightly.
-                            </p>
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div className="bg-black/30 p-3 rounded-xl border border-neutral-800 text-center">
+                            <Clock className="w-5 h-5 text-blue-400 mx-auto mb-1" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white">Speed Kills</p>
+                            <p className="text-[10px] text-neutral-500 font-bold mt-1">Earlier submit wins ties</p>
                         </div>
-                    </div>
-
-                    {/* Rule 4 */}
-                    <div className="bg-neutral-900/50 p-4 rounded-2xl border border-neutral-800 flex flex-col items-center text-center gap-2 hover:bg-neutral-900 transition-colors group">
-                        <Trophy className="w-6 h-6 text-yellow-500 group-hover:scale-110 transition-transform" />
-                        <div>
-                            <h3 className="text-xs font-black uppercase tracking-wider text-white mb-1">Glory</h3>
-                            <p className="text-[10px] text-neutral-500 font-medium leading-tight">
-                                Be the last one standing to claim the crown.
-                            </p>
+                        <div className="bg-black/30 p-3 rounded-xl border border-neutral-800 text-center">
+                            <Trophy className="w-5 h-5 text-yellow-500 mx-auto mb-1" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white">One Winner</p>
+                            <p className="text-[10px] text-neutral-500 font-bold mt-1">Day 5 final survivor</p>
                         </div>
                     </div>
                 </div>

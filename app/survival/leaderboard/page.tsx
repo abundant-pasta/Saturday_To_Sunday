@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
-import { Trophy, Home, Skull } from 'lucide-react'
+import { Trophy, Home, Skull, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Image from 'next/image'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,13 @@ type ScoreRow = {
   participant_id: string
   score: number
   submitted_at: string
+}
+
+type ProfileRow = {
+  id: string
+  username: string | null
+  full_name: string | null
+  avatar_url?: string | null
 }
 
 export default async function SurvivalLeaderboardPage() {
@@ -48,12 +56,14 @@ export default async function SurvivalLeaderboardPage() {
   const participantIds = (participants || []).map(p => p.id)
   const userIds = (participants || []).map(p => p.user_id)
 
-  const { data: profiles } = userIds.length > 0
+  const { data: profilesRaw } = userIds.length > 0
     ? await supabase
       .from('profiles')
-      .select('id, username, full_name')
+      .select('id, username, full_name, avatar_url')
       .in('id', userIds)
-    : { data: [] as any[] }
+    : { data: [] as ProfileRow[] }
+
+  const profiles = (profilesRaw || []) as ProfileRow[]
 
   const { data: rawScores } = participantIds.length > 0
     ? await supabase
@@ -92,7 +102,7 @@ export default async function SurvivalLeaderboardPage() {
   return (
     <div className="min-h-[100dvh] bg-neutral-950 text-white p-4 pt-16">
       <div className="max-w-md mx-auto space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <Link href="/survival">
             <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-white rounded-full">
               <Home className="w-5 h-5" />
@@ -105,29 +115,49 @@ export default async function SurvivalLeaderboardPage() {
           <div className="w-10" />
         </div>
 
-        <div className="bg-neutral-900 border border-red-900/40 rounded-2xl p-4 shadow-2xl">
+        <div className="bg-neutral-900 rounded-2xl border border-red-900/40 overflow-hidden shadow-2xl">
+          <div className="p-3 border-b border-neutral-800 bg-black/20 text-center">
+            <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">
+              {rows.length} active survivors today
+            </div>
+          </div>
+
           {rows.length === 0 ? (
             <div className="text-center py-8 text-neutral-500 font-bold uppercase tracking-widest text-xs">
               No Active Participants
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="max-h-72 overflow-y-auto divide-y divide-neutral-800/50">
               {rows.map((row, idx) => {
                 const isMe = !!user && row.userId === user.id
+                const profile = profiles.find(pr => pr.id === row.userId)
+                const displayName = profile?.username || profile?.full_name || 'Player'
+                const avatarUrl = profile?.avatar_url
                 return (
                   <div
                     key={row.participantId}
-                    className={`flex items-center justify-between rounded-xl px-3 py-3 border ${
-                      isMe ? 'bg-red-500/10 border-red-500/40' : 'bg-black/30 border-neutral-800'
+                    className={`flex items-center px-4 py-3 text-sm transition-colors ${
+                      isMe ? 'bg-red-500/10' : 'hover:bg-neutral-800/30'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-7 text-center font-black ${idx < 3 ? 'text-red-400' : 'text-neutral-500'}`}>
-                        #{idx + 1}
-                      </div>
-                      <div className="font-bold truncate">{row.name}</div>
+                    <div className={`w-8 font-mono font-black ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-neutral-300' : idx === 2 ? 'text-orange-500' : 'text-neutral-600'}`}>
+                      {idx + 1}
                     </div>
-                    <div className="font-black tabular-nums text-red-400">
+
+                    <div className="flex-1 flex items-center gap-3 min-w-0">
+                      <div className="relative w-6 h-6 rounded-full overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0 flex items-center justify-center">
+                        {avatarUrl ? (
+                          <Image src={avatarUrl} alt={displayName} fill className="object-cover" unoptimized />
+                        ) : (
+                          <User className="w-3 h-3 text-neutral-500" />
+                        )}
+                      </div>
+                      <div className={`truncate ${isMe ? 'text-red-300 font-bold' : 'text-neutral-300'}`}>
+                        {displayName} {isMe && '(You)'}
+                      </div>
+                    </div>
+
+                    <div className="font-mono font-bold text-red-400">
                       {row.score >= 0 ? row.score.toLocaleString() : '-'}
                     </div>
                   </div>
@@ -137,8 +167,8 @@ export default async function SurvivalLeaderboardPage() {
           )}
         </div>
 
-        <div className="text-center text-[10px] font-bold uppercase tracking-widest text-neutral-500">
-          <span className="inline-flex items-center gap-1">
+        <div className="text-center text-[10px] font-bold uppercase tracking-widest text-neutral-500 pt-1">
+          <span className="inline-flex items-center gap-1.5">
             <Skull className="w-3 h-3 text-red-500" />
             Ties broken by earlier submission
           </span>
@@ -147,4 +177,3 @@ export default async function SurvivalLeaderboardPage() {
     </div>
   )
 }
-
