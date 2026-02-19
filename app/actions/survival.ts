@@ -11,6 +11,46 @@ export async function getSurvivalGame() {
     const today = new Date().toISOString().split('T')[0]
     const sport = 'survival_basketball'
 
+    const { data: { user } } = await supabase.auth.getUser()
+    let status = 'new'
+    let score = 0
+
+    // 0. Check if user has already played today
+    if (user) {
+        const { data: tournament } = await supabase
+            .from('survival_tournaments')
+            .select('id, start_date')
+            .eq('is_active', true)
+            .single()
+
+        if (tournament) {
+            const start = new Date(tournament.start_date).getTime()
+            const now = new Date().getTime()
+            const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+
+            const { data: participant } = await supabase
+                .from('survival_participants')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('tournament_id', tournament.id)
+                .single()
+
+            if (participant) {
+                const { data: existingScore } = await supabase
+                    .from('survival_scores')
+                    .select('score')
+                    .eq('participant_id', participant.id)
+                    .eq('day_number', dayNumber)
+                    .maybeSingle()
+
+                if (existingScore) {
+                    status = 'played'
+                    score = existingScore.score
+                }
+            }
+        }
+    }
+
     // 1. Check for existing game
     const { data: existingGames } = await supabase
         .from('daily_games')
@@ -23,26 +63,28 @@ export async function getSurvivalGame() {
         const questions = existingGames[0].content as any[]
         const needsSecurity = questions.some(q => q.correct_answer || !q.answer_hash)
 
-        if (!needsSecurity) return questions
+        let safeQuestions = questions
+        if (needsSecurity) {
+            console.log(`Securing legacy survival game on-the-fly...`)
+            safeQuestions = await Promise.all(questions.map(async (q) => {
+                const answer = q.correct_answer || q.answer
+                const salt = q.salt || generateSalt()
+                const answerHash = q.answer_hash || await hashAnswer(answer, salt)
+                const name = (q.name.includes(' ') || !q.name.includes('='))
+                    ? Buffer.from(q.name).toString('base64')
+                    : q.name
 
-        console.log(`Securing legacy survival game on-the-fly...`)
-        return await Promise.all(questions.map(async (q) => {
-            const answer = q.correct_answer || q.answer
-            const salt = q.salt || generateSalt()
-            const answerHash = q.answer_hash || await hashAnswer(answer, salt)
-            const name = (q.name.includes(' ') || !q.name.includes('='))
-                ? Buffer.from(q.name).toString('base64')
-                : q.name
-
-            return {
-                ...q,
-                name,
-                answer_hash: answerHash,
-                salt: salt,
-                correct_answer: undefined,
-                answer: undefined
-            }
-        }))
+                return {
+                    ...q,
+                    name,
+                    answer_hash: answerHash,
+                    salt: salt,
+                    correct_answer: undefined,
+                    answer: undefined
+                }
+            }))
+        }
+        return { questions: safeQuestions, status, score }
     }
 
     // 2. Generate New Game (Admin Access for Pool + Write)
@@ -102,7 +144,7 @@ export async function getSurvivalGame() {
         sport: sport
     })
 
-    return questions
+    return { questions, status, score }
 }
 
 export async function joinTournament(tournamentId: string) {
@@ -162,7 +204,7 @@ export async function joinTournament(tournamentId: string) {
     }
 }
 
-export async function submitSurvivalScore(score: number) {
+export async function submitSurvivalScore(answers: { questionId: number, answer: string, potentialPoints: number }[]) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Not authenticated' }
@@ -187,50 +229,96 @@ export async function submitSurvivalScore(score: number) {
     if (!participant) return { error: 'Not a participant' }
     if (participant.status === 'eliminated') return { error: 'You are eliminated' }
 
-    // 3. Calculate Day Number (Simple Diff)
-    // Assuming start_date is properly set. 
-    // If we want simpler logic, we can just fetch how many days have passed since start.
+    // 3. Get Game Content (Securely)
+    // We need the *full* content including answers/hashes to verify
+    const today = new Date().toISOString().split('T')[0]
+    const sport = 'survival_basketball' // or pass it in?
+
+    // Use admin client to read daily_games if RLS restricts it? 
+    // Usually daily_games is public read, but we need to ensure we get the stored content.
+    // The public 'daily_games' read might rely on RLS (usually true for 'authenticated').
+    // But we need to match question IDs from the DB content.
+
+    const { data: gameData } = await supabase
+        .from('daily_games')
+        .select('content')
+        .eq('date', today)
+        .eq('sport', sport)
+        .single()
+
+    if (!gameData) return { error: 'Game data not found' }
+
+    const questions = gameData.content as any[]
+    let finalScore = 0
+    let streak = 0
+
+    // 4. Calculate Score
+    for (const ans of answers) {
+        const question = questions.find(q => q.id === ans.questionId)
+        if (!question) continue
+
+        let isCorrect = false
+        if (question.correct_answer) {
+            isCorrect = question.correct_answer === ans.answer
+        } else if (question.answer_hash && question.salt) {
+            const h = await hashAnswer(ans.answer, question.salt)
+            isCorrect = h === question.answer_hash
+        }
+
+        if (isCorrect) {
+            streak++
+
+            // Validate points
+            // Cap potential points at 100 per question
+            const validPotential = Math.min(100, Math.max(10, ans.potentialPoints))
+
+            // Re-apply tier multiplier logic server-side
+            const tier = question.tier || 1
+            const multiplier = tier === 3 ? 1.75 : tier === 2 ? 1.5 : 1.0
+
+            const points = Math.round(validPotential * multiplier)
+
+            let bonus = 0
+            if (streak === 5) bonus = 50 // Match client logic? Client said "6 in a row"?
+            // Checking client code: "if (currentStreakCount === 6) { bonus = 50 ... }"
+            // And "if (currentStreakCount === 10) { bonus = 150 ... }"
+            // WAIT - Client loop:
+            // for (let i = currentIndex - 1; i >= 0; i--) { ... } if (isCorrect) currentStreakCount++
+            // If index is 5 (6th question), and previous 5 were correct + this one implies streak is 6.
+            // Client logic:
+            // "if (currentStreakCount === 6) { bonus = 50; ... }"
+            // "if (currentStreakCount === 10) { bonus = 150; ... }"
+
+            if (streak === 6) bonus = 50
+            if (streak === 10) bonus = 150
+
+            finalScore += (points + bonus)
+        } else {
+            streak = 0
+        }
+    }
+
+    // 5. Calculate Day Number
     const start = new Date(tournament.start_date).getTime()
     const now = new Date().getTime()
-    // 1-based day index
-    // If now < start, it's day 1 (early play?) or invalid.
     const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
 
-    // 4. Insert Score
-    // Check if score already exists for this day?
-    // Using upsert allows updating if they replay (which they shouldn't, but...)
-    // Survival is usually "one shot".
-    // But duplicate key constraint on (participant_id, day_number)? 
-    // The migration didn't define a unique constraint on (participant_id, day_number).
-    // Let's check migration 004 again.
-    // It creates table but NO unique constraint for (participant_id, day_number) explicitly mentioned in CREATE TABLE?
-    // Ah, lines 26-32. No UNIQUE constraint.
-    // So if they submit twice, they get two rows?
-    // The edge function `process-daily-elimination` needs to handle this (e.g. take max score).
-
-    // Use service role for score write to avoid RLS insert failures in production,
-    // while still enforcing auth + participant checks above.
+    // 6. Insert Score
     const supabaseAdmin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data: existingScore, error: existingError } = await supabaseAdmin
+    const { data: existingScore } = await supabaseAdmin
         .from('survival_scores')
         .select('id')
         .eq('participant_id', participant.id)
         .eq('day_number', dayNumber)
         .maybeSingle()
 
-    if (existingError) {
-        console.error("Score existence check error:", existingError)
-        return { error: existingError.message }
-    }
-
-    // Idempotency guard: if already submitted for this day, treat as success.
     if (existingScore) {
         revalidatePath('/survival')
-        return { success: true, alreadySubmitted: true }
+        return { success: true, alreadySubmitted: true, score: finalScore }
     }
 
     const { error } = await supabaseAdmin
@@ -238,7 +326,7 @@ export async function submitSurvivalScore(score: number) {
         .insert({
             participant_id: participant.id,
             day_number: dayNumber,
-            score: score
+            score: finalScore
         })
 
     if (error) {
@@ -247,5 +335,5 @@ export async function submitSurvivalScore(score: number) {
     }
 
     revalidatePath('/survival')
-    return { success: true }
+    return { success: true, score: finalScore }
 }

@@ -101,6 +101,10 @@ function SurvivalGrid() {
 
     type ResultEntry = { player_id: number; result: 'correct' | 'wrong'; player_name: string }
     const [results, setResults] = useState<ResultEntry[]>([])
+
+    // NEW: Track answers for secure submission
+    const [answers, setAnswers] = useState<{ questionId: number, answer: string, potentialPoints: number }[]>([])
+
     const [potentialPoints, setPotentialPoints] = useState(100)
     const [selectedOption, setSelectedOption] = useState<string | null>(null)
     const [showResult, setShowResult] = useState(false)
@@ -136,8 +140,9 @@ function SurvivalGrid() {
         const loadGame = async () => {
             try {
                 const gameData = await getSurvivalGame()
-                if (gameData && gameData.length > 0) {
-                    setQuestions(gameData)
+                // Handle new server response format or null
+                if (gameData && 'questions' in gameData) {
+                    setQuestions(gameData.questions)
 
                     // Also fetch tournament data for start date
                     const { data: tourney } = await supabase
@@ -147,11 +152,24 @@ function SurvivalGrid() {
                         .single()
                     setTournament(tourney)
 
+                    // Check server status first (more authoritative)
+                    if (gameData.status === 'played') {
+                        setScore(gameData.score)
+                        // We don't have results history from server in this version, so grid will be empty
+                        // but score is accurate.
+                        setGameState('finished')
+                        setIsSaved(true) // Start as saved
+                        return
+                    }
+
+                    // Fallback to local if server says 'new' (maybe tournament not active or different login?)
                     const savedScore = localStorage.getItem('s2s_survival_today_score')
                     const savedDate = localStorage.getItem('s2s_survival_last_played_date')
                     const savedResults = localStorage.getItem('s2s_survival_daily_results')
                     const today = getGameDate()
 
+                    // If local storage says played today, trust it to show results, 
+                    // but server status should have caught it if they were logged in.
                     if (savedScore && savedDate === today) {
                         setScore(parseInt(savedScore))
                         setResults(savedResults ? JSON.parse(savedResults) : [])
@@ -188,19 +206,23 @@ function SurvivalGrid() {
         const saveScore = async () => {
             if (gameState !== 'finished' || isSaved || score <= 0) return
 
-            // Call server action
-            const result = await submitSurvivalScore(score)
+            // Call server action with answers for verification
+            const result = await submitSurvivalScore(answers)
 
             if (result?.success) {
                 setIsSaved(true)
                 setSaveError(null)
+                // Update score with authoritative server score if provided
+                if (result.score !== undefined) {
+                    setScore(result.score)
+                }
             } else {
                 console.error("Failed to submit score:", result?.error)
                 setSaveError(result?.error || 'Failed to submit score')
             }
         }
         saveScore()
-    }, [gameState, isSaved, score])
+    }, [gameState, isSaved, score, answers])
 
     // Match normal game timer behavior: 1 second pause, then half-second decay.
     useEffect(() => {
@@ -253,7 +275,6 @@ function SurvivalGrid() {
         setRevealedAnswer(correctOpt)
 
         // Calculate streak logic for 10 rounds
-        // Let's do simple bonuses: 5 in a row = 50, 10 in a row = 150
         let currentStreakCount = 0
         for (let i = currentIndex - 1; i >= 0; i--) {
             const res = results[i]
@@ -276,6 +297,7 @@ function SurvivalGrid() {
             pointsEarned = basePoints + bonus
             newScore += pointsEarned
 
+            // Optimistically update score, server will validate later
             setScore(newScore)
             setReceivedBonus(bonus > 0 ? bonus : null)
             setLastEarnedPoints(pointsEarned)
@@ -292,6 +314,16 @@ function SurvivalGrid() {
             player_name: decodeName(currentQ.name)
         }
         setResults(newResults)
+
+        // Track answer for secure submission
+        const newAnswers = [...answers]
+        newAnswers.push({
+            questionId: currentQ.id,
+            answer: option,
+            potentialPoints: isCorrect ? potentialPoints : 0 // User only claims points if they think they are right, server validates anyway
+        })
+        setAnswers(newAnswers)
+
         setShowResult(true)
 
         setTimeout(() => {
