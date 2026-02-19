@@ -393,7 +393,7 @@ function SurvivalGrid() {
                                 <Share2 className="mr-2 w-5 h-5" /> Share Result
                             </Button>
                             <Button asChild className="w-full h-12 text-sm font-black tracking-widest uppercase bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-xl border border-red-400/30">
-                                <Link href="/survival">View Survival Leaderboard</Link>
+                                <Link href="/survival/leaderboard">View Survival Leaderboard</Link>
                             </Button>
                             <Button asChild className="w-full h-12 text-lg font-bold bg-neutral-800 text-white hover:bg-neutral-700">
                                 <Link href="/">Return Home</Link>
