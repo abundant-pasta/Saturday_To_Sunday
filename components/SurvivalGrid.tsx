@@ -93,11 +93,12 @@ function SurvivalGrid() {
     const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
 
     // Update header visibility based on game state
-    useEffect(() => {
-        setHeaderHidden(gameState === 'playing')
-        // Reset on unmount
-        return () => setHeaderHidden(false)
-    }, [gameState, setHeaderHidden])
+    // WE REMOVED HEADER HIDING per user request ("All pages should have the normal header")
+    // useEffect(() => {
+    //     setHeaderHidden(gameState === 'playing')
+    //     // Reset on unmount
+    //     return () => setHeaderHidden(false)
+    // }, [gameState, setHeaderHidden])
 
     type ResultEntry = { player_id: number; result: 'correct' | 'wrong'; player_name: string }
     const [results, setResults] = useState<ResultEntry[]>([])
@@ -369,9 +370,10 @@ function SurvivalGrid() {
         const rankInfo = getRankTitle(score)
         return (
             <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-start p-4 space-y-4 animate-in fade-in duration-500 relative overflow-y-auto">
-                <Link href="/" className="absolute top-4 left-4 z-20">
+                {/* REMOVED DUPLICATE HOME BUTTON PER USER REQUEST */}
+                {/* <Link href="/" className="absolute top-4 left-4 z-20">
                     <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white rounded-full"><Home className="w-6 h-6" /></Button>
-                </Link>
+                </Link> */}
 
                 <div className="text-center space-y-2 mb-2 mt-8">
                     <Trophy className={`w-16 h-16 text-red-500 mx-auto animate-bounce mb-2`} />
@@ -444,11 +446,13 @@ function SurvivalGrid() {
         <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
             <div className="w-full max-w-md mx-auto pt-2 px-2 shrink-0 z-50">
                 <div className={`flex items-center justify-between bg-neutral-900 backdrop-blur-md rounded-full px-4 py-2 border border-white/5 shadow-2xl`}>
-                    {currentIndex === 0 ? (
+                    {/* REMOVED DUPLICATE HOME BUTTON */}
+                    {/* {currentIndex === 0 ? (
                         <Link href="/"><button className="text-neutral-400 hover:text-white"><Home className="w-4 h-4" /></button></Link>
                     ) : (
                         <div className="w-4" />
-                    )}
+                    )} */}
+                    <div className="w-4" />
                     <div className="flex items-center gap-2">
                         <div className={`text-lg font-black text-red-500 tabular-nums leading-none`}>{score}</div>
                     </div>

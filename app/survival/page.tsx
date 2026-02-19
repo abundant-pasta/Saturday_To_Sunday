@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
+import SurvivalRankDisplay from '@/components/SurvivalRankDisplay'
 import SurvivalSignup from '@/components/SurvivalSignup'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -63,7 +64,7 @@ export default async function SurvivalPage({
         const { count } = await supabase
             .from('survival_participants')
             .select('*', { count: 'exact', head: true })
-        .eq('tournament_id', tournament.id)
+            .eq('tournament_id', tournament.id)
         participantCount = count || 0
     }
 
@@ -93,12 +94,22 @@ export default async function SurvivalPage({
                             <Skull className="w-12 h-12 text-red-500" />
                         </div>
                     </div>
-                    <h1 className="text-5xl md:text-6xl font-black italic uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-neutral-200 to-neutral-500 drop-shadow-sm">
-                        Survival<br /><span className="text-red-600 text-6xl md:text-7xl">Mode</span>
+                    <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-neutral-200 to-neutral-500 drop-shadow-sm">
+                        Survival Mode
                     </h1>
                     <p className="text-neutral-500 font-bold text-xs uppercase tracking-widest">
                         5 Days. One Survivor. No Mercy.
                     </p>
+
+                    {/* CURRENT RANK DISPLAY */}
+                    {tournament && user && isJoined && (
+                        <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 border border-neutral-800 rounded-full shadow-xl">
+                            <Trophy className="w-4 h-4 text-yellow-500" />
+                            <span className="text-xs md:text-sm font-bold text-neutral-300">
+                                Current Rank: <span className="text-white font-black"><SurvivalRankDisplay tournamentId={tournament.id} userId={user.id} /></span>
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* MAIN CARD */}

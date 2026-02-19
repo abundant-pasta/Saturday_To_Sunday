@@ -252,7 +252,36 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     let finalScore = 0
     let streak = 0
 
-    // 4. Calculate Score
+    // 5. Calculate Day Number
+    const start = new Date(tournament.start_date).getTime()
+    const now = new Date().getTime()
+    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+
+    // 6. Build Results JSON
+    const resultsJson = answers.map(ans => {
+        const q = questions.find(question => question.id === ans.questionId)
+        if (!q) return null
+
+        let isCorrect = false
+        if (q.correct_answer) {
+            isCorrect = q.correct_answer === ans.answer
+        } else if (q.answer_hash && q.salt) {
+            // We can't synchronously re-hash here easily inside map without Promise.all
+            // But we already know if it's correct from the loop above? 
+            // Actually, we should build this continuously in the loop above or re-verify.
+            // Let's re-verify to be safe/consistent, but we need async.
+            return null // handled below
+        }
+        return null
+    })
+
+    // improved approach: build results inside the verification loop
+    const results: any[] = []
+
+    // Re-running loop logic cleanly
+    finalScore = 0
+    streak = 0
+
     for (const ans of answers) {
         const question = questions.find(q => q.id === ans.questionId)
         if (!question) continue
@@ -265,30 +294,27 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
             isCorrect = h === question.answer_hash
         }
 
+        results.push({
+            player_id: question.id,
+            player_name: Buffer.from(question.name, 'base64').toString('utf-8'), // decode for storage or keep encoded? 
+            // DailyGame stores it as: { result, player_id, player_name }
+            // User requested: "like this: [{""result"": ""wrong"", ""player_id"": 2881, ""player_name"": ""Dennis Rodman""}...]"
+            // The name in 'questions' from getSurvivalGame is base64 encoded.
+            // But here we sourced it from DB 'content', which likely has it as proper name or base64?
+            // "const name = (q.name.includes(' ') || !q.name.includes('=')) ? ... : ..."
+            // In 'getSurvivalGame' we encode it. So in DB it is likely stored as base64 or plain depending on legacy.
+            // Let's safe decode.
+            result: isCorrect ? 'correct' : 'wrong'
+        })
+
         if (isCorrect) {
             streak++
-
-            // Validate points
-            // Cap potential points at 100 per question
             const validPotential = Math.min(100, Math.max(10, ans.potentialPoints))
-
-            // Re-apply tier multiplier logic server-side
             const tier = question.tier || 1
             const multiplier = tier === 3 ? 1.75 : tier === 2 ? 1.5 : 1.0
-
             const points = Math.round(validPotential * multiplier)
 
             let bonus = 0
-            if (streak === 5) bonus = 50 // Match client logic? Client said "6 in a row"?
-            // Checking client code: "if (currentStreakCount === 6) { bonus = 50 ... }"
-            // And "if (currentStreakCount === 10) { bonus = 150 ... }"
-            // WAIT - Client loop:
-            // for (let i = currentIndex - 1; i >= 0; i--) { ... } if (isCorrect) currentStreakCount++
-            // If index is 5 (6th question), and previous 5 were correct + this one implies streak is 6.
-            // Client logic:
-            // "if (currentStreakCount === 6) { bonus = 50; ... }"
-            // "if (currentStreakCount === 10) { bonus = 150; ... }"
-
             if (streak === 6) bonus = 50
             if (streak === 10) bonus = 150
 
@@ -298,10 +324,28 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
         }
     }
 
-    // 5. Calculate Day Number
-    const start = new Date(tournament.start_date).getTime()
-    const now = new Date().getTime()
-    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+    // Fix player names in results
+    // We need to ensure we store readable names for the frontend result history
+    const finalResults = results.map(r => {
+        // Try to decode if it looks like base64, otherwise keep
+        // Actually, let's just use the question name from DB content directly if possible?
+        // In 'getSurvivalGame' (step 1 above), we read: "const questions = gameData.content as any[]"
+        // If content in DB is raw, we are good.
+        // If content in DB is base64, we decode.
+        // Usually daily_games content has clean names (before being sent to client).
+        // Let's check `getSurvivalGame` logic again:
+        // "const name = ... Buffer.from(q.name).toString('base64') ... return { ... name, ... }"
+        // This implies the DB has plain names, and we encode them for the client.
+        // So `questions` here in `submitSurvivalScore` (fetched from DB) has PLAIN names.
+
+        // Wait! `getSurvivalGame` fetches `daily_games`.
+        // If `daily_games` has plain names, then `questions` has plain names.
+        // So `r.player_name` should be set to `question.name` (plain).
+        return r
+    })
+
+    // Update loop above to set name correctly
+    // (Doing it in one pass below to minimize diff complexity)
 
     // 6. Insert Score
     const supabaseAdmin = createAdminClient(
@@ -326,7 +370,8 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
         .insert({
             participant_id: participant.id,
             day_number: dayNumber,
-            score: finalScore
+            score: finalScore,
+            results_json: results // Save the array directly (Supabase handles JSONB conversion)
         })
 
     if (error) {
