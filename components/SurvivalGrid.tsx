@@ -111,6 +111,17 @@ function SurvivalGrid() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
+    // Fail-safe: don't block gameplay forever if an image is slow/broken.
+    useEffect(() => {
+        if (gameState === 'playing' && !isImageReady) {
+            const timer = setTimeout(() => {
+                console.log("Survival image load timeout hit - forcing ready state")
+                setIsImageReady(true)
+            }, 3000)
+            return () => clearTimeout(timer)
+        }
+    }, [gameState, currentIndex, isImageReady])
+
     useEffect(() => {
         const loadGame = async () => {
             try {
@@ -433,7 +444,7 @@ function SurvivalGrid() {
                         </div>
                     </div>
 
-                    {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />}
+                    {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} onError={() => setIsImageReady(true)} priority={true} />}
 
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
                         <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{atob(q.name)}</h2>
