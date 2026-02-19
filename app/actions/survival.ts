@@ -208,7 +208,14 @@ export async function submitSurvivalScore(score: number) {
     // So if they submit twice, they get two rows?
     // The edge function `process-daily-elimination` needs to handle this (e.g. take max score).
 
-    const { error } = await supabase
+    // Use service role for score write to avoid RLS insert failures in production,
+    // while still enforcing auth + participant checks above.
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { error } = await supabaseAdmin
         .from('survival_scores')
         .insert({
             participant_id: participant.id,
