@@ -215,6 +215,24 @@ export async function submitSurvivalScore(score: number) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    const { data: existingScore, error: existingError } = await supabaseAdmin
+        .from('survival_scores')
+        .select('id')
+        .eq('participant_id', participant.id)
+        .eq('day_number', dayNumber)
+        .maybeSingle()
+
+    if (existingError) {
+        console.error("Score existence check error:", existingError)
+        return { error: existingError.message }
+    }
+
+    // Idempotency guard: if already submitted for this day, treat as success.
+    if (existingScore) {
+        revalidatePath('/survival')
+        return { success: true, alreadySubmitted: true }
+    }
+
     const { error } = await supabaseAdmin
         .from('survival_scores')
         .insert({
