@@ -13,6 +13,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 import { hashAnswer } from '@/utils/crypto'
+import SurvivalLiveRankDisplay from '@/components/SurvivalLiveRankDisplay'
 
 const THEME = {
     primary: 'text-amber-400',
@@ -350,6 +351,12 @@ function SurvivalGrid() {
 
                 <Card className={`w-full max-w-md bg-neutral-900 border-red-900/30 shadow-2xl relative overflow-hidden shrink-0`}>
                     <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
+
+                        {isSaved && (
+                            <div className="absolute top-6 left-6">
+                                <SurvivalLiveRankDisplay />
+                            </div>
+                        )}
 
                         {/* CENTERED SCORE AND TITLE */}
                         <div className="flex flex-col items-center justify-center gap-2">

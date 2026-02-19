@@ -5,6 +5,25 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const DAY_MS = 1000 * 60 * 60 * 24
+const TARGET_TOURNAMENT_DAYS = 5
+
+function targetRemainingForDay(initialFieldSize: number, dayNumber: number): number {
+    if (dayNumber >= TARGET_TOURNAMENT_DAYS) return 1
+
+    // 5-day pacing curve to keep more players engaged early:
+    // Day 1: 62.5%, Day 2: 37.5%, Day 3: 25%, Day 4: 12.5%, Day 5: winner
+    const ratioByDay: Record<number, number> = {
+        1: 0.625,
+        2: 0.375,
+        3: 0.25,
+        4: 0.125,
+    }
+
+    const ratio = ratioByDay[dayNumber] ?? 0.125
+    return Math.max(1, Math.ceil(initialFieldSize * ratio))
+}
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
@@ -130,9 +149,21 @@ Deno.serve(async (req) => {
 
         // 6. Calculate Cutoff
         const totalActive = combined.length
-        const eliminateCount = Math.ceil(totalActive * 0.25)
+        const startTs = new Date(tournament.start_date).getTime()
+        const endTs = new Date(tournament.end_date).getTime()
+        const configuredTournamentDays = Math.max(1, Math.ceil((endTs - startTs) / DAY_MS))
+        const totalTournamentDays = Math.min(TARGET_TOURNAMENT_DAYS, configuredTournamentDays)
+        const daysRemainingIncludingToday = Math.max(1, totalTournamentDays - processingDayNumber + 1)
+        const { count: initialFieldSize } = await supabase
+            .from('survival_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournament.id)
 
-        console.log(`Total Active: ${totalActive}. Eliminating: ${eliminateCount}`)
+        const baseFieldSize = initialFieldSize || totalActive
+        const targetRemaining = targetRemainingForDay(baseFieldSize, processingDayNumber)
+        const eliminateCount = Math.max(0, Math.min(totalActive - 1, totalActive - targetRemaining))
+
+        console.log(`Total Active: ${totalActive}. Days remaining: ${daysRemainingIncludingToday}. Base field: ${baseFieldSize}. Target remaining: ${targetRemaining}. Eliminating: ${eliminateCount}`)
 
         // Identify Victims
         const victims = combined.slice(0, eliminateCount)
@@ -155,6 +186,9 @@ Deno.serve(async (req) => {
                 details: {
                     total_active_start: totalActive,
                     eliminated_count: eliminateCount,
+                    target_remaining_after_cut: targetRemaining,
+                    base_field_size: baseFieldSize,
+                    days_remaining_including_today: daysRemainingIncludingToday,
                     eliminated_ids: victimIds,
                     cutoff_score_threshold: victims[victims.length - 1].score // approximate
                 }

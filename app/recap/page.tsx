@@ -126,7 +126,7 @@ export default function RecapPage() {
     }
 
     const handleShare = async () => {
-        const text = `🏆 Check out yesterday's legends on Saturday to Sunday!\n\n${formatDate(gameDate)}\n\nJoin the hunt: 👇\nhttps://www.playsaturdaytosunday.com`
+        const text = `Yesterday's legends went off! 🏆\n\nSee who made the cut on Saturday to Sunday. Were you on the list?\n\nCheck the leaderboard: 👇\nhttps://www.playsaturdaytosunday.com/recap`
         try {
             if (navigator.share) {
                 await navigator.share({ text })

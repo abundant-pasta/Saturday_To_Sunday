@@ -77,7 +77,7 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
                                 </span>
                             </div>
                             <p className="text-2xl font-bold uppercase tracking-widest" style={{ color: '#ef4444' }}>
-                                10 Days. <span style={{ color: '#ffffff' }}>14 Registered.</span> Join Now.
+                                5 Days. <span style={{ color: '#ffffff' }}>14 Registered.</span> Join Now.
                             </p>
                         </div>
                     </div>

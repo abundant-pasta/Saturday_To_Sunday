@@ -194,7 +194,7 @@ function HomeContent() {
   }
 
   const handleSystemShare = async () => {
-    const text = `🏈 Saturday to Sunday\n\nGuess the college for 10 NFL/NBA players.\n\nPlay today's grid: 👇\nhttps://www.playsaturdaytosunday.com`
+    const text = `I'm addicted to this college sports grid. 🏈🏀\n\nCan you go 10/10?\n\nPlay Saturday to Sunday: 👇\nhttps://www.playsaturdaytosunday.com`
     try {
       if (navigator.share) {
         await navigator.share({ text })
@@ -366,7 +366,7 @@ function HomeContent() {
                   </span>
                 </div>
                 <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                  10 Days. <span className="text-white">{survivalCount !== null ? `${survivalCount} ${isSurvivalStarted ? 'Survivors Remaining.' : 'Registered.'}` : isSurvivalStarted ? 'One Survivor Remaining.' : 'One Registered.'}</span> <span className="text-red-400">Join Now.</span>
+                  5 Days. <span className="text-white">{survivalCount !== null ? `${survivalCount} ${isSurvivalStarted ? 'Survivors Remaining.' : 'Registered.'}` : isSurvivalStarted ? 'One Survivor Remaining.' : 'One Registered.'}</span> <span className="text-red-400">Join Now.</span>
                 </p>
               </div>
             </div>

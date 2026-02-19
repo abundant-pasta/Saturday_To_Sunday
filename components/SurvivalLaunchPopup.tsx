@@ -108,7 +108,7 @@ export default function SurvivalLaunchPopup() {
               Survival Mode Is Live
             </h2>
             <p className="mt-2 text-xs font-bold uppercase tracking-widest text-neutral-300">
-              10 Days. Daily Cuts. Last Player Standing.
+              5 Days. Daily Cuts. Last Player Standing.
             </p>
           </div>
 

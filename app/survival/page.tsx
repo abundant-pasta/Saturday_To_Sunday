@@ -76,7 +76,7 @@ export default async function SurvivalPage({
                         Survival<br /><span className="text-red-600 text-6xl md:text-7xl">Mode</span>
                     </h1>
                     <p className="text-neutral-500 font-bold text-xs uppercase tracking-widest">
-                        10 Days. One Survivor. No Mercy.
+                        5 Days. One Survivor. No Mercy.
                     </p>
                 </div>
 
@@ -160,7 +160,7 @@ export default async function SurvivalPage({
                         <div>
                             <h3 className="text-xs font-black uppercase tracking-wider text-white mb-1">The Gauntlet</h3>
                             <p className="text-[10px] text-neutral-500 font-medium leading-tight">
-                                Lasts <span className="text-purple-400 font-bold">10 Days</span>. Field shrinks nightly.
+                                Lasts <span className="text-purple-400 font-bold">5 Days</span>. Field shrinks nightly.
                             </p>
                         </div>
                     </div>
