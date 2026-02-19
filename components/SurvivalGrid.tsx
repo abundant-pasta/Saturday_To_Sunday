@@ -294,27 +294,27 @@ function SurvivalGrid() {
         return (
             <div className="h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-6 space-y-6 text-center animate-in fade-in relative overflow-hidden">
                 {/* Background glow */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-600/20 rounded-full blur-[100px] pointer-events-none" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[100px] pointer-events-none" />
 
                 <div className="space-y-2 relative z-10">
-                    <Flame className="w-20 h-20 text-amber-500 mx-auto animate-pulse" />
+                    <Skull className="w-20 h-20 text-red-500 mx-auto animate-pulse" />
                     <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
-                        The <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500">Gauntlet</span>
+                        The <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">Gauntlet</span>
                     </h1>
                     <p className="text-neutral-400 max-w-sm mx-auto">
-                        10 Players. 10 Rounds. Zero Forgiveness.
+                        10 Players. Zero Forgiveness.
                     </p>
                 </div>
 
-                <Card className="w-full max-w-sm bg-neutral-900 border-amber-900/50 shadow-2xl relative z-10">
+                <Card className="w-full max-w-sm bg-neutral-900 border-red-900/50 shadow-2xl relative z-10">
                     <CardContent className="pt-6 space-y-4">
                         <div className="grid grid-cols-2 gap-4 text-sm font-bold text-neutral-300">
                             <div className="bg-black/50 p-3 rounded-lg border border-white/5">
-                                <div className="text-amber-500 mb-1">ROUNDS</div>
+                                <div className="text-red-500 mb-1">ROUNDS</div>
                                 <div className="text-2xl text-white">10</div>
                             </div>
                             <div className="bg-black/50 p-3 rounded-lg border border-white/5">
-                                <div className="text-amber-500 mb-1">PLAYERS</div>
+                                <div className="text-red-500 mb-1">PLAYERS</div>
                                 <div className="text-2xl text-white">CBB Stars</div>
                             </div>
                         </div>
@@ -324,7 +324,7 @@ function SurvivalGrid() {
                 <Button
                     onClick={() => !startsInFuture && setGameState('playing')}
                     disabled={startsInFuture}
-                    className={`w-full max-w-sm h-14 text-xl font-black bg-gradient-to-r ${startsInFuture ? 'from-neutral-700 to-neutral-800 cursor-not-allowed opacity-50' : 'from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-[0_0_30px_rgba(245,158,11,0.4)]'} text-white border-0 relative z-10 transition-all hover:scale-105 active:scale-95`}
+                    className={`w-full max-w-sm h-14 text-xl font-black bg-gradient-to-r ${startsInFuture ? 'from-neutral-700 to-neutral-800 cursor-not-allowed opacity-50' : 'from-red-700 to-orange-600 hover:from-red-600 hover:to-orange-500 shadow-[0_0_30px_rgba(239,68,68,0.4)]'} text-white border border-red-400/30 relative z-10 transition-all hover:scale-105 active:scale-95`}
                 >
                     {startsInFuture ? 'STARTS THURSDAY' : 'ENTER THE GAUNTLET'}
                 </Button>
