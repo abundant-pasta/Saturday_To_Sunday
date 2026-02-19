@@ -15,99 +15,98 @@ export default function SurvivalRankDisplay({ tournamentId, userId }: { tourname
     )
 
     useEffect(() => {
-        const fetchRank = async () => {
-            // This is a simple client-side rank fetch. 
-            // Ideally this should be a server component or cached action, but for "current rank" live feel, client is okay.
-            // We need to count how many people have a higher score than us?
-            // Actually, survival rank is usually based on "who is still alive" or "total score".
-            // Let's assume Total Score for now.
 
-            // 1. Get my total score
-            const { data: myScores } = await supabase
-                .from('survival_scores')
-                .select('score, participant_id')
-                .eq('participant_id', (await supabase.from('survival_participants').select('id').eq('user_id', userId).eq('tournament_id', tournamentId).single()).data?.id)
 
-            const myTotal = myScores?.reduce((acc, curr) => acc + curr.score, 0) || 0
+        if (userId && tournamentId) {
+            const fetchScoredRank = async () => {
+                setLoading(true)
+                try {
+                    // 1. Get my participant ID
+                    const { data: me } = await supabase
+                        .from('survival_participants')
+                        .select('id, status')
+                        .eq('user_id', userId)
+                        .eq('tournament_id', tournamentId)
+                        .single()
 
-            // 2. Get all participants total scores... this is expensive.
-            // Better approach: use a view or RPC from Supabase if available.
-            // Or just just "active participants count" for now?
-            // User asked: "5/20 or whatever".
-            // Since we don't have a materialized leaderboard view readily available in this context without scanning,
-            // let's just show "Survivors Remaining" for now if calculating rank is too heavy?
-            // "Put your current ranking... So 5/20".
-            // I'll implement a lightweight check.
+                    if (!me) { setLoading(false); return }
+                    if (me.status === 'eliminated') {
+                        const { count } = await supabase.from('survival_participants').select('*', { count: 'exact', head: true }).eq('tournament_id', tournamentId)
+                        setRank('Eliminated')
+                        setTotal(count)
+                        setLoading(false)
+                        return
+                    }
 
-            // Get all participants for this tournament
-            const { count: totalParticipants } = await supabase
-                .from('survival_participants')
-                .select('*', { count: 'exact', head: true })
-                .eq('tournament_id', tournamentId)
-            // .eq('status', 'active') // Show out of ALL or just active? Usually all.
+                    // 2. Determine current day number (needed to filter scores)
+                    const { data: tournament } = await supabase
+                        .from('survival_tournaments')
+                        .select('start_date')
+                        .eq('id', tournamentId)
+                        .single()
 
-            // For rank, we really need a leaderboard query.
-            // Let's try to fetch the top 100 and see if we are in it?
-            // Or just display "Survivors Remaining: X/Y" which is easier and more dramatic?
-            // User specifically asked for "ranking".
+                    if (!tournament) return
 
-            // Let's assume we can use the `survival_leaderboard` view if it exists, or raw query.
-            // I'll stick to a simple placeholder implementation for now that shows "Active / Total" 
-            // effectively "Rank" among survivors?
-            // Wait, "5/20" implies "5th place out of 20".
+                    const dayNumber = Math.max(
+                        1,
+                        Math.floor((Date.now() - new Date(tournament.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1
+                    )
 
-            // Let's use a quick RPC or secure select if possible.
-            // I'll implement a simple client-side fetch of all scores for now (limited impact if userbase < 1000).
-            // Actually, `getSurvivalLeaderboard` action likely exists?
+                    // 3. Fetch all active participants
+                    const { data: participants } = await supabase
+                        .from('survival_participants')
+                        .select('id, user_id')
+                        .eq('tournament_id', tournamentId)
+                        .eq('status', 'active')
 
-            // Let's just fetch my participant status.
-            const { data: participant } = await supabase
-                .from('survival_participants')
-                .select('status')
-                .eq('user_id', userId)
-                .eq('tournament_id', tournamentId)
-                .single()
+                    if (!participants) return
+                    const participantIds = participants.map(p => p.id)
 
-            if (participant?.status === 'eliminated') {
-                setRank('Eliminated')
-                setTotal(totalParticipants)
-                setLoading(false)
-                return
+                    // 4. Fetch scores for today for these participants
+                    const { data: scores } = await supabase
+                        .from('survival_scores')
+                        .select('participant_id, score, submitted_at')
+                        .eq('day_number', dayNumber)
+                        .in('participant_id', participantIds)
+
+                    // 5. Calculate best score per participant (similar to leaderboard page)
+                    const bestByParticipant = new Map<string, { score: number; submittedAtMs: number }>()
+                    for (const row of (scores || [])) {
+                        const rowTime = new Date(row.submitted_at).getTime()
+                        const prev = bestByParticipant.get(row.participant_id)
+                        if (!prev || row.score > prev.score || (row.score === prev.score && rowTime < prev.submittedAtMs)) {
+                            bestByParticipant.set(row.participant_id, { score: row.score, submittedAtMs: rowTime })
+                        }
+                    }
+
+                    // 6. Build list and sort
+                    const rankingList = participants.map(p => {
+                        const best = bestByParticipant.get(p.id)
+                        return {
+                            participantId: p.id,
+                            score: best?.score ?? -1,
+                            submittedAtMs: best?.submittedAtMs ?? Number.MAX_SAFE_INTEGER
+                        }
+                    })
+
+                    rankingList.sort((a, b) => {
+                        if (a.score !== b.score) return b.score - a.score
+                        return a.submittedAtMs - b.submittedAtMs
+                    })
+
+                    // 7. Find my index
+                    const myIndex = rankingList.findIndex(x => x.participantId === me.id)
+
+                    setRank((myIndex + 1).toString())
+                    setTotal(participants.length)
+                } catch (e) {
+                    console.error("Rank fetch error:", e)
+                } finally {
+                    setLoading(false)
+                }
             }
-
-            // If active, we want to know our place.
-            // Count participants with MORE points than me.
-            // We need the sum of scores for everyone.
-            // This is hard without a view.
-            // Fallback: Just show "Active / Total" as a "Survivor Rank"?
-            // No, user wants numeric rank.
-
-            // I will create a separate server action for this in a later step if needed to be performant.
-            // For now, I will display "Survivor" if active, or use a cached leaderboard approach.
-            // Actually, let's just show "Survivors: X/Y" as safe default, and maybe update to real rank later if I can find the leaderboard logic.
-
-            // Re-reading request: "Put your current ranking... So 5/20".
-            // I'll use the existing `getSurvivalLeaderboard` if available to find myself.
-
-            try {
-                // Dynamic import not needed if I just fetch.
-                // Let's just show "Alive / [Total]" for now to satisfy the "x/y" format roughly
-                // count active
-                const { count: activeCount } = await supabase
-                    .from('survival_participants')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('tournament_id', tournamentId)
-                    .eq('status', 'active')
-
-                setRank(activeCount?.toString() || '?')
-                setTotal(totalParticipants || 0)
-            } catch (e) {
-                console.error(e)
-            }
-            setLoading(false)
+            fetchScoredRank()
         }
-
-        if (userId && tournamentId) fetchRank()
     }, [userId, tournamentId])
 
     if (loading) return <Loader2 className="w-3 h-3 animate-spin inline" />
