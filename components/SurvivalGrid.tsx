@@ -14,6 +14,7 @@ import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 import { hashAnswer } from '@/utils/crypto'
 import SurvivalLiveRankDisplay from '@/components/SurvivalLiveRankDisplay'
+import SurvivalIntroScreen from '@/components/SurvivalIntroScreen'
 
 const THEME = {
     primary: 'text-amber-400',
@@ -47,6 +48,14 @@ const getMultiplier = (tier: number) => {
 }
 
 const cleanText = (text: string) => text ? text.replace(/&amp;/g, '&') : ''
+
+const decodeName = (name: string) => {
+    try {
+        return atob(name)
+    } catch {
+        return name
+    }
+}
 
 const getGuestId = () => {
     if (typeof window === 'undefined') return null
@@ -105,6 +114,7 @@ function SurvivalGrid() {
     // Bonus states
     const [receivedBonus, setReceivedBonus] = useState<number | null>(null)
     const [bonusReason, setBonusReason] = useState<string | null>(null)
+    const [saveError, setSaveError] = useState<string | null>(null)
 
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -183,15 +193,34 @@ function SurvivalGrid() {
 
             if (result?.success) {
                 setIsSaved(true)
+                setSaveError(null)
             } else {
                 console.error("Failed to submit score:", result?.error)
-                // Prevent infinite retries if persistent error? 
-                // For now, let's allow retry if they play again? 
-                // But gameState finishes only once.
+                setSaveError(result?.error || 'Failed to submit score')
             }
         }
         saveScore()
     }, [gameState, isSaved, score])
+
+    // Match normal game timer behavior: 1 second pause, then half-second decay.
+    useEffect(() => {
+        if (gameState !== 'playing' || showResult || !isImageReady) return
+        const currentQ = questions[currentIndex]
+        const multiplier = getMultiplier(currentQ?.tier || 1)
+        const decayAmount = 5 / multiplier
+        let decayInterval: any
+
+        const startTimer = setTimeout(() => {
+            decayInterval = setInterval(() => {
+                setPotentialPoints((prev) => (prev <= 10 ? 10 : prev - decayAmount))
+            }, 500)
+        }, 1000)
+
+        return () => {
+            clearTimeout(startTimer)
+            if (decayInterval) clearInterval(decayInterval)
+        }
+    }, [gameState, showResult, isImageReady, currentIndex, questions])
 
     const handleGuess = async (option: string) => {
         if (showResult) return
@@ -260,7 +289,7 @@ function SurvivalGrid() {
         newResults[currentIndex] = {
             player_id: currentQ.id,
             result: isCorrect ? 'correct' : 'wrong',
-            player_name: atob(currentQ.name)
+            player_name: decodeName(currentQ.name)
         }
         setResults(newResults)
         setShowResult(true)
@@ -301,50 +330,7 @@ function SurvivalGrid() {
 
     if (gameState === 'intro') {
         const startsInFuture = tournament?.start_date && new Date(tournament.start_date).getTime() > Date.now()
-
-        return (
-            <div className="h-[100dvh] bg-neutral-950 flex flex-col items-center justify-center p-6 space-y-6 text-center animate-in fade-in relative overflow-hidden">
-                {/* Background glow */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[100px] pointer-events-none" />
-
-                <div className="space-y-2 relative z-10">
-                    <Skull className="w-20 h-20 text-red-500 mx-auto animate-pulse" />
-                    <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter text-white">
-                        The <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">Gauntlet</span>
-                    </h1>
-                    <p className="text-neutral-400 max-w-sm mx-auto">
-                        10 Players. Zero Forgiveness.
-                    </p>
-                </div>
-
-                <Card className="w-full max-w-sm bg-neutral-900 border-red-900/50 shadow-2xl relative z-10">
-                    <CardContent className="pt-6 space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm font-bold text-neutral-300">
-                            <div className="bg-black/50 p-3 rounded-lg border border-white/5">
-                                <div className="text-red-500 mb-1">ROUNDS</div>
-                                <div className="text-2xl text-white">10</div>
-                            </div>
-                            <div className="bg-black/50 p-3 rounded-lg border border-white/5">
-                                <div className="text-red-500 mb-1">PLAYERS</div>
-                                <div className="text-2xl text-white">CBB Stars</div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Button
-                    onClick={() => !startsInFuture && setGameState('playing')}
-                    disabled={startsInFuture}
-                    className={`w-full max-w-sm h-14 text-xl font-black bg-gradient-to-r ${startsInFuture ? 'from-neutral-700 to-neutral-800 cursor-not-allowed opacity-50' : 'from-red-700 to-orange-600 hover:from-red-600 hover:to-orange-500 shadow-[0_0_30px_rgba(239,68,68,0.4)]'} text-white border border-red-400/30 relative z-10 transition-all hover:scale-105 active:scale-95`}
-                >
-                    {startsInFuture ? 'STARTS THURSDAY' : 'ENTER THE GAUNTLET'}
-                </Button>
-
-                <Link href="/" className="text-neutral-500 hover:text-white text-sm font-bold tracking-widest uppercase mt-4 relative z-10">
-                    Return to Safety
-                </Link>
-            </div>
-        )
+        return <SurvivalIntroScreen startsInFuture={!!startsInFuture} onStart={() => setGameState('playing')} />
     }
 
     if (gameState === 'finished') {
@@ -393,8 +379,21 @@ function SurvivalGrid() {
                         </div>
 
                         <div className="flex flex-col gap-3 mt-6 w-full">
+                            {!isSaved && (
+                                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                                    Saving score to leaderboard...
+                                </p>
+                            )}
+                            {saveError && (
+                                <p className="text-[10px] text-red-400 font-bold uppercase tracking-widest">
+                                    {saveError}
+                                </p>
+                            )}
                             <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold bg-white text-black hover:bg-neutral-200 shadow-lg`}>
                                 <Share2 className="mr-2 w-5 h-5" /> Share Result
+                            </Button>
+                            <Button asChild className="w-full h-12 text-sm font-black tracking-widest uppercase bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-xl border border-red-400/30">
+                                <Link href="/survival">View Survival Leaderboard</Link>
                             </Button>
                             <Button asChild className="w-full h-12 text-lg font-bold bg-neutral-800 text-white hover:bg-neutral-700">
                                 <Link href="/">Return Home</Link>
@@ -444,10 +443,10 @@ function SurvivalGrid() {
                         </div>
                     </div>
 
-                    {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} onError={() => setIsImageReady(true)} priority={true} />}
+                    {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} onError={() => setIsImageReady(true)} priority={true} unoptimized />}
 
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-                        <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{atob(q.name)}</h2>
+                        <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{decodeName(q.name)}</h2>
                     </div>
                 </div>
 
