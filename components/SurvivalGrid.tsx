@@ -28,7 +28,7 @@ const THEME = {
 
 const CONFIG = {
     rounds: 10,
-    maxScore: 1500, // Normalized to standard 10-round scoring
+    maxScore: 1575, // 4×T1(100) + 3×T2(150) + 3×T3(175) + streaks(50+150)
     pointScale: 1.0 // Standard points
 }
 

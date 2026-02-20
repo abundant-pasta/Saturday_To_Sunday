@@ -73,7 +73,7 @@ export default function IntroScreen({ onStart, challengerScore, sport }: IntroSc
                             Daily <span className={theme.accent}>{theme.label}</span>
                         </h1>
                         <p className="relative text-neutral-400 font-mono text-xs md:text-sm mt-2 uppercase tracking-widest font-bold">
-                            {theme.playerCount} Players. <span className="text-white">1500 Points</span> on the line.
+                            {theme.playerCount} Players. <span className="text-white">1575 Points</span> on the line.
                         </p>
                     </div>
                 )}
