@@ -129,7 +129,7 @@ export default async function SurvivalPage({
                                 </div>
                                 <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">{tournament.name}</h2>
                                 <p className="text-neutral-400 text-xs font-bold uppercase tracking-wide">
-                                    Starts Thursday • <span className="text-red-400">{participantCount} Survivors Joined</span>
+                                    Tournament Live • <span className="text-red-400">{participantCount} Survivors Joined</span>
                                 </p>
                             </div>
 

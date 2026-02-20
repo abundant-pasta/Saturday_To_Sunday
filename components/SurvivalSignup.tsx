@@ -45,7 +45,7 @@ export default function SurvivalSignup({ tournamentId, isJoined }: SurvivalSignu
                     <Trophy className="w-8 h-8 text-emerald-400" />
                 </div>
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter text-emerald-400">You Are In</h3>
-                <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest">Prepare for Day 1</p>
+                <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest">Day 1 is Live!</p>
             </div>
         )
     }
