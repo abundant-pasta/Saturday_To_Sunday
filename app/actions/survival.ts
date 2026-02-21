@@ -14,39 +14,40 @@ export async function getSurvivalGame() {
     const { data: { user } } = await supabase.auth.getUser()
     let status = 'new'
     let score = 0
+    let dayNumber = 1
+
+    const { data: tournament } = await supabase
+        .from('survival_tournaments')
+        .select('id, start_date')
+        .eq('is_active', true)
+        .single()
+
+    if (tournament) {
+        const start = new Date(tournament.start_date).getTime()
+        const now = new Date().getTime()
+        dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+    }
 
     // 0. Check if user has already played today
-    if (user) {
-        const { data: tournament } = await supabase
-            .from('survival_tournaments')
-            .select('id, start_date')
-            .eq('is_active', true)
+    if (user && tournament) {
+        const { data: participant } = await supabase
+            .from('survival_participants')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('tournament_id', tournament.id)
             .single()
 
-        if (tournament) {
-            const start = new Date(tournament.start_date).getTime()
-            const now = new Date().getTime()
-            const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+        if (participant) {
+            const { data: existingScore } = await supabase
+                .from('survival_scores')
+                .select('score')
+                .eq('participant_id', participant.id)
+                .eq('day_number', dayNumber)
+                .maybeSingle()
 
-            const { data: participant } = await supabase
-                .from('survival_participants')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('tournament_id', tournament.id)
-                .single()
-
-            if (participant) {
-                const { data: existingScore } = await supabase
-                    .from('survival_scores')
-                    .select('score')
-                    .eq('participant_id', participant.id)
-                    .eq('day_number', dayNumber)
-                    .maybeSingle()
-
-                if (existingScore) {
-                    status = 'played'
-                    score = existingScore.score
-                }
+            if (existingScore) {
+                status = 'played'
+                score = existingScore.score
             }
         }
     }
@@ -84,7 +85,7 @@ export async function getSurvivalGame() {
                 }
             }))
         }
-        return { questions: safeQuestions, status, score }
+        return { questions: safeQuestions, status, score, dayNumber }
     }
 
     // 2. Generate New Game (Admin Access for Pool + Write)
@@ -143,8 +144,7 @@ export async function getSurvivalGame() {
         content: questions,
         sport: sport
     })
-
-    return { questions, status, score }
+    return { questions, status, score, dayNumber }
 }
 
 export async function joinTournament(tournamentId: string) {

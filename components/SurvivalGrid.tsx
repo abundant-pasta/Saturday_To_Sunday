@@ -167,11 +167,12 @@ function SurvivalGrid() {
                     const savedScore = localStorage.getItem('s2s_survival_today_score')
                     const savedDate = localStorage.getItem('s2s_survival_last_played_date')
                     const savedResults = localStorage.getItem('s2s_survival_daily_results')
+                    const savedDayNumber = localStorage.getItem('s2s_survival_last_day_number')
                     const today = getGameDate()
 
-                    // If local storage says played today, trust it to show results, 
-                    // but server status should have caught it if they were logged in.
-                    if (savedScore && savedDate === today) {
+                    // If local storage says played today OR played this specific day number, trust it.
+                    // (Using dayNumber from server makes this immune to timezone offset bugs)
+                    if (savedScore && (savedDayNumber === String(gameData.dayNumber) || savedDate === today)) {
                         setScore(parseInt(savedScore))
                         setResults(savedResults ? JSON.parse(savedResults) : [])
                         setGameState('finished')
