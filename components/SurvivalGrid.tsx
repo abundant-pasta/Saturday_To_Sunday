@@ -115,6 +115,7 @@ function SurvivalGrid() {
     const [lastEarnedPoints, setLastEarnedPoints] = useState<number>(0)
     const [revealedAnswer, setRevealedAnswer] = useState<string | null>(null)
     const [tournament, setTournament] = useState<any>(null)
+    const [currentDayNumber, setCurrentDayNumber] = useState<number>(1)
 
     // Bonus states
     const [receivedBonus, setReceivedBonus] = useState<number | null>(null)
@@ -144,6 +145,7 @@ function SurvivalGrid() {
                 // Handle new server response format or null
                 if (gameData && 'questions' in gameData) {
                     setQuestions(gameData.questions)
+                    if (gameData.dayNumber) setCurrentDayNumber(gameData.dayNumber)
 
                     // Also fetch tournament data for start date
                     const { data: tourney } = await supabase
@@ -170,9 +172,9 @@ function SurvivalGrid() {
                     const savedDayNumber = localStorage.getItem('s2s_survival_last_day_number')
                     const today = getGameDate()
 
-                    // If local storage says played today OR played this specific day number, trust it.
+                    // If local storage says played this specific day number, trust it.
                     // (Using dayNumber from server makes this immune to timezone offset bugs)
-                    if (savedScore && (savedDayNumber === String(gameData.dayNumber) || savedDate === today)) {
+                    if (savedScore && savedDayNumber === String(gameData.dayNumber)) {
                         setScore(parseInt(savedScore))
                         setResults(savedResults ? JSON.parse(savedResults) : [])
                         setGameState('finished')
@@ -342,6 +344,7 @@ function SurvivalGrid() {
             } else {
                 localStorage.setItem('s2s_survival_today_score', newScore.toString())
                 localStorage.setItem('s2s_survival_last_played_date', getGameDate())
+                localStorage.setItem('s2s_survival_last_day_number', currentDayNumber.toString())
                 localStorage.setItem('s2s_survival_daily_results', JSON.stringify(newResults))
                 setGameState('finished')
             }
