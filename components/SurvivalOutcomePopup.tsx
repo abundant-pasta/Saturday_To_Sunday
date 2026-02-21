@@ -170,11 +170,10 @@ export default function SurvivalOutcomePopup() {
 
   return (
     <div className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className={`w-full max-w-sm rounded-2xl border relative overflow-hidden shadow-2xl ${
-        isEliminated
+      <div className={`w-full max-w-sm rounded-2xl border relative overflow-hidden shadow-2xl ${isEliminated
           ? 'bg-gradient-to-br from-neutral-950 via-red-950/60 to-black border-red-500/40'
           : 'bg-gradient-to-br from-neutral-950 via-emerald-950/60 to-black border-emerald-500/40'
-      }`}>
+        }`}>
         <button
           onClick={() => setOpen(false)}
           aria-label="Close"
@@ -186,9 +185,8 @@ export default function SurvivalOutcomePopup() {
         <div className={`absolute inset-0 pointer-events-none ${isEliminated ? 'bg-red-500/5' : 'bg-emerald-500/5'} animate-pulse`} />
 
         <div className="relative z-10 p-6 text-center space-y-4">
-          <div className={`mx-auto w-16 h-16 rounded-full border flex items-center justify-center ${
-            isEliminated ? 'bg-red-500/15 border-red-500/30' : 'bg-emerald-500/15 border-emerald-500/30'
-          }`}>
+          <div className={`mx-auto w-16 h-16 rounded-full border flex items-center justify-center ${isEliminated ? 'bg-red-500/15 border-red-500/30' : 'bg-emerald-500/15 border-emerald-500/30'
+            }`}>
             {isWinner ? (
               <Crown className="w-9 h-9 text-amber-400" />
             ) : isEliminated ? (
@@ -215,11 +213,11 @@ export default function SurvivalOutcomePopup() {
           <div className="flex flex-col gap-2">
             <Button
               asChild
-              className={`w-full h-12 font-black uppercase tracking-widest ${
-                isEliminated
+              className={`w-full h-12 font-black uppercase tracking-widest ${isEliminated
                   ? 'bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white border border-red-400/40'
                   : 'bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 text-white border border-emerald-400/40'
-              }`}
+                }`}
+              onClick={() => setOpen(false)}
             >
               <Link href="/survival">{isEliminated ? 'View Survival Mode' : 'Continue Survival'}</Link>
             </Button>
