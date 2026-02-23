@@ -193,6 +193,19 @@ export async function getDailyGame(sport: string = 'football') {
 
 // --- 8. ADMIN FIX TOOL ---
 
+function serverDecodeName(name: string) {
+  if (!name) return 'Unknown'
+  // If it's base64 encoded by the game secure logic
+  if (!name.includes(' ') && (name.includes('=') || name.length > 12)) {
+    try {
+      return Buffer.from(name, 'base64').toString('utf-8')
+    } catch {
+      return name
+    }
+  }
+  return name
+}
+
 export async function getUpcomingPlayers() {
   const supabase = await createClient()
 
@@ -215,7 +228,7 @@ export async function getUpcomingPlayers() {
         if (!playersMap.has(key)) {
           playersMap.set(key, {
             id: q.id,
-            name: q.name,
+            name: serverDecodeName(q.name), // Decode on server
             image_url: q.image_url,
             sport: latestGame.sport,
             date: latestGame.date

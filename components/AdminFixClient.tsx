@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, CheckCircle, RefreshCcw, Image as ImageIcon, AlertTriangle, ExternalLink } from 'lucide-react'
-import Image from 'next/image'
 
 interface Player {
     id: string
@@ -18,18 +17,6 @@ interface Player {
 
 interface AdminFixClientProps {
     initialPlayers: Player[]
-}
-
-const decodeName = (name: string) => {
-    try {
-        // Check if it's likely base64 (contains no spaces, has padding or common chars)
-        if (!name.includes(' ') && (name.includes('=') || name.length > 10)) {
-            return atob(name)
-        }
-        return name
-    } catch {
-        return name
-    }
 }
 
 export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) {
@@ -82,7 +69,7 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
 
             {sports.map(sport => {
                 const sportPlayers = players.filter(p => p.sport === sport);
-                const sportDate = sportPlayers[0]?.date;
+                const sportDate = sportPlayers[0]?.date || 'No Date';
 
                 return (
                     <div key={sport} className="space-y-6">
@@ -101,16 +88,15 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {players.filter(p => p.sport === sport).map(player => (
-                                <Card key={player.id} className="bg-neutral-900 border-neutral-800 overflow-hidden group hover:border-red-500/50 transition-all duration-300">
+                                <Card key={player.id + '-' + player.date} className="bg-neutral-900 border-neutral-800 overflow-hidden group hover:border-red-500/50 transition-all duration-300">
                                     <CardContent className="p-0">
                                         {/* Image Preview */}
                                         <div className="aspect-square relative overflow-hidden bg-neutral-950 flex items-center justify-center">
                                             {player.image_url ? (
-                                                <Image
+                                                <img
                                                     src={player.image_url}
-                                                    alt={decodeName(player.name)}
-                                                    fill
-                                                    className="object-cover group-hover:scale-110 transition-transform duration-500"
+                                                    alt={player.name || 'Player'}
+                                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                                 />
                                             ) : (
                                                 <div className="flex flex-col items-center gap-2 text-neutral-700">
@@ -137,14 +123,14 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
                                         <div className="p-4 space-y-4">
                                             <div className="space-y-1">
                                                 <h3 className="font-black uppercase italic text-white truncate">
-                                                    {decodeName(player.name)}
+                                                    {player.name || 'Unknown Player'}
                                                 </h3>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
-                                                        ID: {player.id.slice(0, 8)}
+                                                        ID: {player.id ? player.id.slice(0, 8) : 'N/A'}
                                                     </span>
                                                     <a
-                                                        href={`https://www.google.com/search?q=${encodeURIComponent(decodeName(player.name) + ' ' + player.sport + ' athlete')}&tbm=isch`}
+                                                        href={`https://www.google.com/search?q=${encodeURIComponent((player.name || '') + ' ' + player.sport + ' athlete')}&tbm=isch`}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         className="text-red-500 hover:text-red-400 flex items-center gap-1 text-[10px] font-black uppercase"
@@ -159,12 +145,12 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
                                                     <Input
                                                         placeholder="New Photo URL..."
                                                         className="bg-black border-neutral-800 text-xs text-neutral-300 focus:border-red-500 transition-colors"
-                                                        value={newUrls[player.id] !== undefined ? newUrls[player.id] : player.image_url}
+                                                        value={newUrls[player.id] !== undefined ? newUrls[player.id] : (player.image_url || '')}
                                                         onChange={(e) => setNewUrls(prev => ({ ...prev, [player.id]: e.target.value }))}
                                                     />
                                                     <Button
                                                         size="sm"
-                                                        disabled={updating !== null || (newUrls[player.id] || player.image_url) === player.image_url}
+                                                        disabled={updating !== null || (newUrls[player.id] || player.image_url || '') === (player.image_url || '')}
                                                         onClick={() => handleUpdate(player)}
                                                         className="bg-red-600 hover:bg-red-500 text-white font-black uppercase text-[10px]"
                                                     >
