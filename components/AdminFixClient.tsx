@@ -77,7 +77,7 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
                             <div className="h-px flex-1 bg-neutral-800" />
                             <div className="text-center px-4">
                                 <h2 className="text-xl font-black uppercase italic text-red-500 tracking-tight">
-                                    {sport.replace('_', ' ')}
+                                    {(sport || 'unknown').replace('_', ' ')}
                                 </h2>
                                 <div className="text-[10px] text-neutral-600 font-black uppercase tracking-[0.2em] mt-1">
                                     Game Date: {sportDate || 'Unknown'}
@@ -87,7 +87,7 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {players.filter(p => p.sport === sport).map(player => (
+                            {players.filter(p => (p.sport || 'unknown') === sport).map(player => (
                                 <Card key={player.id + '-' + player.date} className="bg-neutral-900 border-neutral-800 overflow-hidden group hover:border-red-500/50 transition-all duration-300">
                                     <CardContent className="p-0">
                                         {/* Image Preview */}
@@ -130,7 +130,7 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
                                                         ID: {player.id ? player.id.slice(0, 8) : 'N/A'}
                                                     </span>
                                                     <a
-                                                        href={`https://www.google.com/search?q=${encodeURIComponent((player.name || '') + ' ' + player.sport + ' athlete')}&tbm=isch`}
+                                                        href={`https://www.google.com/search?q=${encodeURIComponent((player.name || '') + ' ' + (player.sport || 'athlete'))}&tbm=isch`}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         className="text-red-500 hover:text-red-400 flex items-center gap-1 text-[10px] font-black uppercase"
