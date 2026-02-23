@@ -130,7 +130,7 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
                                                         ID: {player.id ? String(player.id).slice(0, 8) : 'N/A'}
                                                     </span>
                                                     <a
-                                                        href={`https://www.google.com/search?q=${encodeURIComponent((player.name || '') + ' ' + (player.sport || 'athlete'))}&tbm=isch`}
+                                                        href={`https://www.google.com/search?q=${encodeURIComponent(player.name || '')}&tbm=isch`}
                                                         target="_blank"
                                                         rel="noreferrer"
                                                         className="text-red-500 hover:text-red-400 flex items-center gap-1 text-[10px] font-black uppercase"
