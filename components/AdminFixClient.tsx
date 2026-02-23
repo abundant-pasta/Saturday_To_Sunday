@@ -127,7 +127,7 @@ export default function AdminFixClient({ initialPlayers }: AdminFixClientProps) 
                                                 </h3>
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
-                                                        ID: {player.id ? player.id.slice(0, 8) : 'N/A'}
+                                                        ID: {player.id ? String(player.id).slice(0, 8) : 'N/A'}
                                                     </span>
                                                     <a
                                                         href={`https://www.google.com/search?q=${encodeURIComponent((player.name || '') + ' ' + (player.sport || 'athlete'))}&tbm=isch`}

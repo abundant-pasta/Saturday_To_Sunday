@@ -193,17 +193,18 @@ export async function getDailyGame(sport: string = 'football') {
 
 // --- 8. ADMIN FIX TOOL ---
 
-function serverDecodeName(name: string) {
+function serverDecodeName(name: any) {
   if (!name) return 'Unknown'
+  const nameStr = String(name)
   // If it's base64 encoded by the game secure logic
-  if (!name.includes(' ') && (name.includes('=') || name.length > 12)) {
+  if (!nameStr.includes(' ') && (nameStr.includes('=') || nameStr.length > 12)) {
     try {
-      return Buffer.from(name, 'base64').toString('utf-8')
+      return Buffer.from(nameStr, 'base64').toString('utf-8')
     } catch {
-      return name
+      return nameStr
     }
   }
-  return name
+  return nameStr
 }
 
 export async function getUpcomingPlayers() {
