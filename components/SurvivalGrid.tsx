@@ -208,7 +208,7 @@ function SurvivalGrid() {
 
     useEffect(() => {
         const saveScore = async () => {
-            if (gameState !== 'finished' || isSaved || score <= 0) return
+            if (gameState !== 'finished' || isSaved) return
 
             // Call server action with answers for verification
             const result = await submitSurvivalScore(answers)

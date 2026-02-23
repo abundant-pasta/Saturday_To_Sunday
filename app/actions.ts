@@ -190,3 +190,100 @@ export async function getDailyGame(sport: string = 'football') {
 
   return questions
 }
+
+// --- 8. ADMIN FIX TOOL ---
+
+export async function getUpcomingPlayers() {
+  const supabase = await createClient()
+
+  const sports = ['football', 'basketball', 'survival_basketball']
+  const playersMap = new Map()
+
+  for (const sport of sports) {
+    const { data: latestGame, error } = await supabase
+      .from('daily_games')
+      .select('sport, content, date')
+      .eq('sport', sport)
+      .order('date', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (latestGame && !error) {
+      const questions = latestGame.content as any[]
+      questions.forEach(q => {
+        const key = `${q.id}-${latestGame.date}`
+        if (!playersMap.has(key)) {
+          playersMap.set(key, {
+            id: q.id,
+            name: q.name,
+            image_url: q.image_url,
+            sport: latestGame.sport,
+            date: latestGame.date
+          })
+        }
+      })
+    }
+  }
+
+  return Array.from(playersMap.values())
+}
+
+export async function fixPlayerPhoto(playerId: string, newImageUrl: string, targetDate: string) {
+  const supabase = await createClient()
+
+  // 1. Auth Check (Same as other admin actions)
+  const { data: { user } } = await supabase.auth.getUser()
+  const adminEmail = process.env.ADMIN_EMAIL
+  const isAuthorized = user && adminEmail && user.email?.toLowerCase() === adminEmail?.toLowerCase()
+
+  if (!isAuthorized) {
+    throw new Error('Unauthorized')
+  }
+
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  // 2. Global Update in 'players'
+  const { error: globalError } = await supabaseAdmin
+    .from('players')
+    .update({
+      image_url: newImageUrl,
+      is_image_verified: true
+    })
+    .eq('id', playerId)
+
+  if (globalError) throw globalError
+
+  // 3. Surgical Update in 'daily_games' for specified date
+  const { data: games } = await supabaseAdmin
+    .from('daily_games')
+    .select('id, content')
+    .eq('date', targetDate)
+
+  if (games) {
+    for (const game of games) {
+      const content = game.content as any[]
+      let modified = false
+
+      const newContent = content.map(q => {
+        if (q.id === playerId) {
+          modified = true
+          return { ...q, image_url: newImageUrl }
+        }
+        return q
+      })
+
+      if (modified) {
+        await supabaseAdmin
+          .from('daily_games')
+          .update({ content: newContent })
+          .eq('id', game.id)
+      }
+    }
+  }
+
+  revalidatePath('/admin/fix')
+  return { success: true }
+}
