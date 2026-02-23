@@ -260,15 +260,16 @@ export async function fixPlayerPhoto(playerId: string, newImageUrl: string, targ
   )
 
   // 2. Global Update in 'players'
+  // Try both string and numeric match to be safe
   const { error: globalError } = await supabaseAdmin
     .from('players')
     .update({
       image_url: newImageUrl,
       is_image_verified: true
     })
-    .eq('id', playerId)
+    .or(`id.eq.${playerId},id.eq.${parseInt(playerId) || -1}`)
 
-  if (globalError) throw globalError
+  if (globalError) console.error('Global player update error:', globalError)
 
   // 3. Surgical Update in 'daily_games' for specified date
   const { data: games } = await supabaseAdmin
@@ -282,7 +283,8 @@ export async function fixPlayerPhoto(playerId: string, newImageUrl: string, targ
       let modified = false
 
       const newContent = content.map(q => {
-        if (q.id === playerId) {
+        // Type-safe comparison (handles numeric vs string IDs in JSONB)
+        if (String(q.id) === String(playerId)) {
           modified = true
           return { ...q, image_url: newImageUrl }
         }
