@@ -28,16 +28,36 @@ export async function getSurvivalGame() {
         dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
     }
 
-    // 0. Check if user has already played today
+    // 0. Check if user has already played today or if they are eliminated/ineligible
     if (user && tournament) {
         const { data: participant } = await supabase
             .from('survival_participants')
-            .select('id')
+            .select('id, status')
             .eq('user_id', user.id)
             .eq('tournament_id', tournament.id)
             .single()
 
         if (participant) {
+            // Check if officially eliminated
+            if (participant.status === 'eliminated') {
+                return { questions: [], status: 'eliminated', score: 0, dayNumber }
+            }
+
+            // Check if they missed a previous day (loophole fix)
+            if (dayNumber > 1) {
+                const { data: previousScores } = await supabase
+                    .from('survival_scores')
+                    .select('day_number')
+                    .eq('participant_id', participant.id)
+                    .lt('day_number', dayNumber)
+
+                const distinctDaysPlayed = new Set(previousScores?.map(s => s.day_number) || []).size
+                if (distinctDaysPlayed < dayNumber - 1) {
+                    console.log(`User ${user.id} ineligible: Played ${distinctDaysPlayed} days, expected ${dayNumber - 1}`)
+                    return { questions: [], status: 'eliminated', score: 0, dayNumber }
+                }
+            }
+
             const { data: existingScore } = await supabase
                 .from('survival_scores')
                 .select('score')
@@ -284,6 +304,24 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     if (!participant) return { error: 'Not a participant' }
     if (participant.status === 'eliminated') return { error: 'You are eliminated' }
 
+    // 2.5 Strict Eligibility Check (Skip Protection)
+    const start = new Date(tournament.start_date).getTime()
+    const now = new Date().getTime()
+    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+
+    if (dayNumber > 1) {
+        const { data: previousScores } = await supabase
+            .from('survival_scores')
+            .select('day_number')
+            .eq('participant_id', participant.id)
+            .lt('day_number', dayNumber)
+
+        const distinctDaysPlayed = new Set(previousScores?.map(s => s.day_number) || []).size
+        if (distinctDaysPlayed < dayNumber - 1) {
+            return { error: 'You are ineligible because you missed a previous day.' }
+        }
+    }
+
     // 3. Get Game Content (Securely)
     // We need the *full* content including answers/hashes to verify
     const today = new Date().toISOString().split('T')[0]
@@ -307,10 +345,7 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     let finalScore = 0
     let streak = 0
 
-    // 5. Calculate Day Number
-    const start = new Date(tournament.start_date).getTime()
-    const now = new Date().getTime()
-    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+    // 5. Calculate Day Number (Redundant, already calculated above)
 
     // 6. Build Results JSON
     const resultsJson = answers.map(ans => {

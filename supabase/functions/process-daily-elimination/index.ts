@@ -11,17 +11,22 @@ const TARGET_TOURNAMENT_DAYS = 5
 function targetRemainingForDay(initialFieldSize: number, dayNumber: number): number {
     if (dayNumber >= TARGET_TOURNAMENT_DAYS) return 1
 
-    // 5-day pacing curve to keep more players engaged early:
-    // Day 1: 62.5%, Day 2: 37.5%, Day 3: 25%, Day 4: 12.5%, Day 5: winner
+    // 5-day pacing curve:
+    // Day 1: 62.5%, Day 2: 37.5%, Day 3: 25%, Day 4: 12.5% (Final 3)
     const ratioByDay: Record<number, number> = {
         1: 0.625,
         2: 0.375,
         3: 0.25,
-        4: 0.125,
+        4: 0.125, // For 22-24 players, this is exactly 3 survivors
     }
 
     const ratio = ratioByDay[dayNumber] ?? 0.125
-    return Math.max(1, Math.ceil(initialFieldSize * ratio))
+    let target = Math.ceil(initialFieldSize * ratio)
+
+    // Explicit override for Day 4 to ensure a competitive final 3
+    if (dayNumber === 4) target = 3
+
+    return Math.max(1, target)
 }
 
 Deno.serve(async (req) => {
@@ -51,28 +56,17 @@ Deno.serve(async (req) => {
         const tournament = tournaments[0]
 
         // 2. Calculate Day Number
-        // Assumes cron runs at midnight for the day that just ended.
-        // Day 1 ends at T_start + 24h.
-        // If now is T_start + 24h + epsilon, we process day 1.
-        // day_number = floor( (now - start) / 24h ) IF we process "current day" as "active day".
-        // BUT logic usually is: midnight runs for previous day?
-        // Let's assume day_number is 1-based index.
-        // If T_start = Jan 1 00:00. Now = Jan 2 00:00. Diff = 1 day.
-        // We are processing Day 1 results.
+        // Tournament rollover is at 06:00 UTC (TIMEZONE_OFFSET_MS)
+        // Adding a 6.5 hour buffer ensures that at Midnight UTC, we process the day 
+        // that ended at 06:00 UTC *that day*, instead of waiting another 24h.
         const now = new Date()
         const startDate = new Date(tournament.start_date)
-        const diffTime = Math.abs(now.getTime() - startDate.getTime())
-        const dayNumber = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-        // Note: Using ceil so Jan 1 00:01 -> Day 1. Jan 2 00:01 -> Day 2.
-        // If running at Jan 2 00:00, it's exactly 1 day diff. Ceil(1) = 1.
-        // If running at Jan 2 00:05, it's 1.003 days. Ceil = 2?
-        // If we process Day X results, we usually run AFTER Day X ends.
-        // So at Jan 2 00:05 (Day 2 just started), we process Day 1?
-        // Using "previous full day" logic is safer.
-        // Let's stick to: We process the day_number that JUST finished.
-        const processingDayNumber = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-        // Example: Jan 1 00:00 to Jan 2 00:05. Diff = 24.1 hrs = 1.004 days. Floor = 1.
-        // Creates processingDayNumber = 1. Perfect.
+        const bufferMs = 6.5 * 60 * 60 * 1000
+        const diffTime = now.getTime() - startDate.getTime()
+        const processingDayNumber = Math.floor((diffTime + bufferMs) / (1000 * 60 * 60 * 24))
+        // Example: T_start = Feb 20 06:00. 
+        // Feb 21 00:00 (Midnight UTC). Diff = 18h. +6.5h = 24.5h. Floor = Day 1.
+        // Previously: 18h. Floor = 0. (Delayed 24h).
 
         if (processingDayNumber < 1) {
             return new Response(JSON.stringify({ message: 'Tournament just started, no results to process yet' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
