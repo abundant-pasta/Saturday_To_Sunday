@@ -163,17 +163,40 @@ export async function getSurvivalStats() {
     const isStarted = now >= start
     const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
 
-    // Count ACTUAL survivors (status = 'active')
-    const { count } = await supabase
-        .from('survival_participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('tournament_id', tournament.id)
-        .eq('status', 'active')
+    let count = 0
+    if (!isStarted || dayNumber === 1) {
+        // Before start or on Day 1: count all active participants
+        const { count: totalActive } = await supabase
+            .from('survival_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournament.id)
+            .eq('status', 'active')
+        count = totalActive || 0
+    } else {
+        // Day 2+: Survivors are those who completed the PREVIOUS day
+        // We look for participants who are 'active' AND have a score for (dayNumber - 1)
+        const { data: survivors } = await supabase
+            .from('survival_scores')
+            .select('participant_id')
+            .eq('day_number', dayNumber - 1)
+
+        // Filter for only those who are still 'active' (to be safe)
+        if (survivors && survivors.length > 0) {
+            const participantIds = survivors.map(s => s.participant_id)
+            const { count: activeCount } = await supabase
+                .from('survival_participants')
+                .select('*', { count: 'exact', head: true })
+                .eq('tournament_id', tournament.id)
+                .eq('status', 'active')
+                .in('id', participantIds)
+            count = activeCount || 0
+        }
+    }
 
     return {
         id: tournament.id,
         dayNumber,
-        count: count || 0,
+        count,
         isStarted,
         startDate: tournament.start_date
     }

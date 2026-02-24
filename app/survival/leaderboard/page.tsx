@@ -19,7 +19,8 @@ type ProfileRow = {
   avatar_url?: string | null
 }
 
-export default async function SurvivalLeaderboardPage() {
+export default async function SurvivalLeaderboardPage(props: { searchParams: Promise<{ day?: string }> }) {
+  const searchParams = await props.searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -42,18 +43,29 @@ export default async function SurvivalLeaderboardPage() {
     )
   }
 
-  const dayNumber = Math.max(
+  const currentDayNumber = Math.max(
     1,
     Math.floor((Date.now() - new Date(tournament.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1
   )
 
-  const { data: participants } = await supabase
-    .from('survival_participants')
-    .select('id, user_id, status')
-    .eq('tournament_id', tournament.id)
-    .eq('status', 'active')
+  const selectedDay = searchParams.day ? parseInt(searchParams.day) : currentDayNumber
 
-  const participantIds = (participants || []).map(p => p.id)
+  // 1. Fetch scores for the SELECTED day
+  const { data: rawScores } = await supabase
+    .from('survival_scores')
+    .select('participant_id, score, submitted_at, day_number')
+    .eq('day_number', selectedDay)
+
+  const participantIds = Array.from(new Set((rawScores || []).map(s => s.participant_id)))
+
+  // 2. Fetch participants and profiles for those who played
+  const { data: participants } = participantIds.length > 0
+    ? await supabase
+      .from('survival_participants')
+      .select('id, user_id, status')
+      .in('id', participantIds)
+    : { data: [] }
+
   const userIds = (participants || []).map(p => p.user_id)
 
   const { data: profilesRaw } = userIds.length > 0
@@ -64,14 +76,6 @@ export default async function SurvivalLeaderboardPage() {
     : { data: [] as ProfileRow[] }
 
   const profiles = (profilesRaw || []) as ProfileRow[]
-
-  const { data: rawScores } = participantIds.length > 0
-    ? await supabase
-      .from('survival_scores')
-      .select('participant_id, score, submitted_at')
-      .eq('day_number', dayNumber)
-      .in('participant_id', participantIds)
-    : { data: [] as ScoreRow[] }
 
   const bestByParticipant = new Map<string, { score: number; submittedAtMs: number }>()
   for (const row of (rawScores || []) as ScoreRow[]) {
@@ -91,6 +95,7 @@ export default async function SurvivalLeaderboardPage() {
       name: profile?.username || profile?.full_name || 'Player',
       score: best?.score ?? -1,
       submittedAtMs: best?.submittedAtMs ?? Number.MAX_SAFE_INTEGER,
+      isCurrentlyActive: p.status === 'active'
     }
   })
 
@@ -110,7 +115,19 @@ export default async function SurvivalLeaderboardPage() {
           </Link>
           <div className="text-center">
             <h1 className="text-2xl font-black italic uppercase tracking-tighter text-red-400">Survival Leaderboard</h1>
-            <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Day {dayNumber} • Active Field</p>
+            <div className="flex items-center justify-center gap-3 mt-1">
+              {selectedDay > 1 && (
+                <Link href={`?day=${selectedDay - 1}`}>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-neutral-500 hover:text-white uppercase font-black">← Prev</Button>
+                </Link>
+              )}
+              <p className="text-[10px] text-white font-black uppercase tracking-widest bg-red-500/20 px-2 py-0.5 rounded border border-red-500/30">Day {selectedDay}</p>
+              {selectedDay < currentDayNumber && (
+                <Link href={`?day=${selectedDay + 1}`}>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-neutral-500 hover:text-white uppercase font-black">Next →</Button>
+                </Link>
+              )}
+            </div>
           </div>
           <div className="w-10" />
         </div>
@@ -118,16 +135,17 @@ export default async function SurvivalLeaderboardPage() {
         <div className="bg-neutral-900 rounded-2xl border border-red-900/40 overflow-hidden shadow-2xl">
           <div className="p-3 border-b border-neutral-800 bg-black/20 text-center">
             <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">
-              {rows.length} active survivors today
+              {rows.length} participants recorded for Day {selectedDay}
             </div>
           </div>
 
           {rows.length === 0 ? (
-            <div className="text-center py-8 text-neutral-500 font-bold uppercase tracking-widest text-xs">
-              No Active Participants
+            <div className="text-center py-12 space-y-3">
+              <Skull className="w-8 h-8 text-neutral-800 mx-auto" />
+              <p className="text-neutral-600 font-bold uppercase tracking-widest text-[10px]">No scores recorded for this day.</p>
             </div>
           ) : (
-            <div className="max-h-72 overflow-y-auto divide-y divide-neutral-800/50">
+            <div className="max-h-[60dvh] overflow-y-auto divide-y divide-neutral-800/50">
               {rows.map((row, idx) => {
                 const isMe = !!user && row.userId === user.id
                 const profile = profiles.find(pr => pr.id === row.userId)
@@ -136,29 +154,39 @@ export default async function SurvivalLeaderboardPage() {
                 return (
                   <div
                     key={row.participantId}
-                    className={`flex items-center px-4 py-3 text-sm transition-colors ${
-                      isMe ? 'bg-red-500/10' : 'hover:bg-neutral-800/30'
-                    }`}
+                    className={`flex items-center px-4 py-3 text-sm transition-colors ${isMe ? 'bg-red-500/10' : 'hover:bg-neutral-800/30'
+                      }`}
                   >
                     <div className={`w-8 font-mono font-black ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-neutral-300' : idx === 2 ? 'text-orange-500' : 'text-neutral-600'}`}>
                       {idx + 1}
                     </div>
 
                     <div className="flex-1 flex items-center gap-3 min-w-0">
-                      <div className="relative w-6 h-6 rounded-full overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0 flex items-center justify-center">
+                      <div className="relative w-8 h-8 rounded-full overflow-hidden bg-neutral-800 border border-neutral-700 shrink-0 flex items-center justify-center">
                         {avatarUrl ? (
                           <Image src={avatarUrl} alt={displayName} fill className="object-cover" unoptimized />
                         ) : (
-                          <User className="w-3 h-3 text-neutral-500" />
+                          <User className="w-4 h-4 text-neutral-500" />
                         )}
                       </div>
-                      <div className={`truncate ${isMe ? 'text-red-300 font-bold' : 'text-neutral-300'}`}>
-                        {displayName} {isMe && '(You)'}
+                      <div className="flex flex-col min-w-0">
+                        <div className={`truncate leading-tight flex items-center gap-2 ${isMe ? 'text-red-300 font-black' : 'text-neutral-300 font-bold'}`}>
+                          {displayName} {isMe && '(You)'}
+                          {!row.isCurrentlyActive && (
+                            <Skull className="w-3 h-3 text-red-600" />
+                          )}
+                        </div>
+                        <div className="text-[9px] text-neutral-600 font-bold uppercase tracking-widest">
+                          {row.isCurrentlyActive ? 'Still Surviving' : 'Eliminated Later'}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="font-mono font-bold text-red-400">
-                      {row.score >= 0 ? row.score.toLocaleString() : '-'}
+                    <div className="flex flex-col items-end gap-0.5">
+                      <div className="font-mono font-black text-red-400 text-base">
+                        {row.score >= 0 ? row.score.toLocaleString() : '-'}
+                      </div>
+                      <div className="text-[8px] text-neutral-600 font-bold uppercase">Points</div>
                     </div>
                   </div>
                 )
@@ -167,10 +195,13 @@ export default async function SurvivalLeaderboardPage() {
           )}
         </div>
 
-        <div className="text-center text-[10px] font-bold uppercase tracking-widest text-neutral-500 pt-1">
-          <span className="inline-flex items-center gap-1.5">
-            <Skull className="w-3 h-3 text-red-500" />
-            Ties broken by earlier submission
+        <div className="flex items-center justify-center gap-4 text-[9px] font-black uppercase tracking-[0.2em] text-neutral-700 pt-2">
+          <span className="flex items-center gap-1.5">
+            <Skull className="w-3 h-3 text-red-600" /> Currently Eliminated
+          </span>
+          <span className="text-neutral-900">•</span>
+          <span className="flex items-center gap-1.5">
+            <Trophy className="w-3 h-3 text-yellow-500" /> Top Ranks
           </span>
         </div>
       </div>
