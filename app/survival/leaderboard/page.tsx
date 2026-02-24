@@ -56,9 +56,26 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
     .select('participant_id, score, submitted_at, day_number')
     .eq('day_number', selectedDay)
 
-  const participantIds = Array.from(new Set((rawScores || []).map(s => s.participant_id)))
+  let participantIds = Array.from(new Set((rawScores || []).map(s => s.participant_id)))
 
-  // 2. Fetch participants and profiles for those who played
+  // 2. Fetch Active Participants (for current day view)
+  // If we are on the current day, we want to see EVERYONE who is still active,
+  // even if they haven't recorded a score yet.
+  let activeParticipants: any[] = []
+  if (selectedDay === currentDayNumber) {
+    const { data: currentActive } = await supabase
+      .from('survival_participants')
+      .select('id, user_id, status')
+      .eq('tournament_id', tournament.id)
+      .eq('status', 'active')
+    activeParticipants = currentActive || []
+
+    // Merge IDs
+    const activeIds = activeParticipants.map(p => p.id)
+    participantIds = Array.from(new Set([...participantIds, ...activeIds]))
+  }
+
+  // 3. Fetch participants and profiles for those who played OR are active
   const { data: participants } = participantIds.length > 0
     ? await supabase
       .from('survival_participants')
@@ -100,7 +117,12 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
   })
 
   rows.sort((a, b) => {
+    // Put those who played above those who haven't
+    if (a.score === -1 && b.score !== -1) return 1
+    if (a.score !== -1 && b.score === -1) return -1
+    // Sort by score
     if (a.score !== b.score) return b.score - a.score
+    // Sort by submission time
     return a.submittedAtMs - b.submittedAtMs
   })
 
@@ -135,7 +157,11 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
         <div className="bg-neutral-900 rounded-2xl border border-red-900/40 overflow-hidden shadow-2xl">
           <div className="p-3 border-b border-neutral-800 bg-black/20 text-center">
             <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-wide">
-              {rows.length} participants recorded for Day {selectedDay}
+              {selectedDay === currentDayNumber ? (
+                <span>{rows.filter(r => r.isCurrentlyActive).length} Survivors Remaining</span>
+              ) : (
+                <span>{rows.length} participants recorded for Day {selectedDay}</span>
+              )}
             </div>
           </div>
 
@@ -151,13 +177,14 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
                 const profile = profiles.find(pr => pr.id === row.userId)
                 const displayName = profile?.username || profile?.full_name || 'Player'
                 const avatarUrl = profile?.avatar_url
+                const hasPlayed = row.score >= 0
                 return (
                   <div
                     key={row.participantId}
                     className={`flex items-center px-4 py-3 text-sm transition-colors ${isMe ? 'bg-red-500/10' : 'hover:bg-neutral-800/30'
-                      }`}
+                      } ${!hasPlayed ? 'opacity-60' : ''}`}
                   >
-                    <div className={`w-8 font-mono font-black ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-neutral-300' : idx === 2 ? 'text-orange-500' : 'text-neutral-600'}`}>
+                    <div className={`w-8 font-mono font-black ${idx === 0 && hasPlayed ? 'text-yellow-400' : idx === 1 && hasPlayed ? 'text-neutral-300' : idx === 2 && hasPlayed ? 'text-orange-500' : 'text-neutral-600'}`}>
                       {idx + 1}
                     </div>
 
@@ -177,14 +204,14 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
                           )}
                         </div>
                         <div className="text-[9px] text-neutral-600 font-bold uppercase tracking-widest">
-                          {row.isCurrentlyActive ? 'Still Surviving' : 'Eliminated Later'}
+                          {!row.isCurrentlyActive ? 'Eliminated Later' : !hasPlayed ? 'Yet to Play' : 'Still Surviving'}
                         </div>
                       </div>
                     </div>
 
                     <div className="flex flex-col items-end gap-0.5">
-                      <div className="font-mono font-black text-red-400 text-base">
-                        {row.score >= 0 ? row.score.toLocaleString() : '-'}
+                      <div className="font-mono font-black text-red-400 text-base leading-none">
+                        {hasPlayed ? row.score.toLocaleString() : '--'}
                       </div>
                       <div className="text-[8px] text-neutral-600 font-bold uppercase">Points</div>
                     </div>
