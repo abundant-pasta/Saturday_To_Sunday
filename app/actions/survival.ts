@@ -40,7 +40,7 @@ export async function getSurvivalGame() {
         if (participant) {
             // Check if officially eliminated
             if (participant.status === 'eliminated') {
-                return { questions: [], status: 'eliminated', score: 0, dayNumber }
+                return { questions: [], status: 'eliminated', score: 0, dayNumber, reason: 'You were eliminated in a previous round.' }
             }
 
             // Check if they missed a previous day (loophole fix)
@@ -52,9 +52,17 @@ export async function getSurvivalGame() {
                     .lt('day_number', dayNumber)
 
                 const distinctDaysPlayed = new Set(previousScores?.map(s => s.day_number) || []).size
+                const playedDays = previousScores?.map(s => s.day_number).sort() || []
+
                 if (distinctDaysPlayed < dayNumber - 1) {
-                    console.log(`User ${user.id} ineligible: Played ${distinctDaysPlayed} days, expected ${dayNumber - 1}`)
-                    return { questions: [], status: 'eliminated', score: 0, dayNumber }
+                    console.error(`[SURVIVAL] User ${user.id} ineligible for Day ${dayNumber}. Played ${distinctDaysPlayed} days: [${playedDays.join(', ')}]. Expected ${dayNumber - 1} days.`)
+                    return {
+                        questions: [],
+                        status: 'eliminated',
+                        score: 0,
+                        dayNumber,
+                        reason: `You missed a previous day of the tournament. (Played: ${distinctDaysPlayed}/${dayNumber - 1} days)`
+                    }
                 }
             }
 

@@ -90,7 +90,8 @@ function SurvivalGrid() {
     const [questions, setQuestions] = useState<any[]>([])
     const [currentIndex, setCurrentIndex] = useState(0)
     const [score, setScore] = useState(0)
-    const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished'>('loading')
+    const [gameState, setGameState] = useState<'loading' | 'intro' | 'playing' | 'finished' | 'eliminated' | 'error'>('loading')
+    const [eliminationReason, setEliminationReason] = useState<string | null>(null)
 
     // Update header visibility based on game state
     // WE REMOVED HEADER HIDING per user request ("All pages should have the normal header")
@@ -156,6 +157,12 @@ function SurvivalGrid() {
                     setTournament(tourney)
 
                     // Check server status first (more authoritative)
+                    if (gameData.status === 'eliminated') {
+                        setEliminationReason(gameData.reason || 'You are no longer active in this tournament.')
+                        setGameState('eliminated')
+                        return
+                    }
+
                     if (gameData.status === 'played') {
                         setScore(gameData.score)
                         // We don't have results history from server in this version, so grid will be empty
@@ -183,12 +190,11 @@ function SurvivalGrid() {
                     }
                 } else {
                     console.error("No survival game found.")
-                    // Fallback cleanup
-                    setGameState('intro')
+                    setGameState('error')
                 }
             } catch (err) {
                 console.error(err)
-                setGameState('intro')
+                setGameState('error')
             }
         }
         loadGame()
@@ -363,145 +369,192 @@ function SurvivalGrid() {
 
     // --- RENDER HELPERS ---
 
-    if (gameState === 'loading') return <div className="min-h-screen bg-neutral-950 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading The Gauntlet...</div>
+    // --- RENDER HELPERS ---
 
-    if (gameState === 'intro') {
-        const startsInFuture = tournament?.start_date && new Date(tournament.start_date).getTime() > Date.now()
-        return <SurvivalIntroScreen startsInFuture={!!startsInFuture} onStart={() => setGameState('playing')} />
-    }
+    const renderState = () => {
+        if (gameState === 'loading') return <div className="flex-1 flex items-center justify-center text-white"><Loader2 className="animate-spin mr-2" /> Loading The Gauntlet...</div>
 
-    if (gameState === 'finished') {
-        const rankInfo = getRankTitle(score)
-        return (
-            <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col items-center justify-start p-4 space-y-4 animate-in fade-in duration-500 relative overflow-y-auto">
-                {/* REMOVED DUPLICATE HOME BUTTON PER USER REQUEST */}
-                {/* <Link href="/" className="absolute top-4 left-4 z-20">
-                    <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-white rounded-full"><Home className="w-6 h-6" /></Button>
-                </Link> */}
-
-                <div className="text-center space-y-2 mb-2 mt-8">
-                    <Trophy className={`w-16 h-16 text-red-500 mx-auto animate-bounce mb-2`} />
-                    <h1 className="text-3xl font-black italic uppercase tracking-tighter">Gauntlet Complete</h1>
+        if (gameState === 'error') {
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+                    <Skull className="w-12 h-12 text-neutral-700" />
+                    <h2 className="text-xl font-black uppercase text-white">Something Went Wrong</h2>
+                    <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest leading-relaxed">
+                        We couldn't load your Survival Game. Please try refreshing the page.
+                    </p>
+                    <Link href="/survival">
+                        <Button variant="outline" className="border-neutral-800 text-neutral-400 hover:text-white mt-4">
+                            Back to Survival
+                        </Button>
+                    </Link>
                 </div>
+            )
+        }
 
-                <Card className={`w-full max-w-md bg-neutral-900 border-red-900/30 shadow-2xl relative overflow-hidden shrink-0`}>
-                    <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
+        if (gameState === 'eliminated') {
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6 animate-in fade-in duration-500">
+                    <div className="p-4 bg-red-500/10 rounded-full border border-red-500/20 shadow-[0_0_30px_rgba(220,38,38,0.2)]">
+                        <Skull className="w-12 h-12 text-red-500" />
+                    </div>
+                    <div className="space-y-2">
+                        <h2 className="text-3xl font-black italic uppercase tracking-tighter text-white">Eliminated</h2>
+                        <p className="text-xs text-red-400 font-bold uppercase tracking-widest">
+                            {eliminationReason}
+                        </p>
+                    </div>
+                    <p className="text-sm text-neutral-500 max-w-xs mx-auto leading-relaxed">
+                        The Gauntlet is a high-stakes survival mode. Once eliminated, you cannot return to this tournament.
+                    </p>
+                    <div className="pt-4 flex flex-col w-full max-w-xs gap-3">
+                        <Link href="/survival/leaderboard">
+                            <Button className="w-full bg-neutral-800 text-white font-black uppercase tracking-widest hover:bg-neutral-700 h-12">
+                                View Leaderboard
+                            </Button>
+                        </Link>
+                        <Link href="/survival">
+                            <Button variant="ghost" className="text-neutral-500 hover:text-white uppercase text-[10px] font-black tracking-widest">
+                                Return to Hub
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+            )
+        }
 
-                        {isSaved && (
-                            <div className="absolute top-6 left-6">
-                                <SurvivalLiveRankDisplay />
-                            </div>
-                        )}
+        if (gameState === 'intro') {
+            const startsInFuture = tournament?.start_date && new Date(tournament.start_date).getTime() > Date.now()
+            return <SurvivalIntroScreen startsInFuture={!!startsInFuture} onStart={() => setGameState('playing')} />
+        }
 
-                        {/* CENTERED SCORE AND TITLE */}
-                        <div className="flex flex-col items-center justify-center gap-2">
-                            <div className="flex flex-col items-center">
-                                <span className="text-neutral-500 text-[10px] uppercase tracking-[0.15em] font-black mb-1">Final Score</span>
-                                <div className={`text-6xl font-black text-red-500 font-mono tracking-tighter leading-none`}>
-                                    {score}<span className="text-2xl text-neutral-600">/{CONFIG.maxScore}</span>
+        if (gameState === 'finished') {
+            const rankInfo = getRankTitle(score)
+            return (
+                <div className="w-full flex-1 flex flex-col items-center justify-start p-4 space-y-4 animate-in fade-in duration-500 relative overflow-y-auto pt-8">
+                    <div className="text-center space-y-2 mb-2">
+                        <Trophy className={`w-16 h-16 text-red-500 mx-auto animate-bounce mb-2`} />
+                        <h1 className="text-3xl font-black italic uppercase tracking-tighter text-white">Gauntlet Complete</h1>
+                    </div>
+
+                    <Card className={`w-full max-w-md bg-neutral-900 border-red-900/30 shadow-2xl relative overflow-hidden shrink-0`}>
+                        <CardContent className="pt-8 pb-6 px-6 text-center space-y-6 relative">
+
+                            {isSaved && (
+                                <div className="absolute top-6 left-6">
+                                    <SurvivalLiveRankDisplay />
+                                </div>
+                            )}
+
+                            {/* CENTERED SCORE AND TITLE */}
+                            <div className="flex flex-col items-center justify-center gap-2">
+                                <div className="flex flex-col items-center">
+                                    <span className="text-neutral-500 text-[10px] uppercase tracking-[0.15em] font-black mb-1">Final Score</span>
+                                    <div className={`text-6xl font-black text-red-500 font-mono tracking-tighter leading-none`}>
+                                        {score}<span className="text-2xl text-neutral-600">/{CONFIG.maxScore}</span>
+                                    </div>
+                                </div>
+                                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-black/40 text-red-500 border-red-900/50 shadow-lg mt-2`}>
+                                    <rankInfo.icon className="w-4 h-4 fill-current" />
+                                    <span className="text-xs font-black uppercase tracking-widest">{rankInfo.title}</span>
                                 </div>
                             </div>
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-black/40 text-red-500 border-red-900/50 shadow-lg mt-2`}>
-                                <rankInfo.icon className="w-4 h-4 fill-current" />
-                                <span className="text-xs font-black uppercase tracking-widest">{rankInfo.title}</span>
+
+                            <div className="flex justify-center gap-1 mt-4 flex-wrap">
+                                {results.map((r, i) => {
+                                    const isCorrect = r.result === 'correct'
+                                    return (
+                                        <div key={i} className={`w-6 h-6 rounded-sm ${isCorrect ? 'bg-[#00ff80]' : 'bg-red-600'}`} />
+                                    )
+                                })}
+                            </div>
+
+                            <div className="flex flex-col gap-3 mt-6 w-full">
+                                {!isSaved && (
+                                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                                        Saving score to leaderboard...
+                                    </p>
+                                )}
+                                {saveError && (
+                                    <p className="text-[10px] text-red-400 font-bold uppercase tracking-widest">
+                                        {saveError}
+                                    </p>
+                                )}
+                                <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold bg-white text-black hover:bg-neutral-200 shadow-lg`}>
+                                    <Share2 className="mr-2 w-5 h-5" /> Share Result
+                                </Button>
+                                <Button asChild className="w-full h-12 text-sm font-black tracking-widest uppercase bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-xl border border-red-400/30">
+                                    <Link href="/survival/leaderboard">View Survival Leaderboard</Link>
+                                </Button>
+                                <Button asChild className="w-full h-12 text-lg font-bold bg-neutral-800 text-white hover:bg-neutral-700">
+                                    <Link href="/">Return Home</Link>
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )
+        }
+
+        const q = questions[currentIndex]
+        if (!q) return null
+
+        return (
+            <div className="flex-1 flex flex-col font-sans overflow-hidden">
+                <div className="w-full max-w-md mx-auto pt-2 px-2 shrink-0 z-50">
+                    <div className={`flex items-center justify-between bg-neutral-900 backdrop-blur-md rounded-full px-4 py-2 border border-white/5 shadow-2xl`}>
+                        <div className="w-4" />
+                        <div className="flex items-center gap-2">
+                            <div className={`text-lg font-black text-red-500 tabular-nums leading-none`}>{score}</div>
+                        </div>
+                        <div className="text-[10px] font-bold text-neutral-500 tracking-widest"><span className="text-white">{currentIndex + 1}</span>/{CONFIG.rounds}</div>
+                    </div>
+                    <div className="mt-2 px-1">
+                        <Progress value={((currentIndex) / CONFIG.rounds) * 100} className={`h-1 bg-neutral-800 rounded-full [&>div]:bg-red-600`} />
+                    </div>
+                </div>
+
+                <main className="flex-1 w-full max-w-md mx-auto p-2 pb-4 flex flex-col gap-2 overflow-hidden h-full">
+                    <div className={`flex-1 relative bg-neutral-900 rounded-xl overflow-hidden border border-red-900/30 shadow-2xl min-h-0`}>
+                        <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
+                            <div className="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg bg-black/80 text-red-500 border border-red-500/30 flex items-center gap-1">
+                                <Flame className="w-3 h-3" /> SURVIVAL
+                            </div>
+                            <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl transition-all flex items-center gap-2 ${showResult ? (selectedOption === revealedAnswer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black'}`}>
+                                {showResult ? (selectedOption === revealedAnswer ? (
+                                    <>
+                                        <span>+{lastEarnedPoints}</span>
+                                        {receivedBonus && <span className="text-[10px] bg-black text-[#00ff80] px-1.5 rounded animate-pulse whitespace-nowrap">{bonusReason}</span>}
+                                    </>
+                                ) : '+0') : `+${Math.round(potentialPoints * getMultiplier(q.tier || 1) * CONFIG.pointScale)}`}
                             </div>
                         </div>
 
-                        <div className="flex justify-center gap-1 mt-4 flex-wrap">
-                            {results.map((r, i) => {
-                                const isCorrect = r.result === 'correct'
-                                return (
-                                    <div key={i} className={`w-6 h-6 rounded-sm ${isCorrect ? 'bg-[#00ff80]' : 'bg-red-600'}`} />
-                                )
-                            })}
-                        </div>
+                        {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} onError={() => setIsImageReady(true)} priority={true} unoptimized />}
 
-                        <div className="flex flex-col gap-3 mt-6 w-full">
-                            {!isSaved && (
-                                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
-                                    Saving score to leaderboard...
-                                </p>
-                            )}
-                            {saveError && (
-                                <p className="text-[10px] text-red-400 font-bold uppercase tracking-widest">
-                                    {saveError}
-                                </p>
-                            )}
-                            <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold bg-white text-black hover:bg-neutral-200 shadow-lg`}>
-                                <Share2 className="mr-2 w-5 h-5" /> Share Result
-                            </Button>
-                            <Button asChild className="w-full h-12 text-sm font-black tracking-widest uppercase bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white shadow-xl border border-red-400/30">
-                                <Link href="/survival/leaderboard">View Survival Leaderboard</Link>
-                            </Button>
-                            <Button asChild className="w-full h-12 text-lg font-bold bg-neutral-800 text-white hover:bg-neutral-700">
-                                <Link href="/">Return Home</Link>
-                            </Button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
+                            <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{decodeName(q.name)}</h2>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 shrink-0 h-32 md:h-40">
+                        {q.options.map((opt: string) => {
+                            let btnClass = `bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800`
+                            if (showResult) {
+                                if (opt === revealedAnswer) btnClass = `bg-[#00ff80] text-black ring-2 ring-[#00ff80]`
+                                else if (opt === selectedOption) btnClass = "bg-red-500 text-white"
+                                else btnClass = "bg-neutral-950 text-neutral-600 opacity-30"
+                            }
+                            return (<Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase transition-all ${btnClass}`}> {cleanText(opt)} </Button>)
+                        })}
+                    </div>
+                </main>
             </div>
         )
     }
 
-    const q = questions[currentIndex]
-    if (!q) return null
-
     return (
-        <div className="h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
-            <div className="w-full max-w-md mx-auto pt-2 px-2 shrink-0 z-50">
-                <div className={`flex items-center justify-between bg-neutral-900 backdrop-blur-md rounded-full px-4 py-2 border border-white/5 shadow-2xl`}>
-                    {/* REMOVED DUPLICATE HOME BUTTON */}
-                    {/* {currentIndex === 0 ? (
-                        <Link href="/"><button className="text-neutral-400 hover:text-white"><Home className="w-4 h-4" /></button></Link>
-                    ) : (
-                        <div className="w-4" />
-                    )} */}
-                    <div className="w-4" />
-                    <div className="flex items-center gap-2">
-                        <div className={`text-lg font-black text-red-500 tabular-nums leading-none`}>{score}</div>
-                    </div>
-                    <div className="text-[10px] font-bold text-neutral-500 tracking-widest"><span className="text-white">{currentIndex + 1}</span>/{CONFIG.rounds}</div>
-                </div>
-                <div className="mt-2 px-1">
-                    <Progress value={((currentIndex) / CONFIG.rounds) * 100} className={`h-1 bg-neutral-800 rounded-full [&>div]:bg-red-600`} />
-                </div>
-            </div>
-
-            <main className="flex-1 w-full max-w-md mx-auto p-2 pb-4 flex flex-col gap-2 overflow-hidden h-full">
-                <div className={`flex-1 relative bg-neutral-900 rounded-xl overflow-hidden border border-red-900/30 shadow-2xl min-h-0`}>
-                    <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
-                        <div className="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg bg-black/80 text-red-500 border border-red-500/30 flex items-center gap-1">
-                            <Flame className="w-3 h-3" /> SURVIVAL
-                        </div>
-                        <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl transition-all flex items-center gap-2 ${showResult ? (selectedOption === revealedAnswer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black'}`}>
-                            {showResult ? (selectedOption === revealedAnswer ? (
-                                <>
-                                    <span>+{lastEarnedPoints}</span>
-                                    {receivedBonus && <span className="text-[10px] bg-black text-[#00ff80] px-1.5 rounded animate-pulse whitespace-nowrap">{bonusReason}</span>}
-                                </>
-                            ) : '+0') : `+${Math.round(potentialPoints * getMultiplier(q.tier || 1) * CONFIG.pointScale)}`}
-                        </div>
-                    </div>
-
-                    {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} onError={() => setIsImageReady(true)} priority={true} unoptimized />}
-
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-                        <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{decodeName(q.name)}</h2>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 shrink-0 h-32 md:h-40">
-                    {q.options.map((opt: string) => {
-                        let btnClass = `bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-800`
-                        if (showResult) {
-                            if (opt === revealedAnswer) btnClass = `bg-[#00ff80] text-black ring-2 ring-[#00ff80]`
-                            else if (opt === selectedOption) btnClass = "bg-red-500 text-white"
-                            else btnClass = "bg-neutral-950 text-neutral-600 opacity-30"
-                        }
-                        return (<Button key={opt} onClick={() => handleGuess(opt)} disabled={showResult || !isImageReady} className={`h-full text-xs md:text-sm font-bold uppercase transition-all ${btnClass}`}> {cleanText(opt)} </Button>)
-                    })}
-                </div>
-            </main>
+        <div className="min-h-[100dvh] bg-neutral-950 text-white flex flex-col font-sans overflow-hidden">
+            {renderState()}
         </div>
     )
 }
