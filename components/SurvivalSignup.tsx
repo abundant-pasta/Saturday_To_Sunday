@@ -9,9 +9,11 @@ import { Loader2, Skull, Trophy } from 'lucide-react'
 interface SurvivalSignupProps {
     tournamentId: string
     isJoined: boolean
+    dayNumber: number
+    hasStarted: boolean
 }
 
-export default function SurvivalSignup({ tournamentId, isJoined }: SurvivalSignupProps) {
+export default function SurvivalSignup({ tournamentId, isJoined, dayNumber, hasStarted }: SurvivalSignupProps) {
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState('')
     const [joined, setJoined] = useState(isJoined)
@@ -45,7 +47,25 @@ export default function SurvivalSignup({ tournamentId, isJoined }: SurvivalSignu
                     <Trophy className="w-8 h-8 text-emerald-400" />
                 </div>
                 <h3 className="text-2xl font-black italic uppercase tracking-tighter text-emerald-400">You Are In</h3>
-                <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest">Day 1 is Live!</p>
+                <p className="text-neutral-400 text-xs font-bold uppercase tracking-widest">{dayNumber > 1 ? `Competing since Day 1` : 'Day 1 is Live!'}</p>
+            </div>
+        )
+    }
+
+    const isTooLate = hasStarted && dayNumber > 1
+
+    if (isTooLate) {
+        return (
+            <div className="w-full p-6 bg-amber-500/10 border border-amber-500/30 rounded-3xl flex flex-col items-center gap-2 animate-in fade-in duration-500">
+                <div className="p-3 bg-amber-500/20 rounded-full mb-2">
+                    <Skull className="w-8 h-8 text-amber-500" />
+                </div>
+                <h3 className="text-xl font-black italic uppercase tracking-tighter text-amber-500 text-center leading-tight">
+                    Ah, just a bit<br />too late!
+                </h3>
+                <p className="text-neutral-400 text-[10px] font-bold uppercase tracking-[0.15em] text-center max-w-[180px] leading-relaxed">
+                    Registration for this gauntlet closed after Day 1. Check back for the next event!
+                </p>
             </div>
         )
     }

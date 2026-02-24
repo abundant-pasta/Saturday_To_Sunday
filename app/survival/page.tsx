@@ -155,7 +155,12 @@ export default async function SurvivalPage({
                                         </Button>
                                     </div>
                                 ) : (
-                                    <SurvivalSignup tournamentId={tournament.id} isJoined={isJoined} />
+                                    <SurvivalSignup
+                                        tournamentId={tournament.id}
+                                        isJoined={isJoined}
+                                        dayNumber={currentDayNumber}
+                                        hasStarted={hasStarted}
+                                    />
                                 )
                             ) : (
                                 <div className="p-6 bg-black/40 rounded-2xl border border-neutral-800">

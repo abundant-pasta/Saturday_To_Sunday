@@ -273,9 +273,15 @@ export async function joinTournament(tournamentId: string) {
             return { error: 'This tournament is not currently active.' }
         }
 
-        // Optional: Check if already started? 
-        // Usually joining after start date is allowed in some modes, but strictly for winning usually not.
-        // Given requirements, we just check is_active.
+        // 2.5 Block late entries (Join is only allowed before or on Day 1)
+        const start = new Date(tournament.start_date).getTime()
+        const now = new Date().getTime()
+        const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+        const isStarted = now >= start
+
+        if (isStarted && dayNumber > 1) {
+            return { error: 'Ah, just a bit too late! Registration for this tournament has closed.' }
+        }
 
         // 3. Join
         const { error: joinError } = await supabase
