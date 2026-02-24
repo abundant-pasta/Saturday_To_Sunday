@@ -6,6 +6,8 @@ import { hashAnswer, generateSalt } from '@/utils/crypto'
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
+const BYPASS_USER_IDS = ['63719211-dc3a-4801-8295-3465c9b6d5f0'] // Tom Gordon (Allow play Feb 24)
+
 export async function getSurvivalGame() {
     const supabase = await createClient()
     const today = new Date().toISOString().split('T')[0]
@@ -38,13 +40,15 @@ export async function getSurvivalGame() {
             .single()
 
         if (participant) {
+            const isBypassed = user && BYPASS_USER_IDS.includes(user.id)
+
             // Check if officially eliminated
-            if (participant.status === 'eliminated') {
+            if (participant.status === 'eliminated' && !isBypassed) {
                 return { questions: [], status: 'eliminated', score: 0, dayNumber, reason: 'You were eliminated in a previous round.' }
             }
 
             // Check if they missed a previous day (loophole fix)
-            if (dayNumber > 1) {
+            if (dayNumber > 1 && !isBypassed) {
                 const { data: previousScores } = await supabase
                     .from('survival_scores')
                     .select('day_number')
@@ -310,14 +314,16 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
         .single()
 
     if (!participant) return { error: 'Not a participant' }
-    if (participant.status === 'eliminated') return { error: 'You are eliminated' }
+
+    const isBypassed = user && BYPASS_USER_IDS.includes(user.id)
+    if (participant.status === 'eliminated' && !isBypassed) return { error: 'You are eliminated' }
 
     // 2.5 Strict Eligibility Check (Skip Protection)
     const start = new Date(tournament.start_date).getTime()
     const now = new Date().getTime()
     const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
 
-    if (dayNumber > 1) {
+    if (dayNumber > 1 && !isBypassed) {
         const { data: previousScores } = await supabase
             .from('survival_scores')
             .select('day_number')
