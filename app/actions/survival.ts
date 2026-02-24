@@ -24,10 +24,21 @@ export async function getSurvivalGame() {
         .eq('is_active', true)
         .single()
 
+    // Determine the "Game Date" based on the tournament schedule (Day 1 starts at tournament.start_date)
+    // This handles the 6-hour offset (06:00 UTC) so that the game doesn't swap at midnight UTC.
+    let gameDate = new Date().toISOString().split('T')[0]
+
     if (tournament) {
         const start = new Date(tournament.start_date).getTime()
         const now = new Date().getTime()
         dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+
+        // The game for Day X is the one corresponding to (start + (dayX - 1) days)
+        // e.g. Day 1 (Feb 20 06:00) uses date Feb 20. Day 5 (Feb 24 06:00) uses date Feb 24.
+        const tournamentStartDate = new Date(tournament.start_date)
+        const offsetDate = new Date(tournamentStartDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
+        gameDate = offsetDate.toISOString().split('T')[0]
+        console.log(`[SURVIVAL] Day ${dayNumber} mapping to gameDate: ${gameDate}`)
     }
 
     // 0. Check if user has already played today or if they are eliminated/ineligible
@@ -88,7 +99,7 @@ export async function getSurvivalGame() {
     const { data: existingGames } = await supabase
         .from('daily_games')
         .select('content')
-        .eq('date', today)
+        .eq('date', gameDate)
         .eq('sport', sport)
         .limit(1)
 
@@ -172,7 +183,7 @@ export async function getSurvivalGame() {
 
     // 3. Save Game
     await supabaseAdmin.from('daily_games').insert({
-        date: today,
+        date: gameDate,
         content: questions,
         sport: sport
     })
@@ -336,10 +347,14 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
         }
     }
 
+    // Determine target game date (consistent with getSurvivalGame)
+    const tournamentStartDate = new Date(tournament.start_date)
+    const offsetDate = new Date(tournamentStartDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
+    const gameDate = offsetDate.toISOString().split('T')[0]
+
     // 3. Get Game Content (Securely)
     // We need the *full* content including answers/hashes to verify
-    const today = new Date().toISOString().split('T')[0]
-    const sport = 'survival_basketball' // or pass it in?
+    const sport = 'survival_basketball'
 
     // Use admin client to read daily_games if RLS restricts it? 
     // Usually daily_games is public read, but we need to ensure we get the stored content.
@@ -349,7 +364,7 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     const { data: gameData } = await supabase
         .from('daily_games')
         .select('content')
-        .eq('date', today)
+        .eq('date', gameDate)
         .eq('sport', sport)
         .single()
 
