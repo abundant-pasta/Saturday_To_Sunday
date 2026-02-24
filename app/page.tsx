@@ -16,6 +16,7 @@ import PodiumCelebration from '@/components/PodiumCelebration'
 import ShareCard from '@/components/ShareCard'
 import { shareAsImage } from '@/lib/share'
 import { getRankTitle } from '@/lib/utils'
+import { getSurvivalStats } from '@/app/actions/survival'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -43,6 +44,7 @@ function HomeContent() {
 
   const [inviteCount, setInviteCount] = useState(0)
   const [survivalCount, setSurvivalCount] = useState<number | null>(null)
+  const [survivalDay, setSurvivalDay] = useState<number>(1)
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null)
   const [isSurvivalStarted, setIsSurvivalStarted] = useState(false)
   const [hasJoinedSurvival, setHasJoinedSurvival] = useState(false)
@@ -69,20 +71,12 @@ function HomeContent() {
   // 1.5 Fetch Global Data (Survival Count)
   useEffect(() => {
     const fetchGlobalData = async () => {
-      const { data: activeTournament } = await supabase
-        .from('survival_tournaments')
-        .select('id, start_date')
-        .eq('is_active', true)
-        .single()
-
-      if (activeTournament) {
-        setActiveTournamentId(activeTournament.id)
-        setIsSurvivalStarted(new Date(activeTournament.start_date).getTime() <= Date.now())
-        const { count } = await supabase
-          .from('survival_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('tournament_id', activeTournament.id)
-        setSurvivalCount(count)
+      const stats = await getSurvivalStats()
+      if (stats) {
+        setActiveTournamentId(stats.id)
+        setIsSurvivalStarted(stats.isStarted)
+        setSurvivalCount(stats.count)
+        setSurvivalDay(stats.dayNumber)
       } else {
         setActiveTournamentId(null)
         setIsSurvivalStarted(false)
@@ -366,7 +360,7 @@ function HomeContent() {
                   </span>
                 </div>
                 <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                  5 Days. <span className="text-white">{survivalCount !== null ? `${survivalCount} ${isSurvivalStarted ? 'Survivors Remaining.' : 'Registered.'}` : isSurvivalStarted ? 'One Survivor Remaining.' : 'One Registered.'}</span> <span className="text-red-400">Join Now.</span>
+                  {isSurvivalStarted ? `Day ${survivalDay} of 5.` : '5 Days. 1 Winner.'} <span className="text-white">{survivalCount !== null ? `${survivalCount} ${isSurvivalStarted ? 'Survivors Remaining' : 'Registered'}` : isSurvivalStarted ? 'Survivors Remaining' : 'Registered'}</span>. <span className="text-red-400">Join Now.</span>
                 </p>
               </div>
             </div>

@@ -147,6 +147,38 @@ export async function getSurvivalGame() {
     return { questions, status, score, dayNumber }
 }
 
+export async function getSurvivalStats() {
+    const supabase = await createClient()
+
+    const { data: tournament } = await supabase
+        .from('survival_tournaments')
+        .select('*')
+        .eq('is_active', true)
+        .single()
+
+    if (!tournament) return null
+
+    const start = new Date(tournament.start_date).getTime()
+    const now = new Date().getTime()
+    const isStarted = now >= start
+    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+
+    // Count ACTUAL survivors (status = 'active')
+    const { count } = await supabase
+        .from('survival_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('tournament_id', tournament.id)
+        .eq('status', 'active')
+
+    return {
+        id: tournament.id,
+        dayNumber,
+        count: count || 0,
+        isStarted,
+        startDate: tournament.start_date
+    }
+}
+
 export async function joinTournament(tournamentId: string) {
     const supabase = await createClient()
 
