@@ -236,10 +236,20 @@ export default function RecapPage() {
                         <h3 className="text-sm font-black uppercase tracking-widest text-neutral-400">Gridiron Legends</h3>
                     </div>
                     {footballPersonal && (
-                        <div className="pl-14 mb-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-[#00ff80] opacity-80">
-                                You finished #{footballPersonal.rank} / {footballPersonal.total} today!
-                            </p>
+                        <div className="bg-neutral-900/60 border border-[#00ff80]/20 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-lg shadow-[#00ff80]/5 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00ff80]/60 mb-1">Your Placement</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-4xl font-black italic tracking-tighter text-white">#{footballPersonal.rank}</span>
+                                    <span className="text-sm font-bold text-neutral-500 uppercase">/ {footballPersonal.total.toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[#00ff80] block mb-1">Gridiron</span>
+                                <div className="p-2 bg-[#00ff80]/10 rounded-lg inline-block">
+                                    <Star className="w-5 h-5 text-[#00ff80] fill-current" />
+                                </div>
+                            </div>
                         </div>
                     )}
                     <RenderSportList results={footballResults} sport="football" />
@@ -253,10 +263,20 @@ export default function RecapPage() {
                         <h3 className="text-sm font-black uppercase tracking-widest text-neutral-400">Court Kings</h3>
                     </div>
                     {basketballPersonal && (
-                        <div className="pl-14 mb-2">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 opacity-80">
-                                You finished #{basketballPersonal.rank} / {basketballPersonal.total} today!
-                            </p>
+                        <div className="bg-neutral-900/60 border border-amber-500/20 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-lg shadow-amber-500/5 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/60 mb-1">Your Placement</span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-4xl font-black italic tracking-tighter text-white">#{basketballPersonal.rank}</span>
+                                    <span className="text-sm font-bold text-neutral-500 uppercase">/ {basketballPersonal.total.toLocaleString()}</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block mb-1">Court</span>
+                                <div className="p-2 bg-amber-500/10 rounded-lg inline-block">
+                                    <Dribbble className="w-5 h-5 text-amber-500" />
+                                </div>
+                            </div>
                         </div>
                     )}
                     <RenderSportList results={basketballResults} sport="basketball" />
