@@ -206,6 +206,9 @@ export async function getSurvivalStats() {
     const isStarted = now >= start
     const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
 
+    // If the tournament is over (Day 6+), treat it as no active tournament for stats purposes
+    if (dayNumber > 5) return null
+
     let count = 0
     if (!isStarted || dayNumber === 1) {
         // Before start or on Day 1: count all active participants

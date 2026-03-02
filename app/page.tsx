@@ -330,50 +330,36 @@ function HomeContent() {
         </div>
 
         {/* --- SURVIVAL MODE BANNER --- */}
-        <Link
-          href={user ? "/survival" : "/"}
-          className="w-full shrink-0"
-          onClick={(e) => {
-            if (!user) {
-              e.preventDefault()
-              handleGoogleLogin('/survival?autojoin=1')
-            }
-          }}
-        >
-          <div className="w-full bg-gradient-to-r from-red-900/40 to-orange-900/40 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between relative overflow-hidden group hover:scale-[1.02] transition-all shadow-[0_0_20px_rgba(220,38,38,0.15)] mb-3">
-            {showSurvivalJoinPulse && (
-              <div className="absolute inset-0 rounded-2xl border-2 border-red-500/70 shadow-[0_0_25px_rgba(239,68,68,0.4)] animate-pulse pointer-events-none" />
-            )}
-            <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors animate-pulse" />
+        <div className="w-full shrink-0">
+          <div className="w-full bg-gradient-to-r from-neutral-900 to-neutral-800 border border-neutral-700/30 rounded-2xl p-4 flex items-center justify-between relative overflow-hidden group shadow-xl mb-3">
+            <div className="absolute inset-0 bg-neutral-500/5 group-hover:bg-neutral-500/10 transition-colors" />
 
             <div className="flex items-center gap-4 relative z-10">
-              <div className="p-3 bg-red-500/20 rounded-xl border border-red-500/30 group-hover:rotate-12 transition-transform">
-                <Skull className="w-6 h-6 text-red-500" />
+              <div className="p-3 bg-neutral-800 rounded-xl border border-neutral-700/50 grayscale opacity-50">
+                <Skull className="w-6 h-6 text-neutral-400" />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className="text-xl font-black italic uppercase tracking-tighter text-white leading-none">
+                  <h3 className="text-xl font-black italic uppercase tracking-tighter text-neutral-400 leading-none">
                     Survival Mode
                   </h3>
-                  <span className="bg-red-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">
-                    Live
+                  <span className="bg-neutral-800 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">
+                    Coming Soon
                   </span>
                 </div>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                  {isSurvivalStarted ? `Day ${survivalDay} of 5.` : '5 Days. 1 Winner.'} <span className="text-white">{survivalCount !== null ? `${survivalCount} ${isSurvivalStarted ? 'Survivors Remaining' : 'Registered'}` : isSurvivalStarted ? 'Survivors Remaining' : 'Registered'}</span>. <span className="text-red-400">Join Now.</span>
+                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
+                  The Gauntlet returns soon. Prepare for the next round.
                 </p>
               </div>
             </div>
 
             <div className="relative z-10">
-              <div className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center font-black group-hover:bg-red-500 group-hover:text-white transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
+              <div className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-600 flex items-center justify-center font-black">
+                <Calendar className="w-4 h-4" />
               </div>
             </div>
           </div>
-        </Link>
+        </div>
 
 
         {/* --- DUAL GAME MODE CARDS --- */}

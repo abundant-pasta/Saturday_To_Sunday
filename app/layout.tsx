@@ -91,8 +91,8 @@ export default function RootLayout({
       >
         <UIProvider>
           <GlobalHeader />
-          <SurvivalLaunchPopup />
-          <SurvivalOutcomePopup />
+          {/* <SurvivalLaunchPopup /> */}
+          {/* <SurvivalOutcomePopup /> */}
           <GlobalScoreRecovery />
           {children}
         </UIProvider>
