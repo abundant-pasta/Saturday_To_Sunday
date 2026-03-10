@@ -603,6 +603,11 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         )}
 
         <InstallPWA mode="banner" />
+
+        {/* Off-screen Share Card */}
+        <div className="fixed -left-[4000px] top-0 pointer-events-none" aria-hidden="true">
+          <ShareCard ref={shareCardRef} />
+        </div>
       </div>
     )
   }
