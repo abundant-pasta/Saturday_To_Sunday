@@ -31,7 +31,7 @@ export async function getSurvivalGame() {
     if (tournament) {
         const start = new Date(tournament.start_date).getTime()
         const now = new Date().getTime()
-        dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+        dayNumber = Math.min(5, Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1))
 
         // The game for Day X is the one corresponding to (start + (dayX - 1) days)
         // e.g. Day 1 (Feb 20 06:00) uses date Feb 20. Day 5 (Feb 24 06:00) uses date Feb 24.

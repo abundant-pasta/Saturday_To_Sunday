@@ -65,6 +65,7 @@ export default async function SurvivalPage({
     }
 
     const hasStarted = !!(tournament && new Date(tournament.start_date).getTime() <= Date.now())
+    const isFinished = currentDayNumber > 5
 
     // Fetch total participant count
     let participantCount = 0
@@ -144,9 +145,15 @@ export default async function SurvivalPage({
                             {user ? (
                                 isJoined && hasStarted ? (
                                     <div className="flex flex-col gap-3">
-                                        <Button asChild className="w-full h-14 text-lg font-black uppercase tracking-widest bg-gradient-to-r from-red-700 to-orange-600 hover:from-red-600 hover:to-orange-500 text-white shadow-lg shadow-red-500/20 border border-red-400/40 transition-all hover:scale-[1.02]">
-                                            <Link href="/survival/play">Enter The Gauntlet</Link>
-                                        </Button>
+                                        {isFinished ? (
+                                            <div className="p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl animate-in zoom-in duration-500">
+                                                <p className="text-orange-400 font-bold uppercase tracking-widest text-xs">Tournament Concluded</p>
+                                            </div>
+                                        ) : (
+                                            <Button asChild className="w-full h-14 text-lg font-black uppercase tracking-widest bg-gradient-to-r from-red-700 to-orange-600 hover:from-red-600 hover:to-orange-500 text-white shadow-lg shadow-red-500/20 border border-red-400/40 transition-all hover:scale-[1.02]">
+                                                <Link href="/survival/play">Enter The Gauntlet</Link>
+                                            </Button>
+                                        )}
                                         <Button asChild variant="outline" className="w-full h-12 text-xs font-black uppercase tracking-widest border-red-500/40 text-red-300 bg-red-500/5 hover:bg-red-500/10 hover:text-red-200">
                                             <Link href="/survival/leaderboard" className="flex items-center justify-center gap-2">
                                                 <BarChart3 className="w-4 h-4" />
@@ -185,7 +192,7 @@ export default async function SurvivalPage({
 
                     <div className="space-y-2">
                         {eliminationPlan.map((step) => {
-                            const isCurrent = currentDayNumber === step.day && hasStarted;
+                            const isCurrent = currentDayNumber === step.day && hasStarted && !isFinished;
                             return (
                                 <div key={step.day} className={`rounded-xl border px-3 py-2 flex items-center justify-between transition-colors ${isCurrent ? 'bg-red-500/10 border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'bg-black/40 border-neutral-800'}`}>
                                     <div className="text-left">
