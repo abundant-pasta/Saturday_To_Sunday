@@ -469,11 +469,23 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
       if (typeof navigator !== 'undefined' && (navigator as any).share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         await shareAsImage(shareCardRef, `s2s-${sport}-${shortDate}.png`)
       } else {
-        if ((navigator as any).share) await (navigator as any).share({ text })
-        else { await navigator.clipboard.writeText(text); alert('Copied!') }
+        if (typeof navigator !== 'undefined' && (navigator as any).share) {
+          await (navigator as any).share({ text })
+        } else {
+          await navigator.clipboard.writeText(text)
+          alert('Score copied to clipboard! Paste it to challenge your friends.')
+        }
       }
-    } catch (err) {
-      await navigator.clipboard.writeText(text)
+    } catch (err: any) {
+      // If user just cancelled the share sheet, do nothing
+      if (err.name === 'AbortError') return;
+
+      try {
+        await navigator.clipboard.writeText(text)
+        alert('Score copied to clipboard! Paste it to challenge your friends.')
+      } catch (clipboardErr) {
+        console.error('Failed to copy to clipboard', clipboardErr)
+      }
     }
   }
 

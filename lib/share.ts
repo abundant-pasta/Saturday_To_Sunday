@@ -49,6 +49,8 @@ export async function shareAsImage(elementRef: React.RefObject<HTMLDivElement | 
         }
     } catch (err: any) {
         console.error('Error in shareAsImage:', err)
-        alert(`Failed to generate sharing image: ${err?.message || 'Unknown error'}. Please try again.`)
+        if (err.name !== 'AbortError') {
+            alert(`Failed to generate sharing image: ${err?.message || 'Unknown error'}. Please try again.`)
+        }
     }
 }
