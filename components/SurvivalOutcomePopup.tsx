@@ -50,6 +50,10 @@ export default function SurvivalOutcomePopup() {
       const dayNumber = Math.max(1, Math.floor((now - startMs) / (1000 * 60 * 60 * 24)) + 1)
       if (dayNumber < 2) return
 
+      // Do not show lingering popups if the tournament concluded a long time ago (e.g., > 10 days since start).
+      // A typical tournament is 5 days, so anything beyond day 10 is ancient history.
+      if (dayNumber > 10) return
+
       const gameDate = new Date(Date.now() - TIMEZONE_OFFSET_MS).toISOString().split('T')[0]
       const seenKey = `s2s_survival_outcome_seen_${tournament.id}_${gameDate}`
       if (localStorage.getItem(seenKey)) return
@@ -171,8 +175,8 @@ export default function SurvivalOutcomePopup() {
   return (
     <div className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div className={`w-full max-w-sm rounded-2xl border relative overflow-hidden shadow-2xl ${isEliminated
-          ? 'bg-gradient-to-br from-neutral-950 via-red-950/60 to-black border-red-500/40'
-          : 'bg-gradient-to-br from-neutral-950 via-emerald-950/60 to-black border-emerald-500/40'
+        ? 'bg-gradient-to-br from-neutral-950 via-red-950/60 to-black border-red-500/40'
+        : 'bg-gradient-to-br from-neutral-950 via-emerald-950/60 to-black border-emerald-500/40'
         }`}>
         <button
           onClick={() => setOpen(false)}
@@ -214,8 +218,8 @@ export default function SurvivalOutcomePopup() {
             <Button
               asChild
               className={`w-full h-12 font-black uppercase tracking-widest ${isEliminated
-                  ? 'bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white border border-red-400/40'
-                  : 'bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 text-white border border-emerald-400/40'
+                ? 'bg-gradient-to-r from-red-700 to-red-600 hover:from-red-600 hover:to-red-500 text-white border border-red-400/40'
+                : 'bg-gradient-to-r from-emerald-700 to-emerald-600 hover:from-emerald-600 hover:to-emerald-500 text-white border border-emerald-400/40'
                 }`}
               onClick={() => setOpen(false)}
             >
