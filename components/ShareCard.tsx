@@ -3,7 +3,26 @@
 import React from 'react'
 import { Trophy, Dribbble, Star, Skull, Users, BookOpen, Download, User, Home, ArrowRight, History } from 'lucide-react'
 
-const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
+interface ShareCardProps {
+    score?: number;
+    sport?: 'football' | 'basketball' | 'survival_basketball';
+    results?: boolean[];
+}
+
+const ShareCard = React.forwardRef<HTMLDivElement, ShareCardProps>(({ score, sport, results }, ref) => {
+    // If we have a score, this is a "results" share card
+    const isResultsShare = score !== undefined && sport !== undefined;
+
+    // Determine theme colors based on sport if sharing results
+    const theme = isResultsShare ? {
+        primary: sport.includes('basketball') ? '#f59e0b' : '#00ff80',
+        bg: sport.includes('basketball') ? 'linear-gradient(135deg, #451a03, #78350f)' : 'linear-gradient(135deg, #052e16, #064e3b)',
+        border: sport.includes('basketball') ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+        iconBg: sport.includes('basketball') ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+        iconBorder: sport.includes('basketball') ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+        Icon: sport.includes('basketball') ? Dribbble : Star
+    } : null;
+
     return (
         <div
             ref={ref}
@@ -46,112 +65,168 @@ const ShareCard = React.forwardRef<HTMLDivElement, any>((_, ref) => {
             {/* CONTENT STACK */}
             <div className="w-full max-w-[900px] flex flex-col gap-8 relative z-10">
 
-                {/* SURVIVAL MODE CARD */}
-                <div
-                    className="w-full rounded-[50px] p-10 flex items-center justify-between border-4"
-                    style={{
-                        background: 'linear-gradient(90deg, rgba(127, 29, 29, 0.4), rgba(124, 45, 18, 0.4))',
-                        borderColor: 'rgba(239, 68, 68, 0.3)'
-                    }}
-                >
-                    <div className="flex items-center gap-8">
+                {/* CONDITIONAL CENTER BLOCK: EITHER FINAL SCORE OR GAME PREVIEWS */}
+                {isResultsShare && theme && results ? (
+                    <div
+                        className="rounded-[60px] p-2 flex flex-col shadow-2xl"
+                        style={{
+                            background: theme.bg,
+                            border: `4px solid ${theme.border}`
+                        }}
+                    >
                         <div
-                            className="p-6 rounded-3xl border-4"
+                            className="rounded-[55px] p-12 flex flex-col items-center justify-center gap-10 text-center flex-1"
+                            style={{ backgroundColor: 'rgba(10, 10, 10, 0.8)' }}
+                        >
+                            <div className="flex flex-col items-center gap-4">
+                                <div
+                                    className="p-6 rounded-full border-4"
+                                    style={{
+                                        backgroundColor: theme.iconBg,
+                                        borderColor: theme.iconBorder
+                                    }}
+                                >
+                                    <theme.Icon className="w-16 h-16" style={{ color: theme.primary }} />
+                                </div>
+                                <div className="text-3xl font-black uppercase tracking-widest mt-2" style={{ color: theme.primary }}>
+                                    {sport.includes('survival') ? 'Survival Mode' : `${sport} Mode`}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col items-center justify-center pt-4">
+                                <span className="text-neutral-500 text-3xl uppercase tracking-[0.2em] font-black mb-2">Final Score</span>
+                                <div className="text-[140px] font-black font-mono tracking-tighter leading-none" style={{ color: theme.primary }}>
+                                    {score.toLocaleString()}
+                                </div>
+                            </div>
+
+                            {/* RESULTS GRID (GREEN/RED SQUARES) */}
+                            {results && results.length > 0 && (
+                                <div className="flex flex-wrap justify-center gap-4 mt-8 px-8">
+                                    {results.map((isCorrect, i) => (
+                                        <div
+                                            key={i}
+                                            className="w-16 h-16 rounded-xl shadow-lg border-2"
+                                            style={{
+                                                backgroundColor: isCorrect ? '#00ff80' : '#ef4444',
+                                                borderColor: isCorrect ? 'rgba(0, 255, 128, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {/* SURVIVAL MODE CARD (GENERIC) */}
+                        <div
+                            className="w-full rounded-[50px] p-10 flex items-center justify-between border-4"
                             style={{
-                                backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                background: 'linear-gradient(90deg, rgba(127, 29, 29, 0.4), rgba(124, 45, 18, 0.4))',
                                 borderColor: 'rgba(239, 68, 68, 0.3)'
                             }}
                         >
-                            <Skull className="w-14 h-14" style={{ color: '#ef4444' }} />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-4 mb-2">
-                                <h2 className="text-5xl font-black italic uppercase tracking-tighter leading-none" style={{ color: '#ffffff' }}>
-                                    Survival Mode
-                                </h2>
-                                <span
-                                    className="text-xl font-black px-4 py-1 rounded-lg uppercase"
-                                    style={{ backgroundColor: 'rgba(127, 29, 29, 0.8)', color: '#ef4444', border: '1px solid #ef4444' }}
+                            <div className="flex items-center gap-8">
+                                <div
+                                    className="p-6 rounded-3xl border-4"
+                                    style={{
+                                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                                        borderColor: 'rgba(239, 68, 68, 0.3)'
+                                    }}
                                 >
-                                    Live
-                                </span>
+                                    <Skull className="w-14 h-14" style={{ color: '#ef4444' }} />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-4 mb-2">
+                                        <h2 className="text-5xl font-black italic uppercase tracking-tighter leading-none" style={{ color: '#ffffff' }}>
+                                            Survival Mode
+                                        </h2>
+                                        <span
+                                            className="text-xl font-black px-4 py-1 rounded-lg uppercase"
+                                            style={{ backgroundColor: 'rgba(127, 29, 29, 0.8)', color: '#ef4444', border: '1px solid #ef4444' }}
+                                        >
+                                            Live
+                                        </span>
+                                    </div>
+                                    <p className="text-2xl font-bold uppercase tracking-widest" style={{ color: '#ef4444' }}>
+                                        5 Days. <span style={{ color: '#ffffff' }}>14 Registered.</span> Join Now.
+                                    </p>
+                                </div>
                             </div>
-                            <p className="text-2xl font-bold uppercase tracking-widest" style={{ color: '#ef4444' }}>
-                                5 Days. <span style={{ color: '#ffffff' }}>14 Registered.</span> Join Now.
-                            </p>
+                            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-white">
+                                <ArrowRight className="w-10 h-10" style={{ color: '#000000' }} />
+                            </div>
                         </div>
-                    </div>
-                    <div className="w-16 h-16 rounded-full flex items-center justify-center bg-white">
-                        <ArrowRight className="w-10 h-10" style={{ color: '#000000' }} />
-                    </div>
-                </div>
 
-                {/* DUAL MODE GRID */}
-                <div className="grid grid-cols-2 gap-8 h-80">
-                    {/* FOOTBALL */}
-                    <div
-                        className="rounded-[60px] p-1 flex flex-col"
-                        style={{
-                            background: 'linear-gradient(135deg, #052e16, #064e3b)',
-                            border: '4px solid rgba(16, 185, 129, 0.3)'
-                        }}
-                    >
-                        <div
-                            className="rounded-[55px] p-8 flex flex-col items-center justify-center gap-4 text-center flex-1"
-                            style={{ backgroundColor: 'rgba(10, 10, 10, 0.6)' }}
-                        >
+                        {/* DUAL MODE GRID (GENERIC) */}
+                        <div className="grid grid-cols-2 gap-8 h-80">
+                            {/* FOOTBALL */}
                             <div
-                                className="p-6 rounded-full border-4"
+                                className="rounded-[60px] p-1 flex flex-col"
                                 style={{
-                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                    borderColor: 'rgba(16, 185, 129, 0.2)'
+                                    background: 'linear-gradient(135deg, #052e16, #064e3b)',
+                                    border: '4px solid rgba(16, 185, 129, 0.3)'
                                 }}
                             >
-                                <Star className="w-12 h-12" style={{ color: '#00ff80' }} />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-black uppercase tracking-widest mb-1" style={{ color: '#00ff80' }}>
-                                    Play Daily
+                                <div
+                                    className="rounded-[55px] p-8 flex flex-col items-center justify-center gap-4 text-center flex-1"
+                                    style={{ backgroundColor: 'rgba(10, 10, 10, 0.6)' }}
+                                >
+                                    <div
+                                        className="p-6 rounded-full border-4"
+                                        style={{
+                                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                            borderColor: 'rgba(16, 185, 129, 0.2)'
+                                        }}
+                                    >
+                                        <Star className="w-12 h-12" style={{ color: '#00ff80' }} />
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl font-black uppercase tracking-widest mb-1" style={{ color: '#00ff80' }}>
+                                            Play Daily
+                                        </div>
+                                        <div className="text-5xl font-black italic uppercase tracking-tighter" style={{ color: '#ffffff' }}>
+                                            Football
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="text-5xl font-black italic uppercase tracking-tighter" style={{ color: '#ffffff' }}>
-                                    Football
-                                </div>
                             </div>
-                        </div>
-                    </div>
 
-                    {/* BASKETBALL */}
-                    <div
-                        className="rounded-[60px] p-1 flex flex-col"
-                        style={{
-                            background: 'linear-gradient(135deg, #451a03, #78350f)',
-                            border: '4px solid rgba(245, 158, 11, 0.3)'
-                        }}
-                    >
-                        <div
-                            className="rounded-[55px] p-8 flex flex-col items-center justify-center gap-4 text-center flex-1"
-                            style={{ backgroundColor: 'rgba(10, 10, 10, 0.6)' }}
-                        >
+                            {/* BASKETBALL */}
                             <div
-                                className="p-6 rounded-full border-4"
+                                className="rounded-[60px] p-1 flex flex-col"
                                 style={{
-                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                    borderColor: 'rgba(245, 158, 11, 0.2)'
+                                    background: 'linear-gradient(135deg, #451a03, #78350f)',
+                                    border: '4px solid rgba(245, 158, 11, 0.3)'
                                 }}
                             >
-                                <Dribbble className="w-12 h-12" style={{ color: '#f59e0b' }} />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-black uppercase tracking-widest mb-1" style={{ color: '#f59e0b' }}>
-                                    Play Daily
-                                </div>
-                                <div className="text-5xl font-black italic uppercase tracking-tighter" style={{ color: '#ffffff' }}>
-                                    Basketball
+                                <div
+                                    className="rounded-[55px] p-8 flex flex-col items-center justify-center gap-4 text-center flex-1"
+                                    style={{ backgroundColor: 'rgba(10, 10, 10, 0.6)' }}
+                                >
+                                    <div
+                                        className="p-6 rounded-full border-4"
+                                        style={{
+                                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                            borderColor: 'rgba(245, 158, 11, 0.2)'
+                                        }}
+                                    >
+                                        <Dribbble className="w-12 h-12" style={{ color: '#f59e0b' }} />
+                                    </div>
+                                    <div>
+                                        <div className="text-2xl font-black uppercase tracking-widest mb-1" style={{ color: '#f59e0b' }}>
+                                            Play Daily
+                                        </div>
+                                        <div className="text-5xl font-black italic uppercase tracking-tighter" style={{ color: '#ffffff' }}>
+                                            Basketball
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
+                    </>
+                )}
 
                 {/* DAILY RECAP CARD */}
                 <div
