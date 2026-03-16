@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useRef } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useUI } from '@/context/UIContext'
 import { useSearchParams } from 'next/navigation'
 import { getDailyGame } from '@/app/actions'
@@ -19,8 +19,6 @@ import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 import InstallPWA from '@/components/InstallPWA'
 import { hashAnswer } from '@/utils/crypto'
 import { getRankTitle } from '@/lib/utils'
-import ShareCard from '@/components/ShareCard'
-import { shareAsImage } from '@/lib/share'
 
 const THEMES = {
   football: {
@@ -78,7 +76,6 @@ export default function DailyGameWrapper({ sport = 'football' }: { sport?: 'foot
 function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const { setHeaderHidden } = useUI()
   const searchParams = useSearchParams()
-  const shareCardRef = useRef<HTMLDivElement>(null)
   const challengerScore = searchParams.get('s')
   const theme = THEMES[sport]
   const config = GAME_CONFIG[sport]
@@ -463,18 +460,15 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     const dateObj = new Date(Date.now() - TIMEZONE_OFFSET_MS)
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const rankInfo = getRankTitle(score, sport)
-    const text = `I scored ${score.toLocaleString()} on today's ${sport} grid! ${sport === 'basketball' ? '🏀' : '🏈'}\nRank: ${rankInfo.title}\n\n${squares}\n\nThink you know ball? Prove it: 👇\nhttps://www.playsaturdaytosunday.com`
+    const streakEmoji = streak > 0 ? ` | 🔥 ${streak}` : ''
+    const text = `Saturday to Sunday (${shortDate})\nScore: ${score.toLocaleString()} (${rankInfo.title})${streakEmoji}\n\n${squares}\n\nCan you beat my score? Challenge me here: 👇\nhttps://playsaturdaytosunday.com/?s=${score}`
 
     try {
-      if (typeof navigator !== 'undefined' && (navigator as any).share && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        await shareAsImage(shareCardRef, `s2s-${sport}-${shortDate}.png`)
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        await (navigator as any).share({ text })
       } else {
-        if (typeof navigator !== 'undefined' && (navigator as any).share) {
-          await (navigator as any).share({ text })
-        } else {
-          await navigator.clipboard.writeText(text)
-          alert('Score copied to clipboard! Paste it to challenge your friends.')
-        }
+        await navigator.clipboard.writeText(text)
+        alert('Score copied to clipboard! Paste it to challenge your friends.')
       }
     } catch (err: any) {
       // If user just cancelled the share sheet, do nothing
@@ -603,11 +597,6 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         )}
 
         <InstallPWA mode="banner" />
-
-        {/* Off-screen Share Card */}
-        <div className="fixed -left-[4000px] top-0 pointer-events-none" aria-hidden="true">
-          <ShareCard ref={shareCardRef} />
-        </div>
       </div>
     )
   }
@@ -668,16 +657,6 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           })}
         </div>
       </main>
-
-      {/* Off-screen Share Card */}
-      <div className="fixed -left-[4000px] top-0 pointer-events-none" aria-hidden="true">
-        <ShareCard
-          ref={shareCardRef}
-          score={score}
-          sport={sport}
-          results={results.map(r => typeof r === 'string' ? r === 'correct' : r.result === 'correct')}
-        />
-      </div>
     </div>
   )
 }
