@@ -288,7 +288,7 @@ function HomeContent() {
     localStorage.setItem('s2s_last_podium_date', yesterdayStr)
   }
 
-  const showSurvivalJoinPulse = !!activeTournamentId && !isSurvivalStarted
+  const showSurvivalJoinPulse = !!activeTournamentId
 
   const [joiningSurvival, setJoiningSurvival] = useState(false)
   const [showParticipantsModal, setShowParticipantsModal] = useState(false)
