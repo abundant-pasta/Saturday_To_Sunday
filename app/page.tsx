@@ -16,7 +16,7 @@ import PodiumCelebration from '@/components/PodiumCelebration'
 import ShareCard from '@/components/ShareCard'
 import { shareAsImage } from '@/lib/share'
 import { getRankTitle } from '@/lib/utils'
-import { getSurvivalStats } from '@/app/actions/survival'
+import { getSurvivalStats, joinTournament } from '@/app/actions/survival'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -290,6 +290,24 @@ function HomeContent() {
 
   const showSurvivalJoinPulse = !!activeTournamentId && !hasJoinedSurvival
 
+  const [joiningSurvival, setJoiningSurvival] = useState(false)
+
+  const handleJoinTournament = async () => {
+    if (!activeTournamentId) return
+    if (!user) {
+      handleGoogleLogin('/survival')
+      return
+    }
+    setJoiningSurvival(true)
+    const result = await joinTournament(activeTournamentId)
+    if (result.success) {
+      setHasJoinedSurvival(true)
+    } else {
+      alert(result.error || 'Failed to join. Please try again.')
+    }
+    setJoiningSurvival(false)
+  }
+
   return (
     <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center p-4 font-sans relative">
 
@@ -330,36 +348,86 @@ function HomeContent() {
         </div>
 
         {/* --- SURVIVAL MODE BANNER --- */}
-        <div className="w-full shrink-0">
-          <div className="w-full bg-gradient-to-r from-neutral-900 to-neutral-800 border border-neutral-700/30 rounded-2xl p-4 flex items-center justify-between relative overflow-hidden group shadow-xl mb-3">
-            <div className="absolute inset-0 bg-neutral-500/5 group-hover:bg-neutral-500/10 transition-colors" />
+        {activeTournamentId ? (
+          <div className="w-full shrink-0 mb-3">
+            <div className={`w-full bg-gradient-to-r from-neutral-900 to-red-950/40 border rounded-2xl p-4 flex items-center justify-between relative overflow-hidden shadow-xl ${showSurvivalJoinPulse ? 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.15)]' : 'border-red-900/40'}`}>
+              <div className="absolute inset-0 bg-red-500/5" />
 
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="p-3 bg-neutral-800 rounded-xl border border-neutral-700/50 grayscale opacity-50">
-                <Skull className="w-6 h-6 text-neutral-400" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className="text-xl font-black italic uppercase tracking-tighter text-neutral-400 leading-none">
-                    Survival Mode
-                  </h3>
-                  <span className="bg-neutral-800 text-neutral-500 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">
-                    Coming Soon
-                  </span>
+              <div className="flex items-center gap-4 relative z-10">
+                <div className={`p-3 rounded-xl border ${showSurvivalJoinPulse ? 'bg-red-500/15 border-red-500/30' : 'bg-neutral-800 border-neutral-700/50'}`}>
+                  <Skull className={`w-6 h-6 ${showSurvivalJoinPulse ? 'text-red-400' : 'text-neutral-400'}`} />
                 </div>
-                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">
-                  The Gauntlet returns soon. Prepare for the next round.
-                </p>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="text-xl font-black italic uppercase tracking-tighter text-white leading-none">
+                      Survival Mode
+                    </h3>
+                    {!isSurvivalStarted && (
+                      <span className="bg-red-500/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border border-red-500/30">
+                        Mar 19
+                      </span>
+                    )}
+                    {isSurvivalStarted && (
+                      <span className="bg-red-500/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border border-red-500/30">
+                        Day {survivalDay}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
+                    {hasJoinedSurvival
+                      ? isSurvivalStarted ? `${survivalCount ?? '—'} survivors remain` : `${survivalCount ?? '—'} players joined`
+                      : isSurvivalStarted && survivalDay > 1 ? 'Tournament in progress'
+                      : `${survivalCount ?? '—'} players joined · March Madness`}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="relative z-10">
-              <div className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-600 flex items-center justify-center font-black">
-                <Calendar className="w-4 h-4" />
+              <div className="relative z-10 shrink-0">
+                {hasJoinedSurvival ? (
+                  <Link href="/survival">
+                    <Button className="h-9 px-4 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">
+                      {isSurvivalStarted ? 'Play' : 'View'}
+                    </Button>
+                  </Link>
+                ) : isSurvivalStarted && survivalDay > 1 ? (
+                  <Link href="/survival">
+                    <div className="w-9 h-9 rounded-full bg-neutral-800 text-neutral-500 flex items-center justify-center">
+                      <Skull className="w-4 h-4" />
+                    </div>
+                  </Link>
+                ) : (
+                  <Button
+                    onClick={handleJoinTournament}
+                    disabled={joiningSurvival}
+                    className="h-9 px-4 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl"
+                  >
+                    {joiningSurvival ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Join'}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="w-full shrink-0 mb-3">
+            <div className="w-full bg-gradient-to-r from-neutral-900 to-neutral-800 border border-neutral-700/30 rounded-2xl p-4 flex items-center justify-between relative overflow-hidden shadow-xl">
+              <div className="absolute inset-0 bg-neutral-500/5" />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="p-3 bg-neutral-800 rounded-xl border border-neutral-700/50 grayscale opacity-50">
+                  <Skull className="w-6 h-6 text-neutral-400" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black italic uppercase tracking-tighter text-neutral-400 leading-none">Survival Mode</h3>
+                  <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Next tournament coming soon.</p>
+                </div>
+              </div>
+              <div className="relative z-10">
+                <div className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-600 flex items-center justify-center">
+                  <Calendar className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
 
         {/* --- DUAL GAME MODE CARDS --- */}
