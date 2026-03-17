@@ -45,6 +45,7 @@ import GlobalHeader from '@/components/GlobalHeader'
 import SurvivalLaunchPopup from '@/components/SurvivalLaunchPopup'
 import SurvivalOutcomePopup from '@/components/SurvivalOutcomePopup'
 import GlobalScoreRecovery from '@/components/GlobalScoreRecovery'
+import WhatsNewPopup from '@/components/WhatsNewPopup'
 
 export default function RootLayout({
   children,
@@ -93,6 +94,7 @@ export default function RootLayout({
           <GlobalHeader />
           {/* <SurvivalLaunchPopup /> */}
           {/* <SurvivalOutcomePopup /> */}
+          <WhatsNewPopup />
           <GlobalScoreRecovery />
           {children}
         </UIProvider>
