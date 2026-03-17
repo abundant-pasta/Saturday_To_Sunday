@@ -288,7 +288,7 @@ function HomeContent() {
     localStorage.setItem('s2s_last_podium_date', yesterdayStr)
   }
 
-  const showSurvivalJoinPulse = !!activeTournamentId && !hasJoinedSurvival
+  const showSurvivalJoinPulse = !!activeTournamentId && !isSurvivalStarted
 
   const [joiningSurvival, setJoiningSurvival] = useState(false)
   const [showParticipantsModal, setShowParticipantsModal] = useState(false)
@@ -409,11 +409,6 @@ function HomeContent() {
                     <h3 className="text-xl font-black italic uppercase tracking-tighter text-white leading-none">
                       Survival Mode
                     </h3>
-                    {!isSurvivalStarted && (
-                      <span className="bg-red-500/20 text-red-400 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest border border-red-500/30 whitespace-nowrap">
-                        Starts Thu
-                      </span>
-                    )}
                     {isSurvivalStarted && (
                       <span className="bg-red-500/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border border-red-500/30">
                         Day {survivalDay}
@@ -426,6 +421,11 @@ function HomeContent() {
                       : isSurvivalStarted && survivalDay > 1 ? 'Tournament in progress'
                       : `${survivalCount ?? '—'} players joined · March Madness`}
                   </p>
+                  {!isSurvivalStarted && (
+                    <p className="text-[10px] text-red-400/80 font-black uppercase tracking-widest mt-0.5 animate-pulse">
+                      Starts Thursday
+                    </p>
+                  )}
                 </div>
               </div>
 
