@@ -248,6 +248,27 @@ export async function getSurvivalStats() {
     }
 }
 
+export async function getSurvivalParticipants(tournamentId: string): Promise<string[]> {
+    const supabase = await createClient()
+
+    const { data: participants } = await supabase
+        .from('survival_participants')
+        .select('user_id')
+        .eq('tournament_id', tournamentId)
+        .eq('status', 'active')
+
+    if (!participants || participants.length === 0) return []
+
+    const userIds = participants.map(p => p.user_id)
+
+    const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, full_name')
+        .in('id', userIds)
+
+    return (profiles || []).map(p => p.username || p.full_name || 'Player')
+}
+
 export async function joinTournament(tournamentId: string) {
     const supabase = await createClient()
 

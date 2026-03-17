@@ -16,7 +16,7 @@ import PodiumCelebration from '@/components/PodiumCelebration'
 import ShareCard from '@/components/ShareCard'
 import { shareAsImage } from '@/lib/share'
 import { getRankTitle } from '@/lib/utils'
-import { getSurvivalStats, joinTournament } from '@/app/actions/survival'
+import { getSurvivalStats, joinTournament, getSurvivalParticipants } from '@/app/actions/survival'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -291,6 +291,18 @@ function HomeContent() {
   const showSurvivalJoinPulse = !!activeTournamentId && !hasJoinedSurvival
 
   const [joiningSurvival, setJoiningSurvival] = useState(false)
+  const [showParticipantsModal, setShowParticipantsModal] = useState(false)
+  const [participantNames, setParticipantNames] = useState<string[]>([])
+  const [loadingParticipants, setLoadingParticipants] = useState(false)
+
+  const handleViewParticipants = async () => {
+    if (!activeTournamentId) return
+    setShowParticipantsModal(true)
+    setLoadingParticipants(true)
+    const names = await getSurvivalParticipants(activeTournamentId)
+    setParticipantNames(names)
+    setLoadingParticipants(false)
+  }
 
   const handleJoinTournament = async () => {
     if (!activeTournamentId) return
@@ -310,6 +322,38 @@ function HomeContent() {
 
   return (
     <div className="min-h-[100dvh] bg-neutral-950 flex flex-col items-center p-4 font-sans relative">
+
+      {/* Participants Modal */}
+      {showParticipantsModal && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center p-4" onClick={() => setShowParticipantsModal(false)}>
+          <div className="w-full max-w-md bg-neutral-900 rounded-2xl border border-red-900/40 p-5 space-y-4 mb-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black italic uppercase tracking-tighter text-white leading-none">Survival Mode</h3>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-0.5">{survivalCount ?? 0} players joined · March Madness</p>
+              </div>
+              <button onClick={() => setShowParticipantsModal(false)} className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
+            </div>
+            {loadingParticipants ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="animate-spin text-neutral-500 w-5 h-5" />
+              </div>
+            ) : (
+              <div className="space-y-1.5 max-h-72 overflow-y-auto">
+                {participantNames.map((name, i) => (
+                  <div key={i} className="flex items-center gap-2.5 py-1.5 px-3 bg-neutral-800/60 rounded-xl">
+                    <Skull className="w-3 h-3 text-red-400/60 shrink-0" />
+                    <span className="text-sm text-neutral-200 font-semibold">{name}</span>
+                  </div>
+                ))}
+                {participantNames.length === 0 && (
+                  <p className="text-center text-neutral-500 text-sm py-4">No players yet.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Celebration Overlay */}
       {celebrationData && (
@@ -349,8 +393,11 @@ function HomeContent() {
 
         {/* --- SURVIVAL MODE BANNER --- */}
         {activeTournamentId ? (
-          <div className="w-full shrink-0 mb-3">
-            <div className={`w-full bg-gradient-to-r from-neutral-900 to-red-950/40 border rounded-2xl p-4 flex items-center justify-between relative overflow-hidden shadow-xl ${showSurvivalJoinPulse ? 'border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.15)]' : 'border-red-900/40'}`}>
+          <div className="w-full shrink-0 mb-3 relative">
+            {showSurvivalJoinPulse && (
+              <div className="absolute inset-0 rounded-2xl border-2 border-red-500/60 animate-pulse pointer-events-none z-10" />
+            )}
+            <div className={`w-full bg-gradient-to-r from-neutral-900 to-red-950/40 border rounded-2xl p-4 flex items-center justify-between relative overflow-hidden shadow-xl ${showSurvivalJoinPulse ? 'border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.15)]' : 'border-red-900/40'}`}>
               <div className="absolute inset-0 bg-red-500/5" />
 
               <div className="flex items-center gap-4 relative z-10">
@@ -363,8 +410,8 @@ function HomeContent() {
                       Survival Mode
                     </h3>
                     {!isSurvivalStarted && (
-                      <span className="bg-red-500/20 text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest border border-red-500/30">
-                        Mar 19
+                      <span className="bg-red-500/20 text-red-400 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-widest border border-red-500/30 whitespace-nowrap">
+                        Starts Thu
                       </span>
                     )}
                     {isSurvivalStarted && (
@@ -384,11 +431,20 @@ function HomeContent() {
 
               <div className="relative z-10 shrink-0">
                 {hasJoinedSurvival ? (
-                  <Link href="/survival">
-                    <Button className="h-9 px-4 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">
-                      {isSurvivalStarted ? 'Play' : 'View'}
+                  isSurvivalStarted ? (
+                    <Link href="/survival">
+                      <Button className="h-9 px-4 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">
+                        Play
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      onClick={handleViewParticipants}
+                      className="h-9 px-4 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl"
+                    >
+                      View
                     </Button>
-                  </Link>
+                  )
                 ) : isSurvivalStarted && survivalDay > 1 ? (
                   <Link href="/survival">
                     <div className="w-9 h-9 rounded-full bg-neutral-800 text-neutral-500 flex items-center justify-center">
