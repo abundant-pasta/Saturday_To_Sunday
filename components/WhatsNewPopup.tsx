@@ -41,7 +41,7 @@ export default function WhatsNewPopup() {
       bg: 'bg-yellow-500/10 border-yellow-500/20',
       title: 'Awards — All Your Achievements',
       desc: 'Head to your profile to see every award you\'ve earned. Streaks, podium finishes, survival runs — it\'s all there.',
-      href: '/profile',
+      href: '/collection',
     },
   ]
 
