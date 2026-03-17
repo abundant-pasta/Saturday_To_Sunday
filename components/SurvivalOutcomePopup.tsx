@@ -37,11 +37,30 @@ export default function SurvivalOutcomePopup() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return
 
-      const { data: tournament } = await supabase
+      let { data: tournament } = await supabase
         .from('survival_tournaments')
         .select('id, start_date, is_active')
         .eq('is_active', true)
         .single()
+
+      // If no active tournament, check for one that concluded in the last 2 days
+      // so winners can still see their popup after is_active flips to false
+      let concludedTournament = false
+      if (!tournament) {
+        const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+        const { data: recent } = await supabase
+          .from('survival_tournaments')
+          .select('id, start_date, is_active')
+          .eq('is_active', false)
+          .gte('end_date', twoDaysAgo)
+          .order('end_date', { ascending: false })
+          .limit(1)
+          .single()
+        if (recent) {
+          tournament = recent
+          concludedTournament = true
+        }
+      }
 
       if (!tournament) return
 
@@ -66,6 +85,10 @@ export default function SurvivalOutcomePopup() {
         .single()
 
       if (!participant) return
+
+      // For concluded tournaments, only show winner popup — survived/eliminated
+      // popups already fired while the tournament was active
+      if (concludedTournament && participant.status !== 'winner') return
 
       let rankLine: string | undefined = undefined
       const priorDay = dayNumber - 1

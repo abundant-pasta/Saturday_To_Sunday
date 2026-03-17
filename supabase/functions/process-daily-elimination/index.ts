@@ -11,20 +11,20 @@ const TARGET_TOURNAMENT_DAYS = 5
 function targetRemainingForDay(initialFieldSize: number, dayNumber: number): number {
     if (dayNumber >= TARGET_TOURNAMENT_DAYS) return 1
 
-    // 5-day pacing curve:
-    // Day 1: 62.5%, Day 2: 37.5%, Day 3: 25%, Day 4: 12.5% (Final 3)
+    // 5-day pacing curve (% of original field surviving each day):
+    // Day 1: 62.5%, Day 2: 37.5%, Day 3: 25%, Day 4: 12.5%
     const ratioByDay: Record<number, number> = {
         1: 0.625,
         2: 0.375,
         3: 0.25,
-        4: 0.125, // For 22-24 players, this is exactly 3 survivors
+        4: 0.125,
     }
 
     const ratio = ratioByDay[dayNumber] ?? 0.125
-    let target = Math.ceil(initialFieldSize * ratio)
+    const target = Math.ceil(initialFieldSize * ratio)
 
-    // Explicit override for Day 4 to ensure a competitive final 3
-    if (dayNumber === 4) target = 3
+    // Always send at least 2 into the final day so there's a real competition
+    if (dayNumber === TARGET_TOURNAMENT_DAYS - 1) return Math.max(2, target)
 
     return Math.max(1, target)
 }
@@ -196,13 +196,50 @@ Deno.serve(async (req) => {
             })
         }
 
+        // 9. Check for Tournament End (Day 5)
+        let isTournamentComplete = false
+        if (processingDayNumber >= TARGET_TOURNAMENT_DAYS) {
+            isTournamentComplete = true
+
+            // The remaining active participants are the winners
+            const survivingParticipants = combined.filter(p => !victimIds.includes(p.id))
+            const survivorIds = survivingParticipants.map(s => s.id)
+
+            if (survivorIds.length > 0) {
+                const { error: winnerError } = await supabase
+                    .from('survival_participants')
+                    .update({ status: 'winner' })
+                    .in('id', survivorIds)
+
+                if (winnerError) throw winnerError
+            }
+
+            // Deactivate tournament
+            const { error: deactivateError } = await supabase
+                .from('survival_tournaments')
+                .update({ is_active: false })
+                .eq('id', tournament.id)
+
+            if (deactivateError) throw deactivateError
+
+            await supabase.from('survival_logs').insert({
+                tournament_id: tournament.id,
+                day_number: processingDayNumber,
+                message: `Tournament ${tournament.name} concluded. ${survivorIds.length} winners declared.`,
+                details: { winners: survivorIds }
+            })
+
+            console.log(`Tournament ${tournament.id} concluded. Winners: ${survivorIds.join(', ')}`)
+        }
+
         return new Response(
             JSON.stringify({
                 success: true,
                 day: processingDayNumber,
                 total: totalActive,
                 eliminated: victimIds.length,
-                victims: victimIds
+                victims: victimIds,
+                tournament_concluded: isTournamentComplete
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
