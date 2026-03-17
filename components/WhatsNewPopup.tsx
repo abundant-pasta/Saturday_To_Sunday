@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { X, Skull, Users, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 
 const CAMPAIGN_KEY = 's2s_whats_new_march_2026_seen'
 
@@ -40,6 +41,7 @@ export default function WhatsNewPopup() {
       bg: 'bg-yellow-500/10 border-yellow-500/20',
       title: 'Awards — All Your Achievements',
       desc: 'Head to your profile to see every award you\'ve earned. Streaks, podium finishes, survival runs — it\'s all there.',
+      href: '/profile',
     },
   ]
 
@@ -66,15 +68,21 @@ export default function WhatsNewPopup() {
 
           {/* Feature list */}
           <div className="space-y-3">
-            {features.map((f, i) => (
-              <div key={i} className={`flex items-start gap-3 p-3 rounded-xl border ${f.bg}`}>
-                <div className="mt-0.5 shrink-0">{f.icon}</div>
-                <div>
-                  <p className="text-sm font-black text-white leading-tight">{f.title}</p>
-                  <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">{f.desc}</p>
+            {features.map((f, i) => {
+              const inner = (
+                <div className={`flex items-start gap-3 p-3 rounded-xl border ${f.bg} ${'href' in f ? 'hover:brightness-125 transition-all cursor-pointer' : ''}`}>
+                  <div className="mt-0.5 shrink-0">{f.icon}</div>
+                  <div>
+                    <p className="text-sm font-black text-white leading-tight">{f.title}</p>
+                    <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">{f.desc}</p>
+                    {'href' in f && <p className="text-[10px] text-yellow-400/70 font-bold uppercase tracking-widest mt-1">View Awards →</p>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+              return 'href' in f
+                ? <Link key={i} href={(f as any).href} onClick={() => setOpen(false)}>{inner}</Link>
+                : <div key={i}>{inner}</div>
+            })}
           </div>
 
           {/* Sign-off */}
