@@ -47,7 +47,7 @@ export default function WhatsNewPopup() {
 
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-neutral-950 border border-neutral-800 rounded-2xl shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-sm bg-gradient-to-br from-neutral-950 to-neutral-900 border border-neutral-700/60 rounded-2xl shadow-[0_0_30px_rgba(250,204,21,0.08)] relative overflow-hidden">
 
         <button
           onClick={() => setOpen(false)}
