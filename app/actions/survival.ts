@@ -7,10 +7,26 @@ import { hashAnswer, generateSalt } from '@/utils/crypto'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 const BYPASS_USER_IDS = ['63719211-dc3a-4801-8295-3465c9b6d5f0'] // Tom Gordon (Allow play Feb 24)
+const SURVIVAL_TOURNAMENT_DAYS = 5
+
+function getSurvivalDayContext(startDate: string) {
+    const start = new Date(startDate).getTime()
+    const now = Date.now()
+    const dayNumber = Math.min(
+        SURVIVAL_TOURNAMENT_DAYS,
+        Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+    )
+
+    const offsetDate = new Date(start + (dayNumber - 1) * 24 * 60 * 60 * 1000)
+
+    return {
+        dayNumber,
+        gameDate: offsetDate.toISOString().split('T')[0]
+    }
+}
 
 export async function getSurvivalGame() {
     const supabase = await createClient()
-    const today = new Date().toISOString().split('T')[0]
     const sport = 'survival_basketball'
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -29,15 +45,9 @@ export async function getSurvivalGame() {
     let gameDate = new Date().toISOString().split('T')[0]
 
     if (tournament) {
-        const start = new Date(tournament.start_date).getTime()
-        const now = new Date().getTime()
-        dayNumber = Math.min(5, Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1))
-
-        // The game for Day X is the one corresponding to (start + (dayX - 1) days)
-        // e.g. Day 1 (Feb 20 06:00) uses date Feb 20. Day 5 (Feb 24 06:00) uses date Feb 24.
-        const tournamentStartDate = new Date(tournament.start_date)
-        const offsetDate = new Date(tournamentStartDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
-        gameDate = offsetDate.toISOString().split('T')[0]
+        const dayContext = getSurvivalDayContext(tournament.start_date)
+        dayNumber = dayContext.dayNumber
+        gameDate = dayContext.gameDate
         console.log(`[SURVIVAL] Day ${dayNumber} mapping to gameDate: ${gameDate}`)
     }
 
@@ -360,9 +370,7 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     if (participant.status === 'eliminated' && !isBypassed) return { error: 'You are eliminated' }
 
     // 2.5 Strict Eligibility Check (Skip Protection)
-    const start = new Date(tournament.start_date).getTime()
-    const now = new Date().getTime()
-    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+    const { dayNumber, gameDate } = getSurvivalDayContext(tournament.start_date)
 
     if (dayNumber > 1 && !isBypassed) {
         const { data: previousScores } = await supabase
@@ -378,10 +386,6 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     }
 
     // Determine target game date (consistent with getSurvivalGame)
-    const tournamentStartDate = new Date(tournament.start_date)
-    const offsetDate = new Date(tournamentStartDate.getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
-    const gameDate = offsetDate.toISOString().split('T')[0]
-
     // 3. Get Game Content (Securely)
     // We need the *full* content including answers/hashes to verify
     const sport = 'survival_basketball'
@@ -559,9 +563,7 @@ export async function recoverLegacySurvivalScore(score: number) {
     if (participant.status === 'eliminated') return { error: 'You are eliminated' }
 
     // 3. Calculate Day Number
-    const start = new Date(tournament.start_date).getTime()
-    const now = new Date().getTime()
-    const dayNumber = Math.max(1, Math.floor((now - start) / (1000 * 60 * 60 * 24)) + 1)
+    const { dayNumber } = getSurvivalDayContext(tournament.start_date)
 
     // 4. Check if Score ALREADY EXISTS (Critical)
     // We only recover if they have NO score for today.

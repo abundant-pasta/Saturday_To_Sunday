@@ -12,6 +12,12 @@ type ScoreRow = {
   submitted_at: string
 }
 
+type ParticipantRow = {
+  id: string
+  user_id: string
+  status: string
+}
+
 type ProfileRow = {
   id: string
   username: string | null
@@ -50,25 +56,31 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
 
   const selectedDay = searchParams.day ? parseInt(searchParams.day) : currentDayNumber
 
-  // 1. Fetch scores for the SELECTED day
-  const { data: rawScores } = await supabase
-    .from('survival_scores')
-    .select('participant_id, score, submitted_at, day_number')
-    .eq('day_number', selectedDay)
+  const { data: tournamentParticipantsRaw } = await supabase
+    .from('survival_participants')
+    .select('id, user_id, status')
+    .eq('tournament_id', tournament.id)
+
+  const tournamentParticipants = (tournamentParticipantsRaw || []) as ParticipantRow[]
+  const tournamentParticipantIds = tournamentParticipants.map((participant) => participant.id)
+
+  // 1. Fetch scores for the selected day, restricted to the active tournament.
+  const { data: rawScores } = tournamentParticipantIds.length > 0
+    ? await supabase
+      .from('survival_scores')
+      .select('participant_id, score, submitted_at, day_number')
+      .eq('day_number', selectedDay)
+      .in('participant_id', tournamentParticipantIds)
+    : { data: [] as ScoreRow[] }
 
   let participantIds = Array.from(new Set((rawScores || []).map(s => s.participant_id)))
 
   // 2. Fetch Active Participants (for current day view)
   // If we are on the current day, we want to see EVERYONE who is still active,
   // even if they haven't recorded a score yet.
-  let activeParticipants: any[] = []
+  let activeParticipants: ParticipantRow[] = []
   if (selectedDay === currentDayNumber) {
-    const { data: currentActive } = await supabase
-      .from('survival_participants')
-      .select('id, user_id, status')
-      .eq('tournament_id', tournament.id)
-      .eq('status', 'active')
-    activeParticipants = currentActive || []
+    activeParticipants = tournamentParticipants.filter((participant) => participant.status === 'active')
 
     // Merge IDs
     const activeIds = activeParticipants.map(p => p.id)
@@ -76,14 +88,10 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
   }
 
   // 3. Fetch participants and profiles for those who played OR are active
-  const { data: participants } = participantIds.length > 0
-    ? await supabase
-      .from('survival_participants')
-      .select('id, user_id, status')
-      .in('id', participantIds)
-    : { data: [] }
+  const participantIdSet = new Set(participantIds)
+  const participants = tournamentParticipants.filter((participant) => participantIdSet.has(participant.id))
 
-  const userIds = (participants || []).map(p => p.user_id)
+  const userIds = participants.map(p => p.user_id)
 
   const { data: profilesRaw } = userIds.length > 0
     ? await supabase
@@ -103,7 +111,7 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
     }
   }
 
-  const rows = (participants || []).map((p) => {
+  const rows = participants.map((p) => {
     const profile = (profiles || []).find(pr => pr.id === p.user_id)
     const best = bestByParticipant.get(p.id)
     return {

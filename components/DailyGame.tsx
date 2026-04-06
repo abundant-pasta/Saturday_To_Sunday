@@ -273,7 +273,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
 
   useEffect(() => {
     const saveScore = async () => {
-      if (gameState !== 'finished' || isSaved || score <= 0) return
+      if (gameState !== 'finished' || isSaved) return
 
       // SURVIVAL MODE HANDLING
       if (sport.startsWith('survival')) {
