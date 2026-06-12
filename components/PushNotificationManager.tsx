@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Bell, Loader2, BellOff, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { trackGrowthEvent } from '@/lib/analytics'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
@@ -18,9 +19,21 @@ function urlBase64ToUint8Array(base64String: string) {
 interface PushManagerProps {
   hideOnSubscribed?: boolean
   compact?: boolean
+  promptContext?: 'standalone' | 'post_game' | 'profile'
+  sport?: 'football' | 'basketball'
 }
 
-export default function PushNotificationManager({ hideOnSubscribed = false, compact = false }: PushManagerProps) {
+function getGuestId() {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('s2s_guest_id')
+}
+
+export default function PushNotificationManager({
+  hideOnSubscribed = false,
+  compact = false,
+  promptContext = 'standalone',
+  sport,
+}: PushManagerProps) {
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -35,7 +48,8 @@ export default function PushNotificationManager({ hideOnSubscribed = false, comp
   useEffect(() => {
     // 1. CHECK IF INSTALLED (Standalone Mode)
     const checkStandalone = () => {
-      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone
+      const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean }
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone
       setIsStandalone(!!isStandaloneMode)
       return !!isStandaloneMode
     }
@@ -55,7 +69,7 @@ export default function PushNotificationManager({ hideOnSubscribed = false, comp
           } else {
             // 3. AUTO-PROMPT LOGIC (If installed + not subscribed + not dismissed)
             const hasDismissed = localStorage.getItem('s2s_notification_prompt_dismissed')
-            if (isApp && !hasDismissed) {
+            if ((isApp || promptContext === 'post_game') && !hasDismissed) {
               // Small delay to not be jarring
               setTimeout(() => setShowPrompt(true), 1500)
             }
@@ -68,7 +82,34 @@ export default function PushNotificationManager({ hideOnSubscribed = false, comp
       setIsSupported(false)
       setLoading(false)
     }
-  }, [])
+  }, [promptContext])
+
+  useEffect(() => {
+    if (!showPrompt || isSubscribed) return
+    trackGrowthEvent('push_prompt_shown', { context: promptContext }, { guestId: getGuestId(), sport })
+  }, [isSubscribed, promptContext, showPrompt, sport])
+
+  useEffect(() => {
+    const relinkExistingSubscription = async () => {
+      if (!isSupported || !isSubscribed) return
+
+      try {
+        const registration = await navigator.serviceWorker.ready
+        const sub = await registration.pushManager.getSubscription()
+        if (!sub) return
+
+        await fetch('/api/web-push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sub)
+        })
+      } catch (error) {
+        console.error('Failed to refresh push subscription link:', error)
+      }
+    }
+
+    relinkExistingSubscription()
+  }, [isSubscribed, isSupported])
 
   // NEW: Auto-dismiss success message after 4s
   useEffect(() => {
@@ -103,9 +144,10 @@ export default function PushNotificationManager({ hideOnSubscribed = false, comp
       setJustSubscribed(true)
       setShowPrompt(false) // Close modal if open
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to subscribe'
       console.error(error)
-      alert(`Error: ${error.message}`)
+      alert(`Error: ${message}`)
     } finally {
       setLoading(false)
     }
@@ -139,12 +181,11 @@ export default function PushNotificationManager({ hideOnSubscribed = false, comp
     localStorage.setItem('s2s_notification_prompt_dismissed', 'true')
   }
 
-  // --- CRITICAL CHANGE: HIDE IF NOT INSTALLED ---
-  // If we are in the browser, return NULL so the Install Button is the only thing visible.
-  if (!isStandalone) return null
-
   // --- SAFETY CHECK ---
   if (!isSupported) return null
+
+  // Keep homepage/profile behavior conservative, but allow the post-game recovery prompt in browsers.
+  if (!isStandalone && promptContext !== 'post_game') return null
 
   // --- RENDER AUTO-PROMPT MODAL ---
   if (showPrompt && !isSubscribed) {

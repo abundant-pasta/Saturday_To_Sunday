@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createCookieClient } from '@/utils/supabase/server'
 
 export async function POST(request: Request) {
   try {
@@ -22,11 +23,10 @@ export async function POST(request: Request) {
     let userId = null
     try {
         // Quick check for standard client just to read Auth cookie
-        const { createClient: createCookieClient } = require('@/utils/supabase/server')
         const supabaseAuth = await createCookieClient()
         const { data: { user } } = await supabaseAuth.auth.getUser()
         userId = user?.id || null
-    } catch (e) {
+    } catch {
         // If this fails (e.g. running outside of Next.js context), strictly ignore it.
         // Guests remain null.
     }
@@ -48,10 +48,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    const { error: eventError } = await supabaseAdmin.from('growth_events').insert({
+      user_id: userId,
+      event_name: 'push_subscribed',
+      metadata: { linked_user: !!userId }
+    })
+    if (eventError) console.error('Push subscription event error:', eventError)
+
     return NextResponse.json({ success: true })
 
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal Server Error'
     console.error('Server error:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -5,7 +5,7 @@ import { Trophy, Dribbble, Star, Skull, Users, BookOpen, Download, User, Home, A
 
 interface ShareCardProps {
     score?: number;
-    sport?: 'football' | 'basketball' | 'survival_basketball';
+    sport?: 'football' | 'basketball' | 'survival_basketball' | 'survival_football' | 'survival_mixed';
     results?: boolean[];
 }
 

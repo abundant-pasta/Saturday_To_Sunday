@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useUI } from '@/context/UIContext'
-import { getSurvivalGame, submitSurvivalScore } from '@/app/actions/survival'
+import { getSurvivalGame, recoverLegacySurvivalScore, submitSurvivalScore } from '@/app/actions/survival'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -10,11 +10,12 @@ import { Home, Share2, Loader2, Trophy, Flame, Skull, Shield, Sword } from 'luci
 import Link from 'next/link'
 import Image from 'next/image'
 import { createBrowserClient } from '@supabase/ssr'
-import { TIMEZONE_OFFSET_MS } from '@/lib/constants'
+import { TIER_MULTIPLIERS, TIMEZONE_OFFSET_MS, type Sport } from '@/lib/constants'
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
-import { hashAnswer } from '@/utils/crypto'
+import { matchesQuestionAnswer } from '@/lib/player-trust'
 import SurvivalLiveRankDisplay from '@/components/SurvivalLiveRankDisplay'
 import SurvivalIntroScreen from '@/components/SurvivalIntroScreen'
+import PostGameImageAudit from '@/components/PostGameImageAudit'
 
 const THEME = {
     primary: 'text-amber-400',
@@ -36,15 +37,40 @@ const getGameDate = () => {
     return new Date(Date.now() - TIMEZONE_OFFSET_MS).toISOString().split('T')[0]
 }
 
-const getMultiplier = (tier: number) => {
-    // Harder tiers for survival maybe?
-    // Let's stick to standard basketball multipliers: 1.0, 1.5, 1.75
-    const multipliers: Record<number, number> = {
-        1: 1.0,
-        2: 1.5,
-        3: 1.75,
-    }
-    return multipliers[tier] || 1.0
+const getMultiplier = (tier: number, sport: Sport = 'basketball') => {
+    const multipliers = TIER_MULTIPLIERS[sport]
+    return multipliers[tier as keyof typeof multipliers] || 1.0
+}
+
+const getQuestionSport = (question: any): Sport => question?.sport === 'football' ? 'football' : 'basketball'
+
+const getGauntletLabel = (questions: any[]) => {
+    const sports = new Set(questions.map(getQuestionSport))
+    if (sports.has('football') && sports.has('basketball')) return 'Mixed Gauntlet'
+    if (sports.has('football')) return 'Football Gauntlet'
+    return 'Basketball Gauntlet'
+}
+
+const getGauntletEmoji = (questions: any[]) => {
+    const sports = new Set(questions.map(getQuestionSport))
+    if (sports.has('football') && sports.has('basketball')) return '🏈🏀'
+    if (sports.has('football')) return '🏈'
+    return '🏀'
+}
+
+const getGauntletSportKey = (questions: any[]) => {
+    const sports = new Set(questions.map(getQuestionSport))
+    if (sports.has('football') && sports.has('basketball')) return 'mixed'
+    if (sports.has('football')) return 'football'
+    return 'basketball'
+}
+
+const getMaxScore = (questions: any[]) => {
+    if (questions.length === 0) return CONFIG.maxScore
+    const base = questions.reduce((sum, question) => {
+        return sum + Math.round(100 * getMultiplier(question?.tier || 1, getQuestionSport(question)))
+    }, 0)
+    return base + (questions.length >= 6 ? 50 : 0) + (questions.length >= 10 ? 150 : 0)
 }
 
 const cleanText = (text: string) => text ? text.replace(/&amp;/g, '&') : ''
@@ -127,6 +153,9 @@ function SurvivalGrid() {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
+
+    const maxScore = getMaxScore(questions)
+    const gauntletLabel = getGauntletLabel(questions)
 
     // Fail-safe: don't block gameplay forever if an image is slow/broken.
     useEffect(() => {
@@ -215,15 +244,21 @@ function SurvivalGrid() {
     useEffect(() => {
         const saveScore = async () => {
             if (gameState !== 'finished' || isSaved) return
+            if (answers.length === 0 && score <= 0) {
+                setSaveError('No saved answers or local score found.')
+                return
+            }
 
             // Call server action with answers for verification
-            const result = await submitSurvivalScore(answers)
+            const result = answers.length > 0
+                ? await submitSurvivalScore(answers)
+                : await recoverLegacySurvivalScore(score)
 
             if (result?.success) {
                 setIsSaved(true)
                 setSaveError(null)
                 // Update score with authoritative server score if provided
-                if (result.score !== undefined) {
+                if ('score' in result && result.score !== undefined) {
                     setScore(result.score)
                 }
             } else {
@@ -238,7 +273,7 @@ function SurvivalGrid() {
     useEffect(() => {
         if (gameState !== 'playing' || showResult || !isImageReady) return
         const currentQ = questions[currentIndex]
-        const multiplier = getMultiplier(currentQ?.tier || 1)
+        const multiplier = getMultiplier(currentQ?.tier || 1, getQuestionSport(currentQ))
         const decayAmount = 5 / multiplier
         let decayInterval: any
 
@@ -264,17 +299,15 @@ function SurvivalGrid() {
         let correctOpt = currentQ.correct_answer || null
 
         if (currentQ.correct_answer) {
-            isCorrect = option === currentQ.correct_answer
-        } else if (currentQ.answer_hash && currentQ.salt) {
-            const guessHash = await hashAnswer(option, currentQ.salt)
-            isCorrect = guessHash === currentQ.answer_hash
+            isCorrect = await matchesQuestionAnswer(currentQ, option)
+        } else if ((currentQ.answer_hash || currentQ.answer_hashes) && currentQ.salt) {
+            isCorrect = await matchesQuestionAnswer(currentQ, option)
 
             // Find the correct option for display if we don't have it yet
             if (!correctOpt) {
                 // We have to check all options to find the correct one
                 for (const opt of currentQ.options) {
-                    const h = await hashAnswer(opt, currentQ.salt)
-                    if (h === currentQ.answer_hash) {
+                    if (await matchesQuestionAnswer(currentQ, opt)) {
                         correctOpt = opt
                         break
                     }
@@ -299,7 +332,7 @@ function SurvivalGrid() {
         let bonus = 0
 
         if (isCorrect) {
-            const basePoints = Math.round(potentialPoints * getMultiplier(currentQ.tier || 1) * CONFIG.pointScale)
+            const basePoints = Math.round(potentialPoints * getMultiplier(currentQ.tier || 1, getQuestionSport(currentQ)) * CONFIG.pointScale)
 
             if (currentStreakCount === 6) { bonus = 50; setBonusReason("6 IN A ROW!") }
             if (currentStreakCount === 10) { bonus = 150; setBonusReason("PERFECT 10!") }
@@ -360,7 +393,7 @@ function SurvivalGrid() {
     const handleShare = async () => {
         const squares = results.map(r => r.result === 'correct' ? '🟩' : '🟥').join('')
         const rankInfo = getRankTitle(score)
-        const text = `Saturday to Sunday: The Gauntlet 🏀\nScore: ${score.toLocaleString()} (${rankInfo.title})\n\n${squares}\n\nCan you survive The Gauntlet?\nhttps://www.playsaturdaytosunday.com/survival`
+        const text = `Saturday to Sunday: ${gauntletLabel} ${getGauntletEmoji(questions)}\nScore: ${score.toLocaleString()} (${rankInfo.title})\n\n${squares}\n\nCan you survive The Gauntlet?\nhttps://www.playsaturdaytosunday.com/survival`
         try {
             if (navigator.share) await navigator.share({ text })
             else { await navigator.clipboard.writeText(text); alert('Copied!') }
@@ -424,7 +457,7 @@ function SurvivalGrid() {
 
         if (gameState === 'intro') {
             const startsInFuture = tournament?.start_date && new Date(tournament.start_date).getTime() > Date.now()
-            return <SurvivalIntroScreen startsInFuture={!!startsInFuture} onStart={() => setGameState('playing')} />
+            return <SurvivalIntroScreen startsInFuture={!!startsInFuture} sportModeLabel={gauntletLabel} onStart={() => setGameState('playing')} />
         }
 
         if (gameState === 'finished') {
@@ -450,7 +483,7 @@ function SurvivalGrid() {
                                 <div className="flex flex-col items-center">
                                     <span className="text-neutral-500 text-[10px] uppercase tracking-[0.15em] font-black mb-1">Final Score</span>
                                     <div className={`text-6xl font-black text-red-500 font-mono tracking-tighter leading-none`}>
-                                        {score}<span className="text-2xl text-neutral-600">/{CONFIG.maxScore}</span>
+                                        {score}<span className="text-2xl text-neutral-600">/{maxScore}</span>
                                     </div>
                                 </div>
                                 <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border bg-black/40 text-red-500 border-red-900/50 shadow-lg mt-2`}>
@@ -467,6 +500,13 @@ function SurvivalGrid() {
                                     )
                                 })}
                             </div>
+
+                            <PostGameImageAudit
+                                questions={questions}
+                                sport={getGauntletSportKey(questions)}
+                                gameMode="survival"
+                                gameDate={getGameDate()}
+                            />
 
                             <div className="flex flex-col gap-3 mt-6 w-full">
                                 {!isSaved && (
@@ -517,7 +557,7 @@ function SurvivalGrid() {
                     <div className={`flex-1 relative bg-neutral-900 rounded-xl overflow-hidden border border-red-900/30 shadow-2xl min-h-0`}>
                         <div className="absolute top-3 left-3 z-30 flex items-center gap-2">
                             <div className="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest shadow-lg bg-black/80 text-red-500 border border-red-500/30 flex items-center gap-1">
-                                <Flame className="w-3 h-3" /> SURVIVAL
+                                <Flame className="w-3 h-3" /> {getQuestionSport(q)}
                             </div>
                             <div className={`px-3 py-1 rounded-full font-black text-sm shadow-xl transition-all flex items-center gap-2 ${showResult ? (selectedOption === revealedAnswer ? `bg-[#00ff80] text-black` : 'bg-red-500 text-white') : 'bg-white text-black'}`}>
                                 {showResult ? (selectedOption === revealedAnswer ? (
@@ -525,7 +565,7 @@ function SurvivalGrid() {
                                         <span>+{lastEarnedPoints}</span>
                                         {receivedBonus && <span className="text-[10px] bg-black text-[#00ff80] px-1.5 rounded animate-pulse whitespace-nowrap">{bonusReason}</span>}
                                     </>
-                                ) : '+0') : `+${Math.round(potentialPoints * getMultiplier(q.tier || 1) * CONFIG.pointScale)}`}
+                                ) : '+0') : `+${Math.round(potentialPoints * getMultiplier(q.tier || 1, getQuestionSport(q)) * CONFIG.pointScale)}`}
                             </div>
                         </div>
 

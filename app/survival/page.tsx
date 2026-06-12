@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import SurvivalRankDisplay from '@/components/SurvivalRankDisplay'
 import SurvivalSignup from '@/components/SurvivalSignup'
+import CampaignLandingTracker from '@/components/CampaignLandingTracker'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Trophy, Users, Clock, Skull, Flame, Swords, BarChart3, TrendingDown } from 'lucide-react'
@@ -11,6 +12,12 @@ const FLOW_RATIOS = [0.625, 0.375, 0.25, 0.125] as const
 function getDayTarget(base: number, day: number) {
     if (day >= 5) return 1
     return Math.max(1, Math.ceil(base * FLOW_RATIOS[day - 1]))
+}
+
+function getSportModeLabel(mode?: string | null) {
+    if (mode === 'football') return 'Football Gauntlet'
+    if (mode === 'mixed') return 'Mixed Gauntlet'
+    return 'Basketball Gauntlet'
 }
 
 export default async function SurvivalPage({
@@ -66,6 +73,15 @@ export default async function SurvivalPage({
 
     const hasStarted = !!(tournament && new Date(tournament.start_date).getTime() <= Date.now())
     const isFinished = currentDayNumber > 5
+    const campaignMetadata = {
+        utm_source: typeof resolvedSearchParams.utm_source === 'string' ? resolvedSearchParams.utm_source : null,
+        utm_medium: typeof resolvedSearchParams.utm_medium === 'string' ? resolvedSearchParams.utm_medium : null,
+        utm_campaign: typeof resolvedSearchParams.utm_campaign === 'string' ? resolvedSearchParams.utm_campaign : null,
+        utm_content: typeof resolvedSearchParams.utm_content === 'string' ? resolvedSearchParams.utm_content : null,
+        school: typeof resolvedSearchParams.school === 'string' ? resolvedSearchParams.school : null,
+        theme: typeof resolvedSearchParams.theme === 'string' ? resolvedSearchParams.theme : null,
+        social_post_id: typeof resolvedSearchParams.social_post_id === 'string' ? resolvedSearchParams.social_post_id : null,
+    }
 
     // Fetch total participant count
     let participantCount = 0
@@ -93,6 +109,7 @@ export default async function SurvivalPage({
 
     return (
         <div className="min-h-[100dvh] bg-neutral-950 text-white font-sans selection:bg-red-500/30 pt-16">
+            <CampaignLandingTracker eventName="social_link_landed" />
 
             <div className="max-w-md mx-auto px-4 pb-12 space-y-8">
 
@@ -139,6 +156,7 @@ export default async function SurvivalPage({
                                 <h2 className="text-2xl font-black uppercase italic tracking-tight text-white">{tournament.name}</h2>
                                 <p className="text-neutral-400 text-xs font-bold uppercase tracking-wide">
                                     <span className="text-red-400">{participantCount} Survivors Joined</span>
+                                    <span className="block text-neutral-500 mt-1">{getSportModeLabel(tournament.sport_mode)}</span>
                                 </p>
                             </div>
 
@@ -167,6 +185,7 @@ export default async function SurvivalPage({
                                         isJoined={isJoined}
                                         dayNumber={currentDayNumber}
                                         hasStarted={hasStarted}
+                                        campaignMetadata={campaignMetadata}
                                     />
                                 )
                             ) : (

@@ -1,0 +1,142 @@
+[
+  {
+    "name": "Doug Flutie",
+    "team": "Legend",
+    "position": "QB",
+    "college": "Boston College",
+    "tier": 1,
+    "rating": 99,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Herschel Walker",
+    "team": "Legend",
+    "position": "RB",
+    "college": "Georgia",
+    "tier": 1,
+    "rating": 99,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Tim Couch",
+    "team": "Legend",
+    "position": "QB",
+    "college": "Kentucky",
+    "tier": 2,
+    "rating": 88,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Jake Plummer",
+    "team": "Legend",
+    "position": "QB",
+    "college": "Arizona State",
+    "tier": 2,
+    "rating": 88,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Ricky Williams",
+    "team": "Legend",
+    "position": "RB",
+    "college": "Texas",
+    "tier": 1,
+    "rating": 99,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Matt Leinart",
+    "team": "Legend",
+    "position": "QB",
+    "college": "USC",
+    "tier": 1,
+    "rating": 99,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Johnny Manziel",
+    "team": "Legend",
+    "position": "QB",
+    "college": "Texas A&M",
+    "tier": 2,
+    "rating": 92,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Tim Tebow",
+    "team": "Legend",
+    "position": "QB",
+    "college": "Florida",
+    "tier": 1,
+    "rating": 99,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Sam Bradford",
+    "team": "Legend",
+    "position": "QB",
+    "college": "Oklahoma",
+    "tier": 2,
+    "rating": 92,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Robert Griffin III",
+    "team": "Legend",
+    "position": "QB",
+    "college": "Baylor",
+    "tier": 2,
+    "rating": 92,
+    "sport": "football",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Chris Paul",
+    "team": "San Antonio Spurs",
+    "position": "G",
+    "college": "Wake Forest",
+    "tier": 1,
+    "rating": 95,
+    "sport": "basketball",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Derrick Rose",
+    "team": "Legend",
+    "position": "G",
+    "college": "Memphis",
+    "tier": 1,
+    "rating": 95,
+    "sport": "basketball",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Jimmer Fredette",
+    "team": "Legend",
+    "position": "G",
+    "college": "BYU",
+    "tier": 2,
+    "rating": 88,
+    "sport": "basketball",
+    "game_mode": "daily"
+  },
+  {
+    "name": "Tyler Hansbrough",
+    "team": "Legend",
+    "position": "F",
+    "college": "North Carolina",
+    "tier": 2,
+    "rating": 88,
+    "sport": "basketball",
+    "game_mode": "daily"
+  }
+]

@@ -11,9 +11,10 @@ interface SurvivalSignupProps {
     isJoined: boolean
     dayNumber: number
     hasStarted: boolean
+    campaignMetadata?: Record<string, string | null>
 }
 
-export default function SurvivalSignup({ tournamentId, isJoined, dayNumber, hasStarted }: SurvivalSignupProps) {
+export default function SurvivalSignup({ tournamentId, isJoined, dayNumber, hasStarted, campaignMetadata }: SurvivalSignupProps) {
     const [loading, setLoading] = useState(false)
     const [message, setMessage] = useState('')
     const [joined, setJoined] = useState(isJoined)
@@ -24,7 +25,7 @@ export default function SurvivalSignup({ tournamentId, isJoined, dayNumber, hasS
         setMessage('')
 
         try {
-            const result = await joinTournament(tournamentId)
+            const result = await joinTournament(tournamentId, campaignMetadata)
 
             if (result.error) {
                 setMessage(result.error)

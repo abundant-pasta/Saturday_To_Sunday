@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import type { Session } from '@supabase/supabase-js'
 
-export default function AuthButton() {
+export default function AuthButton({ redirectPath }: { redirectPath?: string }) {
   const [user, setUser] = useState<Session['user'] | null>(null)
   const [loading, setLoading] = useState(true) // Prevent "Login" flash
   
@@ -30,11 +30,15 @@ export default function AuthButton() {
   }, [supabase])
 
   const handleLogin = async () => {
+    const callbackPath = redirectPath
+      ? `/auth/callback?next=${encodeURIComponent(redirectPath)}`
+      : '/auth/callback'
+
     // Uses location.origin to automatically detect Localhost vs Production
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${location.origin}/auth/callback`,
+        redirectTo: `${location.origin}${callbackPath}`,
       },
     })
   }

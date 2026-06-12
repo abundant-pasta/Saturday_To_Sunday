@@ -195,21 +195,20 @@ export default function CollectionPage() {
 
                 setTeamBadges(badges)
 
-                // 5. Daily Wins from Profile
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('football_daily_wins, basketball_daily_wins, football_podium_finishes, basketball_podium_finishes, football_top_10_finishes, basketball_top_10_finishes')
-                    .eq('id', session.user.id)
-                    .single()
+                // 5. Daily awards recomputed from historical leaderboards.
+                const { data: awardRows } = await supabase.rpc('get_user_awards', {
+                    p_user_id: session.user.id,
+                })
 
-                if (profile) {
+                const awards = Array.isArray(awardRows) ? awardRows[0] : awardRows
+                if (awards) {
                     setDailyWins({
-                        football: profile.football_daily_wins || 0,
-                        basketball: profile.basketball_daily_wins || 0,
-                        fb_podium: profile.football_podium_finishes || 0,
-                        bk_podium: profile.basketball_podium_finishes || 0,
-                        fb_top10: profile.football_top_10_finishes || 0,
-                        bk_top10: profile.basketball_top_10_finishes || 0
+                        football: Number(awards.football_daily_wins || 0),
+                        basketball: Number(awards.basketball_daily_wins || 0),
+                        fb_podium: Number(awards.football_podium_finishes || 0),
+                        bk_podium: Number(awards.basketball_podium_finishes || 0),
+                        fb_top10: Number(awards.football_top_10_finishes || 0),
+                        bk_top10: Number(awards.basketball_top_10_finishes || 0)
                     })
                 }
             } catch (err) {

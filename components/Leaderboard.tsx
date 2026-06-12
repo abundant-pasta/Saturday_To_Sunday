@@ -10,6 +10,8 @@ type LeaderboardEntry = {
     score: number
     results_json?: any
     correctCount?: number | null
+    gamesPlayed?: number | null
+    averageScore?: number | null
     user_id: string | null
     guest_id: string | null
     profiles: {
@@ -56,7 +58,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
     const [loading, setLoading] = useState(true)
 
     // FILTERS
-    const [view, setView] = useState<'daily' | 'weekly'>('daily')
+    const [view, setView] = useState<'daily' | 'weekly' | 'allTime'>('daily')
     const [sport, setSport] = useState<'football' | 'basketball'>(defaultSport)
 
     const [showGuests, setShowGuests] = useState(false)
@@ -241,7 +243,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
 
                 setScores(parsedData)
 
-            } else {
+            } else if (view === 'weekly') {
                 // WEEKLY VIEW (Simplified: Show Top 50 still for now, or apply same logic if needed)
                 // For MVP, applying this only to Daily as requested "where you were located".
                 // Logic for Weekly requires aggregation which is harder to range-query efficiently without a materialized view.
@@ -301,6 +303,34 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                     setScores(rankedWeekly)
                     setTotalCount(sortedWeekly.length)
                 }
+            } else {
+                const { data } = await supabase.rpc('get_all_time_leaderboard', {
+                    p_sport: sport,
+                    p_squad_id: squadId || null,
+                    p_current_user_id: currentUserId || null,
+                    p_limit: 50,
+                })
+
+                const rows = (data || []).map((row: any) => ({
+                    rank: row.rank,
+                    score: Number(row.score || 0),
+                    gamesPlayed: Number(row.games_played || 0),
+                    averageScore: Number(row.average_score || 0),
+                    user_id: row.user_id,
+                    guest_id: null,
+                    profiles: {
+                        username: row.username,
+                        full_name: row.full_name,
+                        avatar_url: row.avatar_url,
+                        show_avatar: row.show_avatar,
+                        streak_football: row.streak_football,
+                        streak_basketball: row.streak_basketball,
+                    },
+                    correctCount: null,
+                }))
+
+                setScores(rows)
+                setTotalCount(rows.length)
             }
 
             setLoading(false)
@@ -321,6 +351,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
 
     const getDisplayDate = () => {
         if (view === 'weekly') return 'This Week'
+        if (view === 'allTime') return 'All Time'
 
         if (dateOffset === 0) return 'Today'
         if (dateOffset === 1) return 'Yesterday'
@@ -410,6 +441,12 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                     >
                         <CalendarDays className={`w-3 h-3 ${view === 'weekly' ? 'text-purple-500' : 'text-neutral-600'}`} /> Weekly
                     </button>
+                    <button
+                        onClick={() => setView('allTime')}
+                        className={`flex-1 text-[10px] font-bold uppercase py-1.5 rounded-md transition-all duration-200 flex items-center justify-center gap-2 ${view === 'allTime' ? 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/10' : 'text-neutral-500 hover:text-neutral-300'}`}
+                    >
+                        <Trophy className={`w-3 h-3 ${view === 'allTime' ? 'text-yellow-500' : 'text-neutral-600'}`} /> All Time
+                    </button>
                 </div>
 
                 {view === 'daily' && (
@@ -433,7 +470,7 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
 
                 {/* TOTAL COUNT */}
                 <div className="text-[10px] text-neutral-500 font-bold text-center pt-1 uppercase tracking-wide">
-                    {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' && dateOffset === 0 ? 'today' : view === 'daily' ? 'on this day' : 'this week'}
+                    {totalCount} {showGuests ? 'total players' : 'registered players'} {view === 'daily' && dateOffset === 0 ? 'today' : view === 'daily' ? 'on this day' : view === 'weekly' ? 'this week' : 'all time'}
                 </div>
             </div>
 
@@ -518,12 +555,17 @@ export default function Leaderboard({ currentUserId, defaultSport = 'football', 
                                                     <Target className="w-3.5 h-3.5 text-neutral-600" /> {entry.correctCount}/{theme.maxQuestions}
                                                 </div>
                                             )}
+                                            {view === 'allTime' && entry.gamesPlayed != null && (
+                                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                                                    <Target className="w-3.5 h-3.5 text-neutral-600" /> {entry.gamesPlayed} games · {Math.round(entry.averageScore || 0)} avg
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Score */}
-                                <div className={`font-mono font-bold ${view === 'weekly' ? 'text-purple-400' : theme.color}`}>
+                                <div className={`font-mono font-bold ${view === 'weekly' ? 'text-purple-400' : view === 'allTime' ? 'text-yellow-400' : theme.color}`}>
                                     {entry.score.toLocaleString()}
                                 </div>
                             </div>

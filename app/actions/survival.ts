@@ -3,11 +3,63 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { hashAnswer, generateSalt } from '@/utils/crypto'
+import { getConference } from '@/lib/conferences'
+import { TIER_MULTIPLIERS, type Sport } from '@/lib/constants'
+import {
+    buildAnswerSecurity,
+    getAcceptedCollegeAnswers,
+    getSurvivalSportKey,
+    getTransferSafeDistractors,
+    matchesQuestionAnswer,
+} from '@/lib/player-trust'
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 const BYPASS_USER_IDS = ['63719211-dc3a-4801-8295-3465c9b6d5f0'] // Tom Gordon (Allow play Feb 24)
 const SURVIVAL_TOURNAMENT_DAYS = 5
+
+function getStoredPlayerName(name: unknown) {
+    if (typeof name !== 'string') return ''
+    const value = name.trim()
+    const normalized = value.replace(/=+$/, '')
+
+    if (!value || !/^[A-Za-z0-9+/]+={0,2}$/.test(value) || value.length % 4 !== 0) {
+        return value
+    }
+
+    try {
+        const decoded = Buffer.from(value, 'base64').toString('utf-8')
+        const roundTrip = Buffer.from(decoded, 'utf-8').toString('base64').replace(/=+$/, '')
+        return roundTrip === normalized ? decoded : value
+    } catch {
+        return value
+    }
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    return shuffled
+}
+
+function getSurvivalSourceSports(sportMode?: string | null): Sport[] {
+    if (sportMode === 'football') return ['football']
+    if (sportMode === 'mixed') return ['football', 'basketball']
+    return ['basketball']
+}
+
+function getSurvivalRoundCount(sportMode: string | null | undefined, sport: Sport) {
+    if (sportMode === 'mixed') return sport === 'football' ? 5 : 5
+    return 10
+}
+
+function getSurvivalMultiplier(tier: number, sport: Sport) {
+    const multipliers = TIER_MULTIPLIERS[sport]
+    return multipliers[tier as keyof typeof multipliers] || 1.0
+}
 
 function getSurvivalDayContext(startDate: string) {
     const start = new Date(startDate).getTime()
@@ -27,7 +79,6 @@ function getSurvivalDayContext(startDate: string) {
 
 export async function getSurvivalGame() {
     const supabase = await createClient()
-    const sport = 'survival_basketball'
 
     const { data: { user } } = await supabase.auth.getUser()
     let status = 'new'
@@ -36,9 +87,12 @@ export async function getSurvivalGame() {
 
     const { data: tournament } = await supabase
         .from('survival_tournaments')
-        .select('id, start_date')
+        .select('id, start_date, sport_mode')
         .eq('is_active', true)
         .single()
+
+    const sportMode = tournament?.sport_mode || 'basketball'
+    const sport = getSurvivalSportKey(sportMode)
 
     // Determine the "Game Date" based on the tournament schedule (Day 1 starts at tournament.start_date)
     // This handles the 6-hour offset (06:00 UTC) so that the game doesn't swap at midnight UTC.
@@ -115,15 +169,16 @@ export async function getSurvivalGame() {
 
     if (existingGames && existingGames.length > 0) {
         const questions = existingGames[0].content as any[]
-        const needsSecurity = questions.some(q => q.correct_answer || !q.answer_hash)
+        const needsSecurity = questions.some(q => q.correct_answer || (!q.answer_hash && !q.answer_hashes))
 
         let safeQuestions = questions
         if (needsSecurity) {
             console.log(`Securing legacy survival game on-the-fly...`)
             safeQuestions = await Promise.all(questions.map(async (q) => {
                 const answer = q.correct_answer || q.answer
+                const answers = Array.from(new Set([answer, ...(Array.isArray(q.accepted_colleges) ? q.accepted_colleges : [])].filter(Boolean)))
                 const salt = q.salt || generateSalt()
-                const answerHash = q.answer_hash || await hashAnswer(answer, salt)
+                const answerHashes = q.answer_hashes || await Promise.all(answers.map((college) => hashAnswer(college, salt)))
                 const name = (q.name.includes(' ') || !q.name.includes('='))
                     ? Buffer.from(q.name).toString('base64')
                     : q.name
@@ -131,7 +186,8 @@ export async function getSurvivalGame() {
                 return {
                     ...q,
                     name,
-                    answer_hash: answerHash,
+                    answer_hash: q.answer_hash || answerHashes[0],
+                    answer_hashes: answerHashes,
                     salt: salt,
                     correct_answer: undefined,
                     answer: undefined
@@ -147,47 +203,51 @@ export async function getSurvivalGame() {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data: pool } = await supabaseAdmin
-        .from('players')
-        .select('*')
-        .in('game_mode', ['survival', 'both'])
-        .limit(300)
+    const selectedPlayers: any[] = []
+    const poolsBySport = new Map<Sport, any[]>()
 
-    if (!pool || pool.length < 10) return null
+    for (const sourceSport of getSurvivalSourceSports(sportMode)) {
+        const { data: pool } = await supabaseAdmin
+            .from('players')
+            .select('*')
+            .eq('sport', sourceSport)
+            .in('game_mode', ['survival', 'both'])
+            .gt('rating', 0)
+            .not('image_url', 'is', null)
+            .not('image_status', 'in', '("spoiler","wrong_person","missing")')
+            .order('rating', { ascending: false })
+            .limit(300)
 
-    // Shuffle and pick 10
-    const selectedPlayers = pool.sort(() => 0.5 - Math.random()).slice(0, 10)
+        const count = getSurvivalRoundCount(sportMode, sourceSport)
+        if (!pool || pool.length < count) return null
+        poolsBySport.set(sourceSport, pool)
+        selectedPlayers.push(...shuffleArray(pool).slice(0, count))
+    }
 
-    // Get distractors (colleges)
-    const allColleges = Array.from(new Set(pool.map(p => p.college).filter(Boolean))) as string[]
-
-    const questions = await Promise.all(selectedPlayers.map(async p => {
-        // 3 distractors
-        const otherColleges = allColleges.filter(c => c !== p.college)
-        const distractors = otherColleges
-            .sort(() => 0.5 - Math.random())
-            .slice(0, 3)
-
-        // Fallback if not enough distractors (shouldn't happen with 200 players)
-        while (distractors.length < 3) {
-            distractors.push('Unknown University')
-        }
-
-        const options = [p.college, ...distractors].sort(() => 0.5 - Math.random())
-
-        const salt = generateSalt()
-        const answerHash = await hashAnswer(p.college, salt)
+    const questions = await Promise.all(shuffleArray(selectedPlayers).map(async p => {
+        const sourceSport = p.sport as Sport
+        const pool = poolsBySport.get(sourceSport) || []
+        const allColleges = Array.from(new Set(pool.map(player => player.college).filter(Boolean))) as string[]
+        const distractors = getTransferSafeDistractors(p, allColleges)
+        while (distractors.length < 3) distractors.push('Unknown University')
+        const options = shuffleArray([p.college, ...distractors.slice(0, 3)])
+        const security = await buildAnswerSecurity(getAcceptedCollegeAnswers(p))
 
         return {
             id: p.id,
             name: Buffer.from(p.name).toString('base64'),
             image_url: p.image_url,
-            // correct_answer: p.college, // REMOVED FOR SECURITY
-            answer_hash: answerHash,
-            salt: salt,
+            answer_hash: security.answer_hash,
+            answer_hashes: security.answer_hashes,
+            salt: security.salt,
             options,
             tier: p.tier,
-            sport: 'basketball' // For UI styling
+            sport: sourceSport,
+            team: p.team,
+            college: p.college,
+            accepted_colleges: p.accepted_colleges || [],
+            college_answer_note: p.college_answer_note || null,
+            conference: getConference(p.college)
         }
     }))
 
@@ -279,7 +339,7 @@ export async function getSurvivalParticipants(tournamentId: string): Promise<str
     return (profiles || []).map(p => p.username || p.full_name || 'Player')
 }
 
-export async function joinTournament(tournamentId: string) {
+export async function joinTournament(tournamentId: string, campaignMetadata: Record<string, string | null> = {}) {
     const supabase = await createClient()
 
     // 1. Auth Check
@@ -332,6 +392,20 @@ export async function joinTournament(tournamentId: string) {
             }
             throw joinError
         }
+
+        const supabaseAdmin = createAdminClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+
+        await supabaseAdmin.from('growth_events').insert({
+            user_id: user.id,
+            event_name: 'survival_joined',
+            metadata: {
+                tournament_id: tournamentId,
+                ...campaignMetadata,
+            }
+        })
 
         revalidatePath('/') // Revalidate homepage or wherever the button is
         return { success: true }
@@ -388,7 +462,7 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     // Determine target game date (consistent with getSurvivalGame)
     // 3. Get Game Content (Securely)
     // We need the *full* content including answers/hashes to verify
-    const sport = 'survival_basketball'
+    const sport = getSurvivalSportKey(tournament.sport_mode || 'basketball')
 
     // Use admin client to read daily_games if RLS restricts it? 
     // Usually daily_games is public read, but we need to ensure we get the stored content.
@@ -408,55 +482,20 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
     let finalScore = 0
     let streak = 0
 
-    // 5. Calculate Day Number (Redundant, already calculated above)
-
-    // 6. Build Results JSON
-    const resultsJson = answers.map(ans => {
-        const q = questions.find(question => question.id === ans.questionId)
-        if (!q) return null
-
-        let isCorrect = false
-        if (q.correct_answer) {
-            isCorrect = q.correct_answer === ans.answer
-        } else if (q.answer_hash && q.salt) {
-            // We can't synchronously re-hash here easily inside map without Promise.all
-            // But we already know if it's correct from the loop above? 
-            // Actually, we should build this continuously in the loop above or re-verify.
-            // Let's re-verify to be safe/consistent, but we need async.
-            return null // handled below
-        }
-        return null
-    })
-
-    // improved approach: build results inside the verification loop
     const results: any[] = []
-
-    // Re-running loop logic cleanly
-    finalScore = 0
-    streak = 0
 
     for (const ans of answers) {
         const question = questions.find(q => q.id === ans.questionId)
         if (!question) continue
 
         let isCorrect = false
-        if (question.correct_answer) {
-            isCorrect = question.correct_answer === ans.answer
-        } else if (question.answer_hash && question.salt) {
-            const h = await hashAnswer(ans.answer, question.salt)
-            isCorrect = h === question.answer_hash
-        }
+        isCorrect = await matchesQuestionAnswer(question, ans.answer)
 
         results.push({
             player_id: question.id,
-            player_name: Buffer.from(question.name, 'base64').toString('utf-8'), // decode for storage or keep encoded? 
+            player_name: getStoredPlayerName(question.name),
             // DailyGame stores it as: { result, player_id, player_name }
             // User requested: "like this: [{""result"": ""wrong"", ""player_id"": 2881, ""player_name"": ""Dennis Rodman""}...]"
-            // The name in 'questions' from getSurvivalGame is base64 encoded.
-            // But here we sourced it from DB 'content', which likely has it as proper name or base64?
-            // "const name = (q.name.includes(' ') || !q.name.includes('=')) ? ... : ..."
-            // In 'getSurvivalGame' we encode it. So in DB it is likely stored as base64 or plain depending on legacy.
-            // Let's safe decode.
             result: isCorrect ? 'correct' : 'wrong'
         })
 
@@ -464,7 +503,8 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
             streak++
             const validPotential = Math.min(100, Math.max(10, ans.potentialPoints))
             const tier = question.tier || 1
-            const multiplier = tier === 3 ? 1.75 : tier === 2 ? 1.5 : 1.0
+            const questionSport = question.sport === 'football' ? 'football' : 'basketball'
+            const multiplier = getSurvivalMultiplier(tier, questionSport)
             const points = Math.round(validPotential * multiplier)
 
             let bonus = 0
@@ -476,29 +516,6 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
             streak = 0
         }
     }
-
-    // Fix player names in results
-    // We need to ensure we store readable names for the frontend result history
-    const finalResults = results.map(r => {
-        // Try to decode if it looks like base64, otherwise keep
-        // Actually, let's just use the question name from DB content directly if possible?
-        // In 'getSurvivalGame' (step 1 above), we read: "const questions = gameData.content as any[]"
-        // If content in DB is raw, we are good.
-        // If content in DB is base64, we decode.
-        // Usually daily_games content has clean names (before being sent to client).
-        // Let's check `getSurvivalGame` logic again:
-        // "const name = ... Buffer.from(q.name).toString('base64') ... return { ... name, ... }"
-        // This implies the DB has plain names, and we encode them for the client.
-        // So `questions` here in `submitSurvivalScore` (fetched from DB) has PLAIN names.
-
-        // Wait! `getSurvivalGame` fetches `daily_games`.
-        // If `daily_games` has plain names, then `questions` has plain names.
-        // So `r.player_name` should be set to `question.name` (plain).
-        return r
-    })
-
-    // Update loop above to set name correctly
-    // (Doing it in one pass below to minimize diff complexity)
 
     // 6. Insert Score
     const supabaseAdmin = createAdminClient(
@@ -531,6 +548,18 @@ export async function submitSurvivalScore(answers: { questionId: number, answer:
         console.error("Score submit error:", error)
         return { error: error.message }
     }
+
+    await supabaseAdmin.from('growth_events').insert({
+        user_id: user.id,
+        event_name: 'survival_round_played',
+        sport,
+        metadata: {
+            tournament_id: tournament.id,
+            sport_mode: tournament.sport_mode || 'basketball',
+            day_number: dayNumber,
+            score: finalScore
+        }
+    })
 
     revalidatePath('/survival')
     return { success: true, score: finalScore }
@@ -601,6 +630,19 @@ export async function recoverLegacySurvivalScore(score: number) {
         console.error("Recovery score submit error:", error)
         return { error: error.message }
     }
+
+    await supabaseAdmin.from('growth_events').insert({
+        user_id: user.id,
+        event_name: 'survival_round_played',
+        sport: getSurvivalSportKey(tournament.sport_mode || 'basketball'),
+        metadata: {
+            tournament_id: tournament.id,
+            sport_mode: tournament.sport_mode || 'basketball',
+            day_number: dayNumber,
+            score: safeScore,
+            recovered: true
+        }
+    })
 
     revalidatePath('/survival')
     return { success: true, recovered: true }

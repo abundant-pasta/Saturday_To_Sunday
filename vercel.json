@@ -7,6 +7,38 @@
       {
         "path": "/api/cron?action=notify",
         "schedule": "0 16 * * *"
+      },
+      {
+        "path": "/api/cron?action=survival-weekly",
+        "schedule": "0 18 * * 0"
+      },
+      {
+        "path": "/api/cron?action=outreach-discovery",
+        "schedule": "30 15 * * *"
+      },
+      {
+        "path": "/api/cron?action=outreach-drafts",
+        "schedule": "0 17 * * 1,3,5"
+      },
+      {
+        "path": "/api/cron?action=social-drafts",
+        "schedule": "30 20 * * *"
+      },
+      {
+        "path": "/api/cron?action=social-survival-drafts",
+        "schedule": "30 17 * * 0,1"
+      },
+      {
+        "path": "/api/cron?action=social-publish-x",
+        "schedule": "0 21 * * *"
+      },
+      {
+        "path": "/api/cron?action=social-metrics-refresh",
+        "schedule": "30 16 * * *"
+      },
+      {
+        "path": "/api/cron?action=image-audit-digest",
+        "schedule": "0 15 * * 1"
       }
     ]
   }

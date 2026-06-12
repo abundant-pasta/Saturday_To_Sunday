@@ -6,9 +6,16 @@ import { GraduationCap, Skull, Sword, Zap } from 'lucide-react'
 interface SurvivalIntroScreenProps {
   onStart: () => void
   startsInFuture: boolean
+  sportModeLabel?: string
 }
 
-export default function SurvivalIntroScreen({ onStart, startsInFuture }: SurvivalIntroScreenProps) {
+export default function SurvivalIntroScreen({ onStart, startsInFuture, sportModeLabel = 'Basketball Gauntlet' }: SurvivalIntroScreenProps) {
+  const assignmentCopy = sportModeLabel === 'Football Gauntlet'
+    ? 'Guess where each NFL player played in college. One wrong guess can cost survival points.'
+    : sportModeLabel === 'Mixed Gauntlet'
+      ? 'Guess where each NFL and NBA player played in college. One wrong guess can cost survival points.'
+      : 'Guess where each NBA player played in college. One wrong guess can cost survival points.'
+
   return (
     <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 animate-in fade-in duration-500 font-sans">
       <div className="w-full max-w-lg bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden border border-neutral-800 ring-1 ring-white/5">
@@ -25,7 +32,7 @@ export default function SurvivalIntroScreen({ onStart, startsInFuture }: Surviva
             The <span className="text-red-500">Gauntlet</span>
           </h1>
           <p className="relative text-neutral-400 font-mono text-xs md:text-sm mt-2 uppercase tracking-widest font-bold">
-            10 Players. <span className="text-white">5-Day Survival</span> starts now.
+            {sportModeLabel}. <span className="text-white">5-Day Survival</span> starts now.
           </p>
         </div>
 
@@ -37,7 +44,7 @@ export default function SurvivalIntroScreen({ onStart, startsInFuture }: Surviva
             <div>
               <h3 className="font-bold text-white text-lg uppercase tracking-tight">The Assignment</h3>
               <p className="text-sm text-neutral-400 leading-relaxed mt-1">
-                Guess where each NBA player played in college. One wrong guess can cost survival points.
+                {assignmentCopy}
               </p>
             </div>
           </div>

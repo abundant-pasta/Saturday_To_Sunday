@@ -31,9 +31,9 @@ function LeaderboardContent() {
       <div className="text-center space-y-2 mb-8">
         <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(250,204,21,0.3)]" />
         <h1 className="text-3xl font-black italic uppercase tracking-tighter drop-shadow-[0_0_15px_rgba(0,255,128,0.3)]">
-          Daily <span className="text-[#00ff80]">Leaderboard</span>
+          Player <span className="text-[#00ff80]">Leaderboard</span>
         </h1>
-        <p className="text-neutral-400 text-sm font-mono uppercase tracking-widest font-bold">See who is leading the pack today.</p>
+        <p className="text-neutral-400 text-sm font-mono uppercase tracking-widest font-bold">Daily, weekly, and all-time standings.</p>
       </div>
 
       <div className="w-full max-w-md">

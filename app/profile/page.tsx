@@ -7,9 +7,15 @@ import Image from 'next/image'
 import { createBrowserClient } from '@supabase/ssr'
 import { ChevronLeft, LogOut, Mail, User as UserIcon, Pencil, Check, Loader2, X, Trophy, Flame, Zap, Hash } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import PushNotificationManager from '@/components/PushNotificationManager'
 import EarnFreezeButton from '@/components/EarnFreezeButton'
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
+import { getChallengePreferenceOptions } from '@/app/actions/personalization'
+import type { ChallengePreferences, PreferenceOptions } from '@/lib/personalization'
+import { normalizeChallengePreferences } from '@/lib/personalization'
+
+type PreferenceKey = 'favorite_teams' | 'favorite_schools' | 'favorite_conferences'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -30,6 +36,29 @@ export default function ProfilePage() {
   const [isEditingName, setIsEditingName] = useState(false)
   const [showAvatar, setShowAvatar] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [preferenceOptions, setPreferenceOptions] = useState<PreferenceOptions>({
+    teams: [],
+    schools: [],
+    conferences: [],
+  })
+  const [personalization, setPersonalization] = useState<ChallengePreferences>({
+    favorite_teams: [],
+    favorite_schools: [],
+    favorite_conferences: [],
+    preferred_sport: null,
+  })
+  const [savedPersonalization, setSavedPersonalization] = useState<ChallengePreferences>({
+    favorite_teams: [],
+    favorite_schools: [],
+    favorite_conferences: [],
+    preferred_sport: null,
+  })
+  const [preferenceSearch, setPreferenceSearch] = useState({
+    teams: '',
+    schools: '',
+    conferences: '',
+  })
+  const [savingPreferences, setSavingPreferences] = useState(false)
 
   // Freeze status state
   const [freezeStatus, setFreezeStatus] = useState<any>({
@@ -55,7 +84,7 @@ export default function ProfilePage() {
       // 2. Get Public Profile Data
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username, show_avatar, streak_football, streak_basketball')
+        .select('username, show_avatar, streak_football, streak_basketball, favorite_teams, favorite_schools, favorite_conferences, preferred_sport')
         .eq('id', session.user.id)
         .single()
 
@@ -74,6 +103,9 @@ export default function ProfilePage() {
         setUsername(profile.username || session.user.email?.split('@')[0] || 'Player')
         setNewUsername(profile.username || session.user.email?.split('@')[0] || 'Player')
         if (profile.show_avatar !== null) setShowAvatar(profile.show_avatar)
+        const normalizedPersonalization = normalizeChallengePreferences(profile)
+        setPersonalization(normalizedPersonalization)
+        setSavedPersonalization(normalizedPersonalization)
 
         setStats({
           gamesPlayed,
@@ -87,6 +119,19 @@ export default function ProfilePage() {
     }
     getUserAndProfile()
   }, [router, supabase])
+
+  useEffect(() => {
+    const fetchPreferenceOptions = async () => {
+      try {
+        const options = await getChallengePreferenceOptions()
+        setPreferenceOptions(options)
+      } catch (error) {
+        console.error('Failed to load preference options:', error)
+      }
+    }
+
+    fetchPreferenceOptions()
+  }, [])
 
   // Fetch freeze status
   useEffect(() => {
@@ -139,6 +184,70 @@ export default function ProfilePage() {
     const newValue = !showAvatar
     setShowAvatar(newValue)
     await supabase.from('profiles').update({ show_avatar: newValue }).eq('id', user.id)
+  }
+
+  const togglePreference = (key: PreferenceKey, value: string) => {
+    setPersonalization((prev) => {
+      const currentValues = prev[key]
+      const exists = currentValues.includes(value)
+
+      if (exists) {
+        return {
+          ...prev,
+          [key]: currentValues.filter((item) => item !== value),
+        }
+      }
+
+      if (currentValues.length >= 3) return prev
+
+      return {
+        ...prev,
+        [key]: [...currentValues, value],
+      }
+    })
+  }
+
+  const setPreferredSport = (sport: ChallengePreferences['preferred_sport']) => {
+    setPersonalization((prev) => ({
+      ...prev,
+      preferred_sport: prev.preferred_sport === sport ? null : sport,
+    }))
+  }
+
+  const handleSavePreferences = async () => {
+    if (!user) return
+    setSavingPreferences(true)
+
+    const payload = {
+      favorite_teams: personalization.favorite_teams,
+      favorite_schools: personalization.favorite_schools,
+      favorite_conferences: personalization.favorite_conferences,
+      preferred_sport: personalization.preferred_sport,
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', user.id)
+
+    if (!error) {
+      setSavedPersonalization(personalization)
+    } else {
+      console.error('Failed to save personalization preferences:', error)
+    }
+
+    setSavingPreferences(false)
+  }
+
+  const hasPreferenceChanges = JSON.stringify(personalization) !== JSON.stringify(savedPersonalization)
+
+  const filterOptions = (values: string[], query: string) => {
+    const trimmedQuery = query.trim().toLowerCase()
+    const filteredValues = trimmedQuery
+      ? values.filter((value) => value.toLowerCase().includes(trimmedQuery))
+      : values
+
+    return filteredValues.slice(0, 20)
   }
 
   const handleSignOut = async () => {
@@ -318,6 +427,136 @@ export default function ProfilePage() {
               >
                 <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-200 shadow-sm ${showAvatar ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
+            </div>
+
+            {/* PERSONALIZATION */}
+            <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden px-4 py-4 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-sm font-bold text-neutral-200">Personalize Your Experience</span>
+                  <p className="text-[10px] text-neutral-500 uppercase tracking-wide mt-1">Build alumni and conference challenge prompts</p>
+                </div>
+                <div className="text-[9px] font-black uppercase tracking-widest text-neutral-500">
+                  Up to 3 each
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#00ff80]">Favorite Teams</span>
+                    <span className="text-[10px] text-neutral-500 font-bold">{personalization.favorite_teams.length}/3</span>
+                  </div>
+                  <Input
+                    value={preferenceSearch.teams}
+                    onChange={(event) => setPreferenceSearch((prev) => ({ ...prev, teams: event.target.value }))}
+                    placeholder="Search teams"
+                    className="bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions(preferenceOptions.teams, preferenceSearch.teams).map((team) => {
+                      const selected = personalization.favorite_teams.includes(team)
+                      return (
+                        <button
+                          key={team}
+                          type="button"
+                          onClick={() => togglePreference('favorite_teams', team)}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors ${selected ? 'bg-[#00ff80] text-black' : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-white'}`}
+                        >
+                          {team}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Favorite Schools</span>
+                    <span className="text-[10px] text-neutral-500 font-bold">{personalization.favorite_schools.length}/3</span>
+                  </div>
+                  <Input
+                    value={preferenceSearch.schools}
+                    onChange={(event) => setPreferenceSearch((prev) => ({ ...prev, schools: event.target.value }))}
+                    placeholder="Search schools"
+                    className="bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions(preferenceOptions.schools, preferenceSearch.schools).map((school) => {
+                      const selected = personalization.favorite_schools.includes(school)
+                      return (
+                        <button
+                          key={school}
+                          type="button"
+                          onClick={() => togglePreference('favorite_schools', school)}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors ${selected ? 'bg-amber-500 text-black' : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-white'}`}
+                        >
+                          {school}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Favorite Conferences</span>
+                    <span className="text-[10px] text-neutral-500 font-bold">{personalization.favorite_conferences.length}/3</span>
+                  </div>
+                  <Input
+                    value={preferenceSearch.conferences}
+                    onChange={(event) => setPreferenceSearch((prev) => ({ ...prev, conferences: event.target.value }))}
+                    placeholder="Search conferences"
+                    className="bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions(preferenceOptions.conferences, preferenceSearch.conferences).map((conference) => {
+                      const selected = personalization.favorite_conferences.includes(conference)
+                      return (
+                        <button
+                          key={conference}
+                          type="button"
+                          onClick={() => togglePreference('favorite_conferences', conference)}
+                          className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-colors ${selected ? 'bg-cyan-400 text-black' : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-white'}`}
+                        >
+                          {conference}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-neutral-400">Preferred Sport</span>
+                    <span className="text-[10px] text-neutral-500 font-bold">{personalization.preferred_sport ? '1/1' : '0/1'}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['football', 'basketball'] as const).map((sportOption) => {
+                      const selected = personalization.preferred_sport === sportOption
+                      return (
+                        <button
+                          key={sportOption}
+                          type="button"
+                          onClick={() => setPreferredSport(sportOption)}
+                          className={`h-10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ${selected ? sportOption === 'football' ? 'bg-[#00ff80] text-black' : 'bg-amber-500 text-black' : 'bg-neutral-950 text-neutral-400 border border-neutral-800 hover:text-white'}`}
+                        >
+                          {sportOption}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSavePreferences}
+                disabled={!hasPreferenceChanges || savingPreferences}
+                className="w-full h-11 bg-white text-black hover:bg-neutral-200 font-black uppercase tracking-widest"
+              >
+                {savingPreferences ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Save Personalization
+              </Button>
             </div>
 
             {/* PUSH NOTIFICATIONS */}

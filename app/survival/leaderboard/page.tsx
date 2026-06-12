@@ -25,6 +25,12 @@ type ProfileRow = {
   avatar_url?: string | null
 }
 
+function getSportModeLabel(mode?: string | null) {
+  if (mode === 'football') return 'Football Gauntlet'
+  if (mode === 'mixed') return 'Mixed Gauntlet'
+  return 'Basketball Gauntlet'
+}
+
 export default async function SurvivalLeaderboardPage(props: { searchParams: Promise<{ day?: string }> }) {
   const searchParams = await props.searchParams
   const supabase = await createClient()
@@ -32,7 +38,7 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
 
   const { data: tournament } = await supabase
     .from('survival_tournaments')
-    .select('id, name, start_date, is_active')
+    .select('id, name, start_date, is_active, sport_mode')
     .eq('is_active', true)
     .single()
 
@@ -145,6 +151,7 @@ export default async function SurvivalLeaderboardPage(props: { searchParams: Pro
           </Link>
           <div className="text-center">
             <h1 className="text-2xl font-black italic uppercase tracking-tighter text-red-400">Survival Leaderboard</h1>
+            <p className="text-[9px] text-neutral-500 font-black uppercase tracking-widest">{getSportModeLabel(tournament.sport_mode)}</p>
             <div className="flex items-center justify-center gap-3 mt-1">
               {selectedDay > 1 && (
                 <Link href={`?day=${selectedDay - 1}`}>

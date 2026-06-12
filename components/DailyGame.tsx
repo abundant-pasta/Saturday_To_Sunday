@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef, useMemo } from 'react'
 import { useUI } from '@/context/UIContext'
 import { useSearchParams } from 'next/navigation'
-import { getDailyGame } from '@/app/actions'
+import { claimGuestDailyResults, getDailyGame } from '@/app/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Home, Share2, Loader2, Trophy, AlertCircle, Star, Shield, Medal, Skull, Dribbble } from 'lucide-react'
+import { Home, Share2, Loader2, Trophy, Star, Skull, Dribbble, Target } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import IntroScreen from '@/components/IntroScreen'
@@ -17,8 +17,15 @@ import LiveRankDisplay from '@/components/LiveRankDisplay'
 import { TIMEZONE_OFFSET_MS, TIER_MULTIPLIERS, GAME_CONFIG, type Sport } from '@/lib/constants'
 import { RewardedAdProvider } from '@/components/RewardedAdProvider'
 import InstallPWA from '@/components/InstallPWA'
-import { hashAnswer } from '@/utils/crypto'
+import PushNotificationManager from '@/components/PushNotificationManager'
+import PostGameImageAudit from '@/components/PostGameImageAudit'
+import { matchesQuestionAnswer } from '@/lib/player-trust'
 import { getRankTitle } from '@/lib/utils'
+import { trackEvent, trackGrowthEvent } from '@/lib/analytics'
+import type { ChallengeKind, DailyQuestion } from '@/lib/personalization'
+import { getFallbackTargetScore } from '@/lib/personalization'
+import { getSurvivalStats } from '@/app/actions/survival'
+import { buildCampaignLandingCopy } from '@/lib/growth'
 
 const THEMES = {
   football: {
@@ -62,6 +69,125 @@ const getGuestId = () => {
   return id
 }
 
+type ResultEntry = { player_id: number | string; result: 'correct' | 'wrong' | 'pending'; player_name: string } | 'correct' | 'wrong' | 'pending'
+
+type ChallengeRequest = {
+  kind: ChallengeKind
+  value: string
+  label: string
+}
+
+type ChallengeStatus = {
+  title: string
+  introSubtitle: string
+  finishSubtitle: string
+  progressLabel: string
+  isCompleted: boolean
+  kind: ChallengeKind
+  completedCount: number
+  targetCount: number
+}
+
+const safeDecodeName = (value: string) => {
+  try {
+    return atob(value)
+  } catch {
+    return value
+  }
+}
+
+function parseChallengeRequest(
+  sport: 'football' | 'basketball',
+  challengeKind: string | null,
+  challengeValue: string | null,
+  challengeLabel: string | null
+): ChallengeRequest | null {
+  if (!challengeKind) return null
+
+  if (
+    challengeKind !== 'school' &&
+    challengeKind !== 'conference' &&
+    challengeKind !== 'team' &&
+    challengeKind !== 'preferred_sport'
+  ) {
+    return null
+  }
+
+  if (challengeKind === 'preferred_sport') {
+    if (challengeValue && challengeValue !== sport) return null
+    return {
+      kind: challengeKind,
+      value: sport,
+      label: challengeLabel || `Beat your best ${sport} day`,
+    }
+  }
+
+  if (!challengeValue) return null
+
+  return {
+    kind: challengeKind,
+    value: challengeValue,
+    label: challengeLabel || challengeValue,
+  }
+}
+
+function buildChallengeStatus(
+  challenge: ChallengeRequest | null,
+  questions: DailyQuestion[],
+  results: ResultEntry[],
+  score: number,
+  sport: 'football' | 'basketball',
+  recentBestScore: number | null
+): ChallengeStatus | null {
+  if (!challenge) return null
+
+  if (challenge.kind === 'preferred_sport') {
+    const targetScore = getFallbackTargetScore(sport, recentBestScore)
+    return {
+      title: challenge.label,
+      introSubtitle: `Finish with ${targetScore.toLocaleString()} points or better in today's ${sport} grid.`,
+      finishSubtitle: `You finished with ${score.toLocaleString()} points against a ${targetScore.toLocaleString()} target.`,
+      progressLabel: `${score.toLocaleString()} / ${targetScore.toLocaleString()}`,
+      isCompleted: score >= targetScore,
+      kind: challenge.kind,
+      completedCount: score,
+      targetCount: targetScore,
+    }
+  }
+
+  const matchingIndexes = questions.reduce<number[]>((indexes, question, index) => {
+    if (challenge.kind === 'school' && question.college === challenge.value) indexes.push(index)
+    if (challenge.kind === 'conference' && question.conference === challenge.value) indexes.push(index)
+    if (challenge.kind === 'team' && question.team === challenge.value) indexes.push(index)
+    return indexes
+  }, [])
+
+  if (matchingIndexes.length === 0) return null
+
+  const completedCount = matchingIndexes.reduce((count, index) => {
+    const result = results[index]
+    const isCorrect = typeof result === 'string' ? result === 'correct' : result?.result === 'correct'
+    return isCorrect ? count + 1 : count
+  }, 0)
+
+  const introSubtitle = challenge.kind === 'school'
+    ? `Go ${matchingIndexes.length}/${matchingIndexes.length} on today’s ${challenge.value} alumni.`
+    : challenge.kind === 'conference'
+      ? `Go ${matchingIndexes.length}/${matchingIndexes.length} on today’s ${challenge.value} players.`
+      : `Go ${matchingIndexes.length}/${matchingIndexes.length} on today’s ${challenge.value} players.`
+
+  return {
+    title: challenge.label,
+    introSubtitle,
+    finishSubtitle: `You got ${completedCount}/${matchingIndexes.length} matching players correct.`,
+    progressLabel: `${completedCount} / ${matchingIndexes.length}`,
+    isCompleted: completedCount === matchingIndexes.length,
+    kind: challenge.kind,
+    completedCount,
+    targetCount: matchingIndexes.length,
+  }
+}
+
 
 export default function DailyGameWrapper({ sport = 'football' }: { sport?: 'football' | 'basketball' }) {
   return (
@@ -77,10 +203,43 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const { setHeaderHidden } = useUI()
   const searchParams = useSearchParams()
   const challengerScore = searchParams.get('s')
+  const shouldClaimGuest = searchParams.get('claim_guest') === '1'
+  const guestIdToClaim = searchParams.get('guest_id')
+  const utmSource = searchParams.get('utm_source')
+  const utmMedium = searchParams.get('utm_medium')
+  const utmCampaign = searchParams.get('utm_campaign')
+  const utmContent = searchParams.get('utm_content')
+  const schoolCampaign = searchParams.get('school')
+  const themeCampaign = searchParams.get('theme') || utmCampaign
+  const outreachTarget = searchParams.get('outreach_target')
+  const socialPostId = searchParams.get('social_post_id')
+  const hasCampaignParams = !!(utmSource || utmMedium || utmCampaign || utmContent || schoolCampaign || themeCampaign || outreachTarget || socialPostId)
+  const landedFromShare = utmSource === 'share' || !!challengerScore
+  const campaignLanding = buildCampaignLandingCopy({
+    school: schoolCampaign,
+    themeKey: themeCampaign,
+    sport,
+  })
+  const campaignMetadata = useMemo(() => ({
+    utm_source: utmSource,
+    utm_medium: utmMedium,
+    utm_campaign: utmCampaign,
+    utm_content: utmContent,
+    school: schoolCampaign,
+    theme: themeCampaign,
+    outreach_target: outreachTarget,
+    social_post_id: socialPostId,
+  }), [outreachTarget, schoolCampaign, socialPostId, themeCampaign, utmCampaign, utmContent, utmMedium, utmSource])
+  const requestedChallenge = parseChallengeRequest(
+    sport,
+    searchParams.get('challenge_kind'),
+    searchParams.get('challenge_value'),
+    searchParams.get('challenge_label')
+  )
   const theme = THEMES[sport]
   const config = GAME_CONFIG[sport]
 
-  const [questions, setQuestions] = useState<any[]>([])
+  const [questions, setQuestions] = useState<DailyQuestion[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [streak, setStreak] = useState(0)
@@ -92,8 +251,6 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     // Reset on unmount
     return () => setHeaderHidden(false)
   }, [gameState, setHeaderHidden])
-  // Enhanced results: can be old format (string[]) or new format (object[])
-  type ResultEntry = { player_id: number; result: 'correct' | 'wrong' | 'pending'; player_name: string } | 'correct' | 'wrong' | 'pending'
   const [results, setResults] = useState<ResultEntry[]>([])
   const [potentialPoints, setPotentialPoints] = useState(100)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
@@ -106,6 +263,15 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   const [lastEarnedPoints, setLastEarnedPoints] = useState<number>(0)
   const [correctOption, setCorrectOption] = useState<string | null>(null)
   const [freezeConsumed, setFreezeConsumed] = useState(false)
+  const [recentBestScore, setRecentBestScore] = useState<number | null>(null)
+  const [survivalCtaLabel, setSurvivalCtaLabel] = useState('Join Monday Survival')
+  const [claimStatus, setClaimStatus] = useState<'idle' | 'claiming' | 'claimed' | 'error'>('idle')
+  const [claimSummary, setClaimSummary] = useState<{ claimed: number; upgraded: number; skipped: number } | null>(null)
+  const startedTrackedRef = useRef(false)
+  const finishedTrackedRef = useRef(false)
+  const claimPromptTrackedRef = useRef(false)
+  const claimAttemptedRef = useRef(false)
+  const sharedLandingTrackedRef = useRef(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -167,13 +333,36 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   }, [])
 
   // Auth Handlers
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = async (nextPath?: string) => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath || window.location.pathname)}`
       }
     })
+  }
+
+  const getClaimRedirectPath = () => {
+    const guestId = getGuestId()
+    const basePath = sport === 'basketball' ? '/daily/basketball' : '/daily'
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('claim_guest', '1')
+    if (guestId) params.set('guest_id', guestId)
+    if (score > 0) params.set('s', String(score))
+    params.set('utm_source', 'claim_score')
+    params.set('utm_medium', utmMedium || 'auth')
+    params.set('utm_campaign', utmCampaign || themeCampaign || 'guest_claim')
+    params.set('utm_content', utmContent || sport)
+    return `${basePath}?${params.toString()}`
+  }
+
+  const handleClaimScore = async () => {
+    const guestId = getGuestId()
+    trackGrowthEvent('claim_started', {
+      score,
+      ...campaignMetadata,
+    }, { guestId, sport })
+    await handleGoogleLogin(getClaimRedirectPath())
   }
 
   // Auto-consume freeze if user missed a day
@@ -272,6 +461,120 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   }, [user, sport, isSaved])
 
   useEffect(() => {
+    const loadRecentBestScore = async () => {
+      if (requestedChallenge?.kind !== 'preferred_sport' || !user) {
+        setRecentBestScore(null)
+        return
+      }
+
+      const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      const { data } = await supabase
+        .from('daily_results')
+        .select('score')
+        .eq('user_id', user.id)
+        .eq('sport', sport)
+        .gte('game_date', since)
+        .order('score', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      setRecentBestScore(data?.score || null)
+    }
+
+    loadRecentBestScore()
+  }, [requestedChallenge?.kind, sport, supabase, user])
+
+  useEffect(() => {
+    const loadSurvivalCta = async () => {
+      try {
+        const stats = await getSurvivalStats()
+        if (!stats) {
+          setSurvivalCtaLabel('Next Survival starts Monday')
+          return
+        }
+
+        if (stats.isStarted) {
+          setSurvivalCtaLabel('Enter Today’s Survival Round')
+        } else {
+          setSurvivalCtaLabel('Join Monday Survival')
+        }
+      } catch {
+        setSurvivalCtaLabel('Join Monday Survival')
+      }
+    }
+
+    if (gameState === 'finished') loadSurvivalCta()
+  }, [gameState])
+
+  useEffect(() => {
+    if (!hasCampaignParams && !landedFromShare) return
+    if (sharedLandingTrackedRef.current) return
+    sharedLandingTrackedRef.current = true
+    const metadata = {
+      has_score: !!challengerScore,
+      ...campaignMetadata,
+    }
+    const landingEvent = landedFromShare ? 'shared_link_landed' : (socialPostId || utmMedium === 'social' ? 'social_link_landed' : 'campaign_landed')
+    trackGrowthEvent(landingEvent, metadata, { guestId: getGuestId(), sport })
+  }, [campaignMetadata, challengerScore, hasCampaignParams, landedFromShare, socialPostId, sport, utmMedium])
+
+  useEffect(() => {
+    if (gameState !== 'playing' || startedTrackedRef.current) return
+    startedTrackedRef.current = true
+    trackGrowthEvent('game_started', {
+      ...campaignMetadata,
+    }, { guestId: user ? null : getGuestId(), sport })
+  }, [campaignMetadata, gameState, sport, user])
+
+  useEffect(() => {
+    if (gameState !== 'finished' || finishedTrackedRef.current) return
+    finishedTrackedRef.current = true
+    trackGrowthEvent('game_finished', {
+      score,
+      ...campaignMetadata,
+    }, { guestId: user ? null : getGuestId(), sport })
+  }, [campaignMetadata, gameState, score, sport, user])
+
+  useEffect(() => {
+    if (gameState !== 'finished' || user || claimPromptTrackedRef.current) return
+    claimPromptTrackedRef.current = true
+    trackGrowthEvent('claim_prompt_shown', {
+      score,
+      ...campaignMetadata,
+    }, { guestId: getGuestId(), sport })
+  }, [campaignMetadata, gameState, score, sport, user])
+
+  useEffect(() => {
+    const claimGuestScores = async () => {
+      if (!user || !shouldClaimGuest || !guestIdToClaim || claimAttemptedRef.current) return
+
+      claimAttemptedRef.current = true
+      setClaimStatus('claiming')
+
+      try {
+        const result = await claimGuestDailyResults(guestIdToClaim)
+        setClaimSummary(result)
+        setClaimStatus('claimed')
+        setIsSaved(true)
+        trackGrowthEvent('claim_completed', {
+          claimed: result.claimed,
+          upgraded: result.upgraded,
+          skipped: result.skipped,
+          ...campaignMetadata,
+        }, { guestId: guestIdToClaim, sport })
+
+        const cleanPath = sport === 'basketball' ? '/daily/basketball' : '/daily'
+        window.history.replaceState(null, '', cleanPath)
+      } catch (error) {
+        console.error('Failed to claim guest scores:', error)
+        setClaimStatus('error')
+      }
+    }
+
+    claimGuestScores()
+  }, [campaignMetadata, guestIdToClaim, shouldClaimGuest, sport, user])
+
+  useEffect(() => {
     const saveScore = async () => {
       if (gameState !== 'finished' || isSaved) return
 
@@ -327,6 +630,33 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     saveScore()
   }, [gameState, user, score, isSaved, results, sport])
 
+  const challengeStatus = buildChallengeStatus(
+    requestedChallenge,
+    questions,
+    results,
+    score,
+    sport,
+    recentBestScore
+  )
+
+  useEffect(() => {
+    if (!challengeStatus) return
+
+    trackEvent('challenge_shown', {
+      kind: challengeStatus.kind,
+      sport,
+    })
+  }, [challengeStatus?.kind, sport])
+
+  useEffect(() => {
+    if (gameState !== 'finished' || !challengeStatus?.isCompleted) return
+
+    trackEvent('challenge_completed', {
+      kind: challengeStatus.kind,
+      sport,
+    })
+  }, [challengeStatus?.isCompleted, challengeStatus?.kind, gameState, sport])
+
   // --- RESTORED TIMER LOGIC ---
   useEffect(() => {
     if (gameState !== 'playing' || showResult || !isImageReady) return
@@ -355,18 +685,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     let isCorrect = false
     let foundCorrectOption: string | null = null
 
-    if (currentQ.answer_hash && currentQ.salt) {
+    if ((currentQ.answer_hash || currentQ.answer_hashes) && currentQ.salt) {
       // Secure mode
-      const guessHash = await hashAnswer(option, currentQ.salt)
-      isCorrect = guessHash === currentQ.answer_hash
+      isCorrect = await matchesQuestionAnswer(currentQ, option)
 
       if (isCorrect) {
         foundCorrectOption = option
       } else {
         // Find the correct option to show the user
         for (const opt of currentQ.options) {
-          const h = await hashAnswer(opt, currentQ.salt)
-          if (h === currentQ.answer_hash) {
+          if (await matchesQuestionAnswer(currentQ, opt)) {
             foundCorrectOption = opt
             break
           }
@@ -375,7 +703,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     } else {
       // Legacy mode
       isCorrect = option === currentQ.correct_answer
-      foundCorrectOption = currentQ.correct_answer
+      foundCorrectOption = currentQ.correct_answer || null
     }
 
     setCorrectOption(foundCorrectOption)
@@ -427,7 +755,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     newResults[currentIndex] = {
       player_id: currentQ.id,
       result: isCorrect ? 'correct' : 'wrong',
-      player_name: atob(currentQ.name)
+      player_name: safeDecodeName(currentQ.name)
     }
     setResults(newResults)
     setShowResult(true)
@@ -453,6 +781,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
   }
 
   const handleShare = async () => {
+    trackGrowthEvent('share_started', { score }, { sport })
     const squares = results.map(r => {
       const status = typeof r === 'string' ? r : r.result
       return status === 'correct' ? '🟩' : '🟥'
@@ -461,7 +790,20 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
     const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     const rankInfo = getRankTitle(score, sport)
     const streakEmoji = streak > 0 ? ` | 🔥 ${streak}` : ''
-    const text = `Saturday to Sunday (${shortDate})\nScore: ${score.toLocaleString()} (${rankInfo.title})${streakEmoji}\n\n${squares}\n\nCan you beat my score? Challenge me here: 👇\nhttps://playsaturdaytosunday.com/?s=${score}`
+    const challengePath = sport === 'basketball' ? '/daily/basketball' : '/daily'
+    const shareParams = new URLSearchParams({
+      s: String(score),
+      utm_source: 'share',
+      utm_medium: 'social',
+      utm_campaign: themeCampaign || 'daily_challenge',
+      utm_content: sport,
+    })
+    if (schoolCampaign) shareParams.set('school', schoolCampaign)
+    if (themeCampaign) shareParams.set('theme', themeCampaign)
+    if (outreachTarget) shareParams.set('outreach_target', outreachTarget)
+    if (socialPostId) shareParams.set('social_post_id', socialPostId)
+    const challengeUrl = `https://playsaturdaytosunday.com${challengePath}?${shareParams.toString()}`
+    const text = `Saturday to Sunday (${shortDate})\nScore: ${score.toLocaleString()} (${rankInfo.title})${streakEmoji}\n\n${squares}\n\nCan you beat my score? Challenge me here: 👇\n${challengeUrl}`
 
     try {
       if (typeof navigator !== 'undefined' && (navigator as any).share) {
@@ -470,6 +812,15 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
         await navigator.clipboard.writeText(text)
         alert('Score copied to clipboard! Paste it to challenge your friends.')
       }
+      trackGrowthEvent('share_completed', {
+        score,
+        utm_campaign: themeCampaign || 'daily_challenge',
+        utm_content: sport,
+        school: schoolCampaign,
+        theme: themeCampaign,
+        outreach_target: outreachTarget,
+        social_post_id: socialPostId,
+      }, { sport })
     } catch (err: any) {
       // If user just cancelled the share sheet, do nothing
       if (err.name === 'AbortError') return;
@@ -477,6 +828,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
       try {
         await navigator.clipboard.writeText(text)
         alert('Score copied to clipboard! Paste it to challenge your friends.')
+        trackGrowthEvent('share_completed', {
+          score,
+          fallback: true,
+          utm_campaign: themeCampaign || 'daily_challenge',
+          utm_content: sport,
+          school: schoolCampaign,
+          theme: themeCampaign,
+          outreach_target: outreachTarget,
+          social_post_id: socialPostId,
+        }, { sport })
       } catch (clipboardErr) {
         console.error('Failed to copy to clipboard', clipboardErr)
       }
@@ -487,7 +848,16 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
 
   if (gameState === 'intro') return (
     <div className="h-[100dvh] bg-neutral-950 overflow-y-auto overflow-x-hidden relative">
-      <IntroScreen onStart={() => setGameState('playing')} challengerScore={challengerScore} sport={sport} />
+      <IntroScreen
+        onStart={() => setGameState('playing')}
+        challengerScore={challengerScore}
+        sport={sport}
+        challengeTitle={challengeStatus?.title || null}
+        challengeSubtitle={challengeStatus?.introSubtitle || null}
+        campaignBadge={campaignLanding?.badge || null}
+        campaignTitle={campaignLanding?.title || null}
+        campaignSubtitle={campaignLanding?.subtitle || null}
+      />
     </div>
   )
 
@@ -538,15 +908,67 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
               })}
             </div>
 
+              {challengeStatus && (
+                <div className={`rounded-2xl border p-4 text-left ${challengeStatus.isCompleted ? 'border-[#00ff80]/40 bg-[#00ff80]/10' : 'border-neutral-800 bg-black/30'}`}>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`p-2 rounded-xl ${challengeStatus.isCompleted ? 'bg-[#00ff80]/15 text-[#00ff80]' : 'bg-neutral-900 text-neutral-400'}`}>
+                      <Target className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Side Quest</p>
+                      <h3 className="text-sm font-black uppercase tracking-tight text-white">{challengeStatus.title}</h3>
+                    </div>
+                  </div>
+                  <div className={`text-[10px] font-black uppercase tracking-widest ${challengeStatus.isCompleted ? 'text-[#00ff80]' : 'text-neutral-500'}`}>
+                    {challengeStatus.isCompleted ? 'Complete' : 'Missed'}
+                  </div>
+                </div>
+                <p className="text-sm text-neutral-400 leading-relaxed">{challengeStatus.finishSubtitle}</p>
+                <p className={`mt-2 text-xs font-black uppercase tracking-widest ${challengeStatus.isCompleted ? theme.primary : 'text-neutral-500'}`}>
+                  {challengeStatus.progressLabel}
+                </p>
+                </div>
+              )}
+
+              <PostGameImageAudit
+                questions={questions}
+                sport={sport}
+                gameMode="daily"
+                gameDate={getGameDate()}
+              />
+
             <div className="flex flex-col gap-3 mt-6 w-full">
               {!user && (
-                <Button
-                  onClick={handleGoogleLogin}
-                  className="w-full h-12 text-md font-black bg-white text-black hover:bg-neutral-200 shadow-xl border border-white transition-all active:scale-95 px-2"
-                >
-                  Sign In with Google to Save Score
-                </Button>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left space-y-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Claim This Run</p>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-white">Save your score and streak</h3>
+                    <p className="mt-1 text-sm text-neutral-400 leading-relaxed">
+                      Keep today’s result, show up on the leaderboard, and carry your history across devices.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleClaimScore}
+                    className="w-full h-12 text-md font-black bg-white text-black hover:bg-neutral-200 shadow-xl border border-white transition-all active:scale-95 px-2"
+                  >
+                    Claim Score with Google
+                  </Button>
+                </div>
               )}
+
+              {user && claimStatus !== 'idle' && (
+                <div className={`rounded-2xl border p-4 text-left ${claimStatus === 'error' ? 'border-red-500/30 bg-red-500/10' : 'border-[#00ff80]/30 bg-[#00ff80]/10'}`}>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-neutral-500">Score Claim</p>
+                  <p className="text-sm font-bold text-white">
+                    {claimStatus === 'claiming' && 'Claiming your guest scores...'}
+                    {claimStatus === 'claimed' && `Claimed ${claimSummary?.claimed || 0} score${claimSummary?.claimed === 1 ? '' : 's'}${claimSummary?.upgraded ? ` and upgraded ${claimSummary.upgraded}` : ''}.`}
+                    {claimStatus === 'error' && 'We could not claim that score. Your local result is still safe.'}
+                  </p>
+                </div>
+              )}
+
+              <PushNotificationManager hideOnSubscribed promptContext="post_game" sport={sport} />
 
               <Button onClick={handleShare} className={`w-full h-12 text-lg font-bold ${theme.bgPrimary} text-black hover:opacity-90 shadow-lg`}>
                 <Share2 className="mr-2 w-5 h-5" /> Challenge Your Friends
@@ -579,7 +1001,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
               >
                 <Link href="/survival" className="flex items-center justify-center gap-2">
                   <Skull className="w-4 h-4" />
-                  <span>Join Survival Mode</span>
+                  <span>{survivalCtaLabel}</span>
                 </Link>
               </Button>
 
@@ -640,7 +1062,7 @@ function DailyGame({ sport }: { sport: 'football' | 'basketball' }) {
           </div>
           {q.image_url && <Image src={q.image_url} alt="Player" fill className={`object-cover transition-opacity duration-500 ${isImageReady ? 'opacity-100' : 'opacity-0'}`} onLoadingComplete={() => setIsImageReady(true)} priority={true} />}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-16 z-10">
-            <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{atob(q.name)}</h2>
+            <h2 className="text-2xl md:text-3xl font-black text-white uppercase italic tracking-tighter leading-none">{safeDecodeName(q.name)}</h2>
           </div>
         </div>
 

@@ -1,6 +1,19 @@
 import { createClient } from '@/utils/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import ImageAuditClient from '@/components/ImageAuditClient'
+import AuthButton from '@/components/AuthButton'
+
+type AdminImagePlayer = {
+    id: string
+    name: string
+    college: string
+    image_url: string | null
+    sport: string
+    is_image_verified?: boolean
+    image_status?: 'unreviewed' | 'approved' | 'spoiler' | 'wrong_person' | 'missing'
+    image_context?: 'unknown' | 'pro' | 'college' | 'headshot'
+    image_notes?: string | null
+}
 
 export default async function AdminImagesPage() {
     // 1. STANDARD CLIENT: Used ONLY to check if YOU are logged in
@@ -18,6 +31,9 @@ export default async function AdminImagesPage() {
                 <h1 className="text-red-500 text-4xl font-black italic uppercase mb-4">Access Denied</h1>
                 <p className="text-slate-500">Authenticated as: {userEmail || 'Guest'}</p>
                 <p className="text-slate-700 text-sm mt-2">Required: {adminEmail || 'Not Set'}</p>
+                <div className="mt-6">
+                    <AuthButton redirectPath="/admin/images" />
+                </div>
             </div>
         )
     }
@@ -28,9 +44,20 @@ export default async function AdminImagesPage() {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    const { data: reports, error: reportsError } = await adminDb
+        .from('image_audit_reports')
+        .select('*')
+        .in('status', ['open', 'reviewing'])
+        .order('created_at', { ascending: false })
+        .limit(250)
+
+    if (reportsError) {
+        console.error('Image audit reports error:', reportsError)
+    }
+
     // Fetch ALL players without restrictions
 
-    let allPlayers: any[] = []
+    let allPlayers: AdminImagePlayer[] = []
     let page = 0
     const pageSize = 1000
 
@@ -52,7 +79,7 @@ export default async function AdminImagesPage() {
 
         if (!players || players.length === 0) break
 
-        allPlayers = [...allPlayers, ...players]
+        allPlayers = [...allPlayers, ...(players as AdminImagePlayer[])]
 
         if (players.length < pageSize) break
         page++
@@ -62,5 +89,5 @@ export default async function AdminImagesPage() {
 
 
 
-    return <ImageAuditClient initialPlayers={allPlayers} />
+    return <ImageAuditClient initialPlayers={allPlayers} initialReports={reports || []} />
 }

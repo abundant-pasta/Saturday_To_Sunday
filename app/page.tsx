@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, Suspense, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon, Skull, Instagram } from 'lucide-react'
+import { Trophy, Calendar, User as UserIcon, Loader2, Share2, Star, Dribbble, Users, BookOpen, History as HistoryIcon, Skull, Instagram, Megaphone } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import InstallPWA from '@/components/InstallPWA'
@@ -17,6 +17,11 @@ import ShareCard from '@/components/ShareCard'
 import { shareAsImage } from '@/lib/share'
 import { getRankTitle } from '@/lib/utils'
 import { getSurvivalStats, joinTournament, getSurvivalParticipants } from '@/app/actions/survival'
+import { getPersonalizedChallengeCards } from '@/app/actions/personalization'
+import PersonalizedChallengeRail from '@/components/PersonalizedChallengeRail'
+import type { PersonalizedChallengeCard } from '@/lib/personalization'
+import { trackGrowthEvent } from '@/lib/analytics'
+import { buildCampaignLandingCopy } from '@/lib/growth'
 
 // Wrapper for Suspense (Best Practice)
 export default function HomePage() {
@@ -29,6 +34,24 @@ export default function HomePage() {
 
 function HomeContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const utmSource = searchParams.get('utm_source')
+  const utmMedium = searchParams.get('utm_medium')
+  const utmCampaign = searchParams.get('utm_campaign')
+  const utmContent = searchParams.get('utm_content')
+  const schoolCampaign = searchParams.get('school')
+  const themeCampaign = searchParams.get('theme') || utmCampaign
+  const outreachTarget = searchParams.get('outreach_target')
+  const homeCampaignSport = themeCampaign?.includes('basketball') || schoolCampaign === 'Duke' || schoolCampaign === 'Kentucky' || schoolCampaign === 'UNC' || schoolCampaign === 'Kansas' || schoolCampaign === 'UConn'
+    ? 'basketball'
+    : 'football'
+  const campaignLanding = buildCampaignLandingCopy({
+    school: schoolCampaign,
+    themeKey: themeCampaign,
+    sport: homeCampaignSport,
+  })
+  const hasCampaignParams = !!(utmSource || utmMedium || utmCampaign || utmContent || schoolCampaign || themeCampaign || outreachTarget)
+  const homeCampaignTrackedRef = useRef(false)
 
   // Auth State
   const [user, setUser] = useState<any>(null)
@@ -48,13 +71,51 @@ function HomeContent() {
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null)
   const [isSurvivalStarted, setIsSurvivalStarted] = useState(false)
   const [hasJoinedSurvival, setHasJoinedSurvival] = useState(false)
+  const [challengeCards, setChallengeCards] = useState<PersonalizedChallengeCard[]>([])
+  const [loadingChallenges, setLoadingChallenges] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 
+  const buildTrackedHref = (path: string, content: string) => {
+    const params = new URLSearchParams()
+    if (utmSource) params.set('utm_source', utmSource)
+    if (utmMedium) params.set('utm_medium', utmMedium)
+    if (utmCampaign) params.set('utm_campaign', utmCampaign)
+    if (utmContent) params.set('utm_content', utmContent)
+    if (schoolCampaign) params.set('school', schoolCampaign)
+    if (themeCampaign) params.set('theme', themeCampaign)
+    if (outreachTarget) params.set('outreach_target', outreachTarget)
+
+    if (campaignLanding && !utmSource) params.set('utm_source', 'homepage')
+    if (campaignLanding && !utmMedium) params.set('utm_medium', 'owned')
+    if (campaignLanding && !utmCampaign) params.set('utm_campaign', themeCampaign || 'school_spotlight')
+    if (campaignLanding && !utmContent) params.set('utm_content', content)
+
+    const query = params.toString()
+    return query ? `${path}?${query}` : path
+  }
+
+  const appShareUrl = 'https://www.playsaturdaytosunday.com?utm_source=share&utm_medium=social&utm_campaign=app_share&utm_content=home'
+
   // 1. Check Session on Mount
+  useEffect(() => {
+    if (!hasCampaignParams || homeCampaignTrackedRef.current) return
+    homeCampaignTrackedRef.current = true
+    trackGrowthEvent(utmSource === 'share' ? 'shared_link_landed' : 'campaign_landed', {
+      surface: 'home',
+      utm_source: utmSource,
+      utm_medium: utmMedium,
+      utm_campaign: utmCampaign,
+      utm_content: utmContent,
+      school: schoolCampaign,
+      theme: themeCampaign,
+      outreach_target: outreachTarget,
+    })
+  }, [hasCampaignParams, outreachTarget, schoolCampaign, themeCampaign, utmCampaign, utmContent, utmMedium, utmSource])
+
   useEffect(() => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -169,6 +230,29 @@ function HomeContent() {
 
   }, [user])
 
+  useEffect(() => {
+    const fetchChallengeCards = async () => {
+      if (!user) {
+        setChallengeCards([])
+        setLoadingChallenges(false)
+        return
+      }
+
+      setLoadingChallenges(true)
+      try {
+        const cards = await getPersonalizedChallengeCards()
+        setChallengeCards(cards)
+      } catch (error) {
+        console.error('Failed to load personalized challenges:', error)
+        setChallengeCards([])
+      } finally {
+        setLoadingChallenges(false)
+      }
+    }
+
+    fetchChallengeCards()
+  }, [user])
+
   // 3. Auth Handlers
   const handleGoogleLogin = async (nextPath: string = '/daily') => {
     await supabase.auth.signInWithOAuth({
@@ -185,10 +269,13 @@ function HomeContent() {
 
   const handleShareApp = () => {
     setShowShareOptions(!showShareOptions)
+    if (!showShareOptions) {
+      trackGrowthEvent('share_started', { surface: 'home', utm_campaign: 'app_share' })
+    }
   }
 
   const handleSystemShare = async () => {
-    const text = `I'm addicted to this college sports grid. 🏈🏀\n\nCan you go 10/10?\n\nPlay Saturday to Sunday: 👇\nhttps://www.playsaturdaytosunday.com`
+    const text = `I'm addicted to this college sports grid. 🏈🏀\n\nCan you go 10/10?\n\nPlay Saturday to Sunday: 👇\n${appShareUrl}`
     try {
       if (navigator.share) {
         await navigator.share({ text })
@@ -196,6 +283,7 @@ function HomeContent() {
         await navigator.clipboard.writeText(text)
         alert('Link copied to clipboard!')
       }
+      trackGrowthEvent('share_completed', { surface: 'home', method: 'system', utm_campaign: 'app_share' })
       setShowShareOptions(false)
     } catch (err) {
       console.error("Error sharing:", err)
@@ -204,8 +292,9 @@ function HomeContent() {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText("https://www.playsaturdaytosunday.com")
+      await navigator.clipboard.writeText(appShareUrl)
       alert('Link copied to clipboard!')
+      trackGrowthEvent('share_completed', { surface: 'home', method: 'copy', utm_campaign: 'app_share' })
       setShowShareOptions(false)
     } catch (err) {
       console.error("Error copying link:", err)
@@ -224,9 +313,10 @@ function HomeContent() {
         await shareAsImage(shareCardRef, `saturday-to-sunday-${bestSport}-${today}.png`)
       } else {
         // Generic link copy if no score
-        await navigator.clipboard.writeText("https://www.playsaturdaytosunday.com")
+        await navigator.clipboard.writeText(appShareUrl)
         alert('Link copied! Paste it in your Instagram Bio or Story. 📸')
       }
+      trackGrowthEvent('share_completed', { surface: 'home', method: 'instagram', utm_campaign: 'app_share' })
       setShowShareOptions(false)
     } catch (err) {
       console.error("Error sharing to Instagram:", err)
@@ -330,7 +420,7 @@ function HomeContent() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black italic uppercase tracking-tighter text-white leading-none">Survival Mode</h3>
-                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-0.5">{survivalCount ?? 0} players joined · March Madness</p>
+                <p className="text-[10px] text-neutral-400 font-bold uppercase tracking-widest mt-0.5">{survivalCount ?? 0} players joined · Weekly Event</p>
               </div>
               <button onClick={() => setShowParticipantsModal(false)} className="w-8 h-8 rounded-full bg-neutral-800 text-neutral-400 hover:text-white flex items-center justify-center text-sm font-bold">✕</button>
             </div>
@@ -392,6 +482,33 @@ function HomeContent() {
         </div>
 
         {/* --- SURVIVAL MODE BANNER --- */}
+        {campaignLanding && (
+          <div className="w-full shrink-0 rounded-2xl border border-cyan-400/25 bg-cyan-400/10 p-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 shrink-0 rounded-xl border border-cyan-300/30 bg-cyan-300/15 flex items-center justify-center text-cyan-200">
+                <Megaphone className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-200/70">{campaignLanding.badge}</p>
+                <h2 className="text-lg font-black uppercase tracking-tight text-white leading-tight">{campaignLanding.title}</h2>
+                <p className="mt-1 text-xs text-cyan-100/75 leading-relaxed">{campaignLanding.subtitle}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Link href={buildTrackedHref('/daily', 'football')}>
+                    <Button className="w-full h-10 rounded-xl bg-[#00ff80] text-black hover:bg-[#05ff84] text-[10px] font-black uppercase tracking-widest">
+                      Football
+                    </Button>
+                  </Link>
+                  <Link href={buildTrackedHref('/daily/basketball', 'basketball')}>
+                    <Button className="w-full h-10 rounded-xl bg-amber-500 text-black hover:bg-amber-400 text-[10px] font-black uppercase tracking-widest">
+                      Basketball
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTournamentId ? (
           <div className="w-full shrink-0 mb-3 relative">
             {showSurvivalJoinPulse && (
@@ -419,11 +536,11 @@ function HomeContent() {
                     {hasJoinedSurvival
                       ? isSurvivalStarted ? `${survivalCount ?? '—'} survivors remain` : `${survivalCount ?? '—'} players joined`
                       : isSurvivalStarted && survivalDay > 1 ? 'Tournament in progress'
-                      : `${survivalCount ?? '—'} players joined · March Madness`}
+                      : `${survivalCount ?? '—'} players joined · Weekly Event`}
                   </p>
                   {!isSurvivalStarted && (
                     <p className="text-[10px] text-red-400/80 font-black uppercase tracking-widest mt-0.5 animate-pulse">
-                      Starts Thursday
+                      Starts Monday
                     </p>
                   )}
                 </div>
@@ -434,7 +551,7 @@ function HomeContent() {
                   isSurvivalStarted ? (
                     <Link href="/survival">
                       <Button className="h-9 px-4 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl">
-                        Play
+                        Enter
                       </Button>
                     </Link>
                   ) : (
@@ -485,13 +602,17 @@ function HomeContent() {
           </div>
         )}
 
+        {user && (
+          <PersonalizedChallengeRail cards={challengeCards} loading={loadingChallenges} />
+        )}
+
 
         {/* --- DUAL GAME MODE CARDS --- */}
         {/* Grow slightly but prioritize being robust boxes. Using aspect-[4/5] or similar might help, or just let them expand freely but sharing space with the stack below. */}
         <div className="grid grid-cols-2 gap-3 grow min-h-0 items-center">
 
           {/* FOOTBALL CARD */}
-          <Link href="/daily" className="block group h-full max-h-[250px] w-full">
+          <Link href={buildTrackedHref('/daily', 'football')} className="block group h-full max-h-[250px] w-full">
             <div className="bg-gradient-to-br from-neutral-900 to-emerald-950 border border-emerald-500/30 group-hover:border-[#00ff80] p-1 rounded-3xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
               <div className="bg-neutral-900/80 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm">
                 <div className="p-3 bg-emerald-500/10 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
@@ -544,7 +665,7 @@ function HomeContent() {
           </Link>
 
           {/* BASKETBALL CARD */}
-          <Link href="/daily/basketball" className="block group h-full max-h-[250px] w-full">
+          <Link href={buildTrackedHref('/daily/basketball', 'basketball')} className="block group h-full max-h-[250px] w-full">
             <div className="bg-gradient-to-br from-neutral-900 to-amber-950 border border-amber-500/30 group-hover:border-amber-400 p-1 rounded-3xl hover:scale-[1.02] transition-all cursor-pointer shadow-xl h-full flex flex-col">
               <div className="bg-neutral-900/80 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-center flex-1 backdrop-blur-sm">
                 <div className="p-3 bg-amber-500/10 rounded-full border border-amber-500/20 group-hover:bg-amber-500/20 transition-colors">

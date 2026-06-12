@@ -26,7 +26,7 @@ async function backfill() {
     while (true) {
         const { data: page, error: resultsError } = await supabase
             .from('daily_results')
-            .select('user_id, sport, score, game_date')
+            .select('id, user_id, sport, score, game_date, created_at')
             .not('user_id', 'is', null) // Only for registered users
             .order('game_date', { ascending: true })
             .range(from, from + pageSize - 1)
@@ -66,7 +66,13 @@ async function backfill() {
     // 3. Calculate rankings for each group
     Object.keys(grouped).forEach(key => {
         const [date, sport] = key.split('_')
-        const dayResults = grouped[key].sort((a, b) => b.score - a.score)
+        const dayResults = grouped[key].sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score
+            const aTime = new Date(a.created_at || 0).getTime()
+            const bTime = new Date(b.created_at || 0).getTime()
+            if (aTime !== bTime) return aTime - bTime
+            return String(a.id || '').localeCompare(String(b.id || ''))
+        })
 
         if (dayResults.length === 0) return
 
@@ -88,8 +94,8 @@ async function backfill() {
             const stats = userStats[r.user_id]
             const rank = index + 1
 
-            // Award Winners (allowing ties for Top 1)
-            if (r.score === maxScore) {
+            // Award Winner follows leaderboard tie-break ordering.
+            if (rank === 1) {
                 if (sport === 'football') stats.football_daily_wins++
                 else stats.basketball_daily_wins++
             }

@@ -2,11 +2,17 @@
 
 import { ClockIcon, PlayIcon, StarIcon, TrophyIcon } from '@heroicons/react/24/outline';
 import { Zap, GraduationCap, Swords, Star, Dribbble } from 'lucide-react';
+import { GAME_CONFIG } from '@/lib/constants';
 
 interface IntroScreenProps {
     onStart: () => void;
     challengerScore?: string | null;
     sport: 'football' | 'basketball'; // NEW: Required prop
+    challengeTitle?: string | null;
+    challengeSubtitle?: string | null;
+    campaignBadge?: string | null;
+    campaignTitle?: string | null;
+    campaignSubtitle?: string | null;
 }
 
 // THEME CONFIG
@@ -33,8 +39,9 @@ const THEMES = {
     }
 }
 
-export default function IntroScreen({ onStart, challengerScore, sport }: IntroScreenProps) {
+export default function IntroScreen({ onStart, challengerScore, sport, challengeTitle, challengeSubtitle, campaignBadge, campaignTitle, campaignSubtitle }: IntroScreenProps) {
     const theme = THEMES[sport]
+    const maxScore = GAME_CONFIG[sport].maxScore.toLocaleString()
 
     return (
         <div className="min-h-[100dvh] bg-neutral-950 flex items-center justify-center p-4 animate-in fade-in duration-500 font-sans">
@@ -73,13 +80,47 @@ export default function IntroScreen({ onStart, challengerScore, sport }: IntroSc
                             Daily <span className={theme.accent}>{theme.label}</span>
                         </h1>
                         <p className="relative text-neutral-400 font-mono text-xs md:text-sm mt-2 uppercase tracking-widest font-bold">
-                            {theme.playerCount} Players. <span className="text-white">1575 Points</span> on the line.
+                            {theme.playerCount} Players. <span className="text-white">{maxScore} Points</span> on the line.
                         </p>
                     </div>
                 )}
 
                 {/* Rules Body */}
                 <div className="p-6 space-y-6">
+
+                    {campaignTitle && (
+                        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4 text-left">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-cyan-300 text-black">
+                                    {campaignBadge || 'Campaign'}
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-cyan-200/70">
+                                    Fan Challenge
+                                </span>
+                            </div>
+                            <h3 className="text-lg font-black uppercase tracking-tight text-white">{campaignTitle}</h3>
+                            {campaignSubtitle && (
+                                <p className="text-sm text-cyan-100/75 leading-relaxed mt-1">{campaignSubtitle}</p>
+                            )}
+                        </div>
+                    )}
+
+                    {challengeTitle && (
+                        <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-left">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className={`px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${theme.bgAccent} text-black`}>
+                                    Side Quest
+                                </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-neutral-500">
+                                    Personalized Challenge
+                                </span>
+                            </div>
+                            <h3 className="text-lg font-black uppercase tracking-tight text-white">{challengeTitle}</h3>
+                            {challengeSubtitle && (
+                                <p className="text-sm text-neutral-400 leading-relaxed mt-1">{challengeSubtitle}</p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Rule 1: The Concept */}
                     <div className="flex items-start gap-4 group">

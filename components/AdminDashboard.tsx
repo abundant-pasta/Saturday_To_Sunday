@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import AdminCard from '@/components/AdminCard'
-import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Filter, ChevronLeft, ChevronRight, BarChart3, Mail, Megaphone } from 'lucide-react'
+import Link from 'next/link'
 
 export default function AdminDashboard({ initialPlayers }: { initialPlayers: any[] }) {
   const [sportFilter, setSportFilter] = useState<'football' | 'basketball'>('basketball')
@@ -57,15 +58,38 @@ export default function AdminDashboard({ initialPlayers }: { initialPlayers: any
             </p>
           </div>
           
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-            <input 
-              type="text" 
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
-            />
+          <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <Link
+              href="/admin/growth"
+              className="h-10 inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-4 text-xs font-black uppercase tracking-widest text-cyan-200 hover:border-cyan-300"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Growth
+            </Link>
+            <Link
+              href="/admin/outreach"
+              className="h-10 inline-flex items-center justify-center gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 text-xs font-black uppercase tracking-widest text-amber-200 hover:border-amber-300"
+            >
+              <Mail className="w-4 h-4" />
+              Outreach
+            </Link>
+            <Link
+              href="/admin/social"
+              className="h-10 inline-flex items-center justify-center gap-2 rounded-lg border border-fuchsia-400/30 bg-fuchsia-400/10 px-4 text-xs font-black uppercase tracking-widest text-fuchsia-200 hover:border-fuchsia-300"
+            >
+              <Megaphone className="w-4 h-4" />
+              Social
+            </Link>
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+              />
+            </div>
           </div>
         </div>
 
