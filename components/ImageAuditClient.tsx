@@ -179,6 +179,22 @@ export default function ImageAuditClient({
         return a.name.localeCompare(b.name)
     })
 
+    const filteredReportKeys = useMemo(() => {
+        const keys = new Set<string>()
+        filteredPlayers.forEach(player => {
+            playerReportKeys(player).forEach(key => keys.add(key))
+        })
+        return keys
+    }, [filteredPlayers])
+
+    const visibleReports = reportedOnlyActive
+        ? reports.filter(report => filteredReportKeys.has(reportPlayerKey(report)))
+        : reports
+    const visibleReportGroupCount = useMemo(
+        () => buildReportQueue(visibleReports).length,
+        [visibleReports]
+    )
+
     const totalPages = Math.ceil(filteredPlayers.length / ITEMS_PER_PAGE)
     const displayTotalPages = Math.max(1, totalPages)
     const currentPlayers = filteredPlayers.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
@@ -204,8 +220,8 @@ export default function ImageAuditClient({
                                 Image Audit <span className="text-[#00ff80]">Tool</span>
                             </h1>
                             <p className="text-neutral-400 text-sm">
-                                Found {filteredPlayers.length} players
-                                {reportedOnlyActive ? ` in ${reportQueue.size} reported-player queue` : ` (Total DB: ${totalPlayers})`}
+                                Found {reportedOnlyActive ? visibleReportGroupCount : filteredPlayers.length} players
+                                {reportedOnlyActive ? ` of ${reportQueue.size} in the reported-player queue` : ` (Total DB: ${totalPlayers})`}
                             </p>
                         </div>
 
@@ -289,56 +305,59 @@ export default function ImageAuditClient({
                             />
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1}
-                                className="text-black bg-white hover:bg-neutral-200"
-                            >
-                                Prev
-                            </Button>
-                            <span className="text-sm font-mono w-20 text-center">
-                                {page} / {displayTotalPages}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(p => Math.min(displayTotalPages, p + 1))}
-                                disabled={page >= displayTotalPages}
-                                className="text-black bg-white hover:bg-neutral-200"
-                            >
-                                Next
-                            </Button>
-                        </div>
+                        {!reportedOnlyActive && (
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="text-black bg-white hover:bg-neutral-200"
+                                >
+                                    Prev
+                                </Button>
+                                <span className="text-sm font-mono w-20 text-center">
+                                    {page} / {displayTotalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(displayTotalPages, p + 1))}
+                                    disabled={page >= displayTotalPages}
+                                    className="text-black bg-white hover:bg-neutral-200"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <UserImageReportsPanel
-                    reports={reports}
-                    players={players}
-                    onPlayerUpdate={handleUpdate}
-                    onStatusChange={(reportIds, status) => {
-                        setReports(prev => status === 'fixed' || status === 'ignored'
-                            ? prev.filter(report => !reportIds.includes(report.id))
-                            : prev.map(report => reportIds.includes(report.id) ? { ...report, status } : report)
-                        )
-                    }}
-                />
-
-                {/* Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {currentPlayers.map(player => (
-                        <PlayerCard
-                            key={player.id}
-                            player={player}
-                            reportSummary={getReportSummary(player)}
-                            onUpdate={handleUpdate}
-                            onReportsFixed={handleReportsFixed}
-                        />
-                    ))}
-                </div>
+                {reportedOnlyActive ? (
+                    <UserImageReportsPanel
+                        reports={visibleReports}
+                        players={players}
+                        onPlayerUpdate={handleUpdate}
+                        onStatusChange={(reportIds, status) => {
+                            setReports(prev => status === 'fixed' || status === 'ignored'
+                                ? prev.filter(report => !reportIds.includes(report.id))
+                                : prev.map(report => reportIds.includes(report.id) ? { ...report, status } : report)
+                            )
+                        }}
+                    />
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {currentPlayers.map(player => (
+                            <PlayerCard
+                                key={player.id}
+                                player={player}
+                                reportSummary={getReportSummary(player)}
+                                onUpdate={handleUpdate}
+                                onReportsFixed={handleReportsFixed}
+                            />
+                        ))}
+                    </div>
+                )}
 
                 {filteredPlayers.length === 0 && (
                     <div className="text-center py-20 text-neutral-500">
